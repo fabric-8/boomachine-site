@@ -1,0 +1,157 @@
+/* =========================================================================
+   disc.css (v2c) — the REFLECTION ONLY.
+
+   The disc itself is no longer drawn. Since v2c the hand and the disc are one
+   photograph (`assets/unit-<hand>-<art>.webp`), so the plate, the print, the
+   metal, the brush, the grain, the scratches, the scuffs, the crack, the hub,
+   the rim, the key-light falloff and the vignette are all PHOTOGRAPHIC and
+   have been deleted from this file. What is left is the part a photograph
+   cannot do: the light that has to move when the viewer does.
+
+     * the iris rainbow sweep, both fans   (.d-iris / .d-iris2)
+     * the specular blob                   (.d-spec)
+
+   All three are additive (`screen`) and switch off by painting BLACK, so the
+   host can screen the whole group onto the photo and black is a perfect no-op.
+   The host is responsible for (a) blending the group as light, (b) its overall
+   opacity and (c) masking it to the visible disc face — see index.html.
+
+   The ONLY inputs are two custom properties, in -1..1, inherited:
+
+       --px   pointer x   (-1 = left edge of the stage, +1 = right)
+       --py   pointer y   (-1 = top,                    +1 = bottom)
+
+   disc.js writes them; everything else (light angle, rainbow rotation,
+   specular travel, intensity) is derived in CSS. The layers that move do so
+   with transform/opacity only — no gradient is re-rasterised on pointer move.
+   Requires CSS trig (atan2): Chrome 111+, Safari 16.4+, Firefox 118+.
+   ========================================================================= */
+
+@property --px { syntax: "<number>"; inherits: true; initial-value: 0; }
+@property --py { syntax: "<number>"; inherits: true; initial-value: 0; }
+
+.disc-light{
+  /* --Tr is the disc RADIUS in px and the HOST PAGE owns it. Do NOT declare it
+     here: a custom property declared on the element beats the value inherited
+     from :root, which would pin the light to one size and ignore the page's
+     media queries. The fallback below only applies if nobody set it. */
+  position: absolute;
+  width: calc(var(--Tr, 160px) * 2);
+  height: calc(var(--Tr, 160px) * 2);
+  pointer-events: none;
+
+  /* ---- the key light -------------------------------------------------- */
+  /* A lamp parked upper-left; the pointer pushes it around.               */
+  --lx: calc(var(--px) * 1.6 - 0.55);
+  --ly: calc(var(--py) * 1.6 - 0.55);
+  /* screen-space angle of the light, clockwise from 12 o'clock            */
+  --ang: atan2(var(--lx), calc(0 - var(--ly)));
+  /* |px|, |py| and a 0..1 "how far off-centre is the pointer", without
+     abs()/hypot() (both newer than atan2()).                              */
+  --apx: max(var(--px), calc(-1 * var(--px)));
+  --apy: max(var(--py), calc(-1 * var(--py)));
+  --mag: clamp(0, max(var(--apx), var(--apy)), 1);
+}
+.disc-light > *{ position: absolute; inset: 0; pointer-events: none; }
+
+/* =========================================================================
+   the rainbow — ONE smooth spectrum per sector, not a spectrum wallpaper
+   A real CD sector is a single sweep: the hue rotates roughly once across a
+   50-70 deg fan, brightest and most DESATURATED in the middle (that is the
+   light itself, on metal), bleeding to violet on one edge and to red on the
+   other, gone by the edge of the fan. The opposite sector is broader, fainter
+   and otherwise the same. Nothing repeats.
+
+   The hue also has to drift along the radius, or the bands sit as straight
+   spokes. .d-iris paints the inner half of the label and .d-iris2 the outer
+   half, with a soft radial cross-fade between them and the outer one rotated
+   a further 16deg — so a line of constant hue leans, and the bands curve.
+
+   Every colour is OPAQUE and dark: under `screen` a dark colour adds without
+   flattening what is underneath, and opaque #000 is a perfect no-op, so the
+   fan and the ring window are multiplied straight into the background and no
+   mask is needed here (the host's face mask does the disc/finger cut).
+   ========================================================================= */
+.disc-light .d-iris,
+.disc-light .d-iris2{
+  transform: rotate(var(--ang));
+  will-change: transform;
+  /* the sweep itself — one turn of hue over the fan, silver at the core */
+  background-image:
+    var(--iris-window),
+    conic-gradient(from -34deg at 50% 50%,
+      #000    0deg,
+      #170530  5deg,
+      #380a72 13deg,   /* violet edge   */
+      #1d2a82 21deg,   /* blue          */
+      #116a7c 28deg,   /* cyan, opening up */
+      #5c6a70 34deg,   /* SILVER core: the lamp itself, on the aluminium */
+      #6e5c2c 41deg,   /* warm steel    */
+      #82490a 48deg,   /* amber         */
+      #7a1e06 56deg,   /* red           */
+      #2c0408 63deg,
+      #000    70deg,
+      #000   142deg,
+      /* the secondary fan: broader, about half again as faint */
+      #0d0420 154deg,
+      #1d0940 172deg,
+      #131a48 190deg,
+      #0d3a44 206deg,
+      #33393c 218deg,  /* its own, dimmer silver core */
+      #3c3318 232deg,
+      #462806 248deg,
+      #3e1004 262deg,
+      #140205 272deg,
+      #000   286deg,
+      #000   360deg);
+  background-blend-mode: multiply, normal;
+  mix-blend-mode: screen;
+}
+/* inner half of the label */
+.disc-light .d-iris{
+  --iris-window: radial-gradient(circle closest-side at 50% 50%,
+      #000 0 24%, #fff 33% 55%, #7a7a7a 66%, #000 76%);
+  opacity: calc(.58 + var(--mag) * .28);
+}
+/* outer half, sheared 16deg so the bands lean instead of running dead straight */
+.disc-light .d-iris2{
+  --iris-window: radial-gradient(circle closest-side at 50% 50%,
+      #000 0 48%, #6e6e6e 60%, #fff 72% 92%, #a8a8a8 97%, #000 99.4%);
+  transform: rotate(calc(var(--ang) + 16deg));
+  opacity: calc(.53 + var(--mag) * .26);
+}
+
+/* =========================================================================
+   the key light: a glossy hot spot travelling with the lamp
+   A fixed gradient in a full-size box that is TRANSLATED, so again nothing
+   repaints while the pointer moves.
+   ========================================================================= */
+.disc-light .d-spec{
+  /* The box is grown to 180% and every percentage divided by 1.8, so the
+     gradient is IDENTICAL on screen but the element's own edges are 40% of a
+     radius clear of the disc. v2b could get away with `inset:0` because the
+     disc clipped the layer; here the layer is screened straight onto a
+     photograph, and a translated `inset:0` box leaves a 3/255 straight seam
+     across a round object where its edge falls inside the face. At the
+     extreme pointer the box still moves only ~24% of a radius, so no edge
+     can reach the face. */
+  inset: -40%;
+  background: radial-gradient(11.6667% 7.7778% at 50% 50%,
+      #726853 0%,
+      #39311f 32%,
+      #141007 60%,
+      #000    80%);
+  mix-blend-mode: screen;
+  opacity: calc(.72 + var(--mag) * .28);
+  transform: translate(calc(var(--lx) * 6.1111%), calc(var(--ly) * 6.1111%));
+  will-change: transform;
+}
+
+/* =========================================================================
+   reduced motion — a fixed, flattering angle and nothing that moves.
+   disc.js refuses to write --px/--py when this matches, so these stick.
+   ========================================================================= */
+@media (prefers-reduced-motion: reduce){
+  .disc-light{ --px: -.34; --py: -.26; }
+  .disc-light .d-iris, .disc-light .d-iris2, .disc-light .d-spec{ will-change: auto; }
+}
