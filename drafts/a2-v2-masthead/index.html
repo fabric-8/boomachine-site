@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boo Machine — a cursed disc player for your iPhone</title>
+<meta name="description" content="Boo Machine is a Halloween soundboard for iPhone, built as a cursed disc player. iPhone beta open on TestFlight.">
+<meta name="theme-color" content="#000000">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Boo Machine — a cursed disc player for your iPhone">
+<meta property="og:description" content="A cursed disc player for your iPhone. Beta open on TestFlight.">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/icon.webp" type="image/webp">
+<link rel="preload" href="fonts/Jacquard12-Regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/hand-vampire.webp" as="image">
+<style>
+@font-face{font-family:"Jacquard12";src:url("fonts/Jacquard12-Regular.woff2") format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Barlow";src:url("fonts/Barlow-Medium.woff2") format("woff2");font-weight:500;font-display:swap}
+
+:root{
+  --ink:#000; --case:#292724; --well:#1E1E1E; --key:#282828; --key-down:#1C1C1C;
+  --paper:#EEE8DF; --row:#C4BFBA; --muted:#A19A94; --bronze:#B39A78;
+  --amber:#FFB347; --amber-dim:#C87F1E; --red:#F90000;
+  --gut:clamp(16px,4vw,48px);
+
+  /* disc radius on screen — everything in the rig is derived from this */
+  --Tr:min(34vw,21.5svh);
+  /* where the disc centre is pinned, measured from the top of the stage */
+  --disc-y:43%;
+  --tilt-x:0deg; --tilt-y:0deg;
+  --par-x:0px; --par-y:0px;
+  --spec:0%; --rain:0deg; --sheen:.56;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+html{-webkit-text-size-adjust:100%}
+body{
+  background:var(--ink); color:var(--row);
+  font-family:"Barlow",system-ui,sans-serif; font-weight:500; font-size:16px; line-height:1.5;
+  min-height:100svh; display:flex; flex-direction:column; overflow-x:hidden;
+}
+img{display:block;max-width:100%}
+a{color:inherit}
+::selection{background:var(--amber);color:#160D02}
+:focus-visible{outline:2px solid var(--bronze);outline-offset:4px}
+
+/* ============ hero ============ */
+.hero{
+  position:relative; flex:1 1 auto; min-height:560px;
+  display:block; overflow:hidden;
+  /* the room the machine sits in: one cold pool of light, nothing else */
+  background:
+    radial-gradient(120% 70% at 50% 44%, #15120E 0%, #0A0908 38%, #000 72%);
+}
+
+/* ---- masthead ---- */
+.masthead{
+  position:absolute; left:0; right:0; top:0;
+  padding:clamp(18px,4.2svh,52px) var(--gut) 0;
+  text-align:center; pointer-events:none;
+}
+.title{
+  font-family:"Jacquard12",serif; font-weight:400;
+  font-size:clamp(62px,13.2vw,178px); line-height:.86; letter-spacing:.006em;
+  margin:0; color:var(--amber); z-index:2; isolation:isolate;
+  text-shadow:
+    0 0 2px rgba(0,0,0,.9),
+    0 2px 4px rgba(0,0,0,.75),
+    0 0 1px rgba(255,200,120,.85),
+    0 0 16px rgba(255,150,40,.40),
+    0 0 58px rgba(255,120,10,.20),
+    0 0 130px rgba(255,90,0,.10);
+  position:relative; display:inline-block;
+}
+/* phosphor scanlines, barely there */
+.title::after{
+  content:""; position:absolute; inset:-6% -2%; pointer-events:none;
+  background:repeating-linear-gradient(to bottom,rgba(0,0,0,.30) 0 1px,rgba(0,0,0,0) 1px 3px);
+  mix-blend-mode:multiply; opacity:.55;
+}
+.title .on{display:inline-block;animation:power .95s steps(1,end) both}
+@keyframes power{
+  0%{opacity:0}12%{opacity:.85}17%{opacity:.08}26%{opacity:1}31%{opacity:.35}
+  40%{opacity:.95}46%{opacity:.6}58%{opacity:1}100%{opacity:1}
+}
+.sub{
+  margin:0;
+  font-size:clamp(12px,1.05vw,14px); letter-spacing:1.8px; text-transform:uppercase;
+  color:var(--bronze); opacity:0; animation:fadein .8s ease .85s both;
+  text-shadow:0 0 14px #000,0 0 30px rgba(0,0,0,.95);
+}
+@keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.note{
+  margin:0; font-size:11px; letter-spacing:.7px; color:#8E8882;
+  text-shadow:0 0 12px #000,0 0 24px rgba(0,0,0,.9);
+  opacity:0; animation:fadein .8s ease 1.05s both;
+}
+
+/* ---- stage: hand + disc ---- */
+.stage{
+  position:absolute; inset:0;
+  cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent;
+}
+/* Three planes share one tilt, and the title is threaded between them:
+   hands (z1) → the masthead (z2) → disc (z3) → fingers (z4). The title is printed
+   across the fur and the skin; the disc climbs in front of the title. */
+.plane{
+  position:absolute; inset:0;
+  perspective:1400px; perspective-origin:50% var(--disc-y);
+}
+.plane.veil{
+  /* no ghosting: the hands run at full strength everywhere they matter. All that is
+     left is a dissolve at the very bottom so the arm does not collide with the control. */
+  --veil:linear-gradient(to bottom,#000 0 78%,rgba(0,0,0,.5) 90%,transparent 100%);
+  -webkit-mask-image:var(--veil); mask-image:var(--veil);
+}
+.p-hands{z-index:1}
+.p-disc{z-index:3}
+.p-fingers{z-index:4}
+.rig{
+  position:absolute; left:50%; top:var(--disc-y); width:0; height:0;
+  transform-style:preserve-3d;
+  transform:rotateY(var(--tilt-x)) rotateX(var(--tilt-y));
+  transition:transform .6s cubic-bezier(.16,.64,.32,1);
+}
+.layer{position:absolute;max-width:none;height:auto;aspect-ratio:1400/1750;opacity:0;transition:opacity 1.05s ease;pointer-events:none}
+.layer.is-on{opacity:1}
+
+/* per-hand placement: derived from a2-assets/geometry.json so the disc
+   lands on the same screen point for all three hands */
+.l-vampire{width:calc(var(--Tr)*3.5804);left:calc(var(--Tr)*-1.7584);top:calc(var(--Tr)*-1.63325)}
+.l-wolf   {width:calc(var(--Tr)*3.6245);left:calc(var(--Tr)*-1.73106);top:calc(var(--Tr)*-1.77650)}
+.l-witch  {width:calc(var(--Tr)*3.0359);left:calc(var(--Tr)*-1.27812);top:calc(var(--Tr)*-2.35266)}
+
+/* the hand's own silver disc is knocked out with the stage-1 disc mask,
+   so the disc we build below is the only disc on the page */
+.hand{
+  -webkit-mask-image:var(--dm),linear-gradient(#000,#000);
+  -webkit-mask-size:100% 100%,100% 100%;
+  -webkit-mask-composite:xor;
+  mask-image:var(--dm),linear-gradient(#000,#000);
+  mask-size:100% 100%,100% 100%;
+  mask-composite:exclude;
+}
+.hand.l-vampire{--dm:url("assets/disc-mask-vampire.png")}
+.hand.l-wolf{--dm:url("assets/disc-mask-wolf.png")}
+.hand.l-witch{--dm:url("assets/disc-mask-witch.png")}
+
+/* ---- the disc itself ---- */
+.disc{
+  position:absolute; z-index:3; isolation:isolate;
+  width:calc(var(--Tr)*2.0616); height:calc(var(--Tr)*2.0616);
+  left:calc(var(--Tr)*-1.0308); top:calc(var(--Tr)*-1.0308);
+  clip-path:circle(48.75% at 50% 50%);
+  filter:drop-shadow(0 18px 34px rgba(0,0,0,.65));
+}
+.disc > *{position:absolute;inset:0}
+.disc-base{width:100%;height:100%;object-fit:contain}
+
+/* the art is printed on the disc: it sits inside the rim and stops at the hub */
+.art{
+  width:100%;height:100%;object-fit:contain;
+  opacity:0; transition:opacity 1.05s ease, translate .5s cubic-bezier(.16,.64,.32,1);
+  translate:var(--par-x) var(--par-y);
+  -webkit-mask-image:radial-gradient(circle closest-side at 50% 50%,transparent 0 23.6%,#000 25.4% 90%,transparent 91.8%);
+  mask-image:radial-gradient(circle closest-side at 50% 50%,transparent 0 23.6%,#000 25.4% 90%,transparent 91.8%);
+}
+.art.ink{mix-blend-mode:multiply;filter:saturate(.72) contrast(1.10) brightness(1.06)}
+.art.gloss{mix-blend-mode:screen;filter:saturate(.5) brightness(.9)}
+.art.is-on{opacity:1}
+.art.gloss.is-on{opacity:.16}
+/* the silver itself, laid back over the print, so the metal reads through the art */
+.metal{
+  width:100%;height:100%;object-fit:contain;
+  mix-blend-mode:soft-light; opacity:.62;
+  -webkit-mask-image:radial-gradient(circle closest-side at 50% 50%,transparent 0 23.6%,#000 25.4% 90%,transparent 91.8%);
+  mask-image:radial-gradient(circle closest-side at 50% 50%,transparent 0 23.6%,#000 25.4% 90%,transparent 91.8%);
+}
+.metal.hard{mix-blend-mode:overlay;opacity:.26}
+/* lacquer over the print: the label is glossy, the metal beneath it is not */
+.lacquer{
+  background:linear-gradient(118deg,
+    rgba(255,248,236,.20) 0%, rgba(255,248,236,.04) 26%,
+    rgba(0,0,0,.16) 52%, rgba(0,0,0,.24) 74%, rgba(255,246,230,.08) 100%);
+  mix-blend-mode:overlay; opacity:.6;
+  -webkit-mask-image:radial-gradient(circle closest-side at 50% 50%,transparent 0 23.6%,#000 25.4% 90%,transparent 91.8%);
+  mask-image:radial-gradient(circle closest-side at 50% 50%,transparent 0 23.6%,#000 25.4% 90%,transparent 91.8%);
+}
+/* the key light sits upper-left, as on the shoot */
+.keylight{
+  background:radial-gradient(60% 60% at 27% 22%,rgba(255,244,226,.26),rgba(255,244,226,0) 70%),
+             radial-gradient(70% 70% at 74% 84%,rgba(0,0,0,.26),rgba(0,0,0,0) 72%);
+  mix-blend-mode:soft-light; opacity:.8;
+}
+
+/* rainbow diffraction band */
+.rainbow{
+  background-image:url("assets/iridescence.webp");
+  background-size:cover; background-position:center;
+  mix-blend-mode:color-dodge; opacity:.3;
+  transform:rotate(var(--rain));
+  transition:transform .5s cubic-bezier(.16,.64,.32,1);
+  -webkit-mask-image:radial-gradient(circle closest-side at 50% 50%,transparent 0 22%,#000 33% 80%,rgba(0,0,0,.45) 92%,transparent 96%);
+  mask-image:radial-gradient(circle closest-side at 50% 50%,transparent 0 22%,#000 33% 80%,rgba(0,0,0,.45) 92%,transparent 96%);
+}
+/* specular streak sweeping the surface */
+.spec{
+  left:-60%;right:-60%;
+  background:linear-gradient(104deg,
+    rgba(255,255,255,0) 36%,
+    rgba(255,245,225,.14) 44%,
+    rgba(255,250,238,.58) 48.6%,
+    rgba(255,255,255,.98) 50%,
+    rgba(255,248,232,.46) 51.6%,
+    rgba(255,242,220,.12) 57%,
+    rgba(255,255,255,0) 66%);
+  mix-blend-mode:screen; opacity:var(--sheen);
+  transform:translateX(var(--spec));
+  transition:transform .5s cubic-bezier(.16,.64,.32,1),opacity .5s ease;
+  -webkit-mask-image:radial-gradient(circle closest-side at 50% 50%,transparent 0 23%,#000 31%,#000 96%,transparent 98%);
+  mask-image:radial-gradient(circle closest-side at 50% 50%,transparent 0 23%,#000 31%,#000 96%,transparent 98%);
+}
+/* printed-label edge, clear inner ring, outer rim */
+.edge-label{inset:4.6%;border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.42),inset 0 0 0 1px rgba(255,255,255,.08)}
+.edge-hub{inset:37.6%;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(255,255,255,.13),0 0 0 1px rgba(0,0,0,.35)}
+.edge-rim{
+  inset:1.25%;border-radius:50%;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.26),inset 0 0 22px rgba(0,0,0,.55);
+}
+
+/* ---- slide to unlock ---- */
+.unlock-zone{
+  position:absolute; z-index:5; left:0; right:0; bottom:clamp(14px,3.4svh,40px);
+  padding-inline:var(--gut);
+  display:flex; flex-direction:column; align-items:center; gap:clamp(10px,1.6svh,16px);
+}
+.unlock-zone::before{
+  content:""; position:absolute; z-index:-1; left:0; right:0; bottom:-40px;
+  top:clamp(-70px,-7svh,-40px);
+  background:linear-gradient(to top,#000 26%,rgba(0,0,0,.86) 56%,rgba(0,0,0,0) 100%);
+  pointer-events:none;
+}
+.unlock{
+  position:relative; width:min(392px,100%); height:62px; border-radius:31px;
+  background:
+    linear-gradient(#0B0B0A,#141310 62%,#0A0A09),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/><feColorMatrix type='saturate' values='0'/></filter><rect width='120' height='120' filter='url(%23n)' opacity='.5'/></svg>");
+  background-blend-mode:normal,overlay;
+  border:1px solid #2A2319;
+  box-shadow:
+    inset 0 2px 6px rgba(0,0,0,.95), inset 0 -1px 0 rgba(255,225,180,.07),
+    0 1px 0 rgba(255,225,180,.05), 0 14px 34px rgba(0,0,0,.7);
+  overflow:hidden; touch-action:pan-y;
+}
+.unlock::before{ /* worn bronze wear in the middle of the track */
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(70% 140% at 50% 50%,rgba(179,154,120,.11),rgba(0,0,0,0) 72%);
+}
+.unlock-label{
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  padding-left:26px; pointer-events:none;
+  font-size:12.5px; letter-spacing:2.6px; text-transform:uppercase; white-space:nowrap;
+  color:#9A7F55;
+  background-image:linear-gradient(100deg,
+    rgba(255,205,130,0) 36%, rgba(255,214,150,.95) 48%, rgba(255,205,130,0) 60%);
+  background-size:260% 100%; background-repeat:no-repeat;
+  -webkit-background-clip:text; background-clip:text;
+  animation:shimmer 3.6s linear infinite;
+  transition:opacity .3s ease;
+}
+@keyframes shimmer{from{background-position:190% 0}to{background-position:-90% 0}}
+.knob{
+  position:absolute; top:5px; left:5px; width:74px; height:52px; border-radius:26px;
+  display:flex; align-items:center; justify-content:center; text-decoration:none;
+  background-color:var(--key);
+  background-image:linear-gradient(rgba(58,50,38,.22),rgba(6,6,5,.5));
+  box-shadow:
+    inset 0 1px 0 rgba(255,236,205,.26), inset 0 -3px 0 rgba(0,0,0,.72),
+    inset 0 0 0 1px rgba(0,0,0,.6), 0 4px 0 #0A0A09, 0 10px 20px rgba(0,0,0,.8);
+  cursor:grab; touch-action:none; -webkit-user-drag:none; user-select:none; -webkit-user-select:none;
+  transition:transform .42s cubic-bezier(.16,.64,.32,1), box-shadow .2s ease, background-color .2s ease;
+}
+.knob:active{cursor:grabbing}
+.knob.dragging{transition:box-shadow .2s ease}
+.knob svg{width:26px;height:26px;display:block}
+.knob .g{fill:none;stroke:#D8C6A6;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;
+  filter:drop-shadow(0 0 5px rgba(255,160,50,.45));transition:stroke .25s ease}
+.unlock:hover .knob{transform:translateX(9px)}
+.unlock:hover .knob .g,.knob:focus-visible .g{stroke:#FFD79A}
+.unlock:hover .unlock-label{animation-duration:1.8s}
+.knob:focus-visible{outline:2px solid var(--bronze);outline-offset:3px}
+.unlock.done .unlock-label{opacity:0}
+
+/* ============ footer ============ */
+.foot{
+  flex:0 0 auto; position:relative; z-index:4;
+  display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between;
+  gap:6px 26px; padding:clamp(14px,2.2svh,20px) var(--gut);
+  border-top:1px solid #15140F; background:#000;
+  font-size:11px; letter-spacing:1.6px; text-transform:uppercase; color:#838078;
+}
+.foot a{color:#B3ACA5;text-decoration:none;transition:color .25s}
+.foot span a{text-decoration:underline;text-decoration-color:rgba(179,172,165,.45);text-underline-offset:3px}
+.foot a:hover{color:var(--paper)}
+.foot nav{display:flex;gap:20px}
+.foot .made{flex:1 1 320px;text-align:center;letter-spacing:1.2px;text-transform:none;font-size:11px;color:#7E7872}
+
+@media (max-width:860px){
+  .foot{justify-content:center;text-align:center;gap:8px 18px}
+  .foot .made{order:3;flex:1 1 100%}
+}
+@media (max-width:520px){
+  :root{--Tr:min(40vw,22svh);--disc-y:33%}
+  .plane.veil{--veil:linear-gradient(to bottom,
+    #000 0 74%, rgba(0,0,0,.5) 89%, transparent 100%)}
+  .unlock{height:58px}
+  .knob{width:68px;height:48px;top:5px}
+  .unlock-label{font-size:11.5px;letter-spacing:2.2px}
+  .foot{font-size:10px;letter-spacing:1.2px}
+  .foot nav{gap:16px}
+}
+/* short-and-wide: keep the disc from crowding the title */
+@media (max-height:760px) and (min-width:861px){
+  :root{--Tr:min(30vw,20svh)}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .title .on,.sub,.note{animation:none;opacity:1}
+  .unlock-label{animation:none;color:#C0A276}
+  .rig,.art,.rainbow,.spec,.knob,.layer{transition:none}
+  .unlock:hover .knob{transform:none}
+}
+</style>
+</head>
+<body>
+
+<main class="hero" id="hero">
+
+  <div class="masthead">
+    <h1 class="title"><span class="on">Boo Machine</span></h1>
+  </div>
+
+  <div class="stage" id="stage" role="button" tabindex="0" aria-label="Change the disc">
+
+    <div class="plane veil p-hands"><div class="rig">
+      <img class="layer hand l-vampire is-on" data-i="0" src="assets/hand-vampire.webp" alt="A vampire's pale clawed hand holding a disc" width="1400" height="1750" fetchpriority="high">
+      <img class="layer hand l-wolf" data-i="1" src="assets/hand-wolf.webp" alt="A werewolf's clawed paw holding a disc" width="1400" height="1750" loading="lazy">
+      <img class="layer hand l-witch" data-i="2" src="assets/hand-witch.webp" alt="A witch-creature's hand pinching a disc between two fingers" width="1400" height="1750" loading="lazy">
+    </div></div>
+
+    <div class="plane p-disc"><div class="rig">
+      <div class="disc" id="disc">
+        <img class="disc-base" src="assets/disc-blank.webp" alt="" width="1600" height="1600">
+        <img class="art ink is-on" data-i="0" src="assets/disc-starter.webp"   alt="" width="940" height="940">
+        <img class="art ink"       data-i="1" src="assets/disc-creatures.webp" alt="" width="940" height="940" loading="lazy">
+        <img class="art ink"       data-i="2" src="assets/disc-coven.webp"     alt="" width="940" height="940" loading="lazy">
+        <img class="metal" src="assets/disc-blank.webp" alt="" width="1600" height="1600" aria-hidden="true">
+        <img class="metal hard" src="assets/disc-blank.webp" alt="" width="1600" height="1600" aria-hidden="true">
+        <div class="lacquer"></div>
+        <div class="rainbow"></div>
+        <div class="spec"></div>
+        <div class="keylight"></div>
+        <div class="edge-label"></div>
+        <div class="edge-hub"></div>
+        <div class="edge-rim"></div>
+      </div>
+    </div></div>
+
+    <div class="plane veil p-fingers"><div class="rig">
+      <img class="layer fingers l-vampire is-on" data-i="0" src="assets/fingers-vampire.webp" alt="" width="1400" height="1750">
+      <img class="layer fingers l-wolf" data-i="1" src="assets/fingers-wolf.webp" alt="" width="1400" height="1750" loading="lazy">
+      <img class="layer fingers l-witch" data-i="2" src="assets/fingers-witch.webp" alt="" width="1400" height="1750" loading="lazy">
+    </div></div>
+
+  </div>
+  <p id="discNow" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap">Haunted house</p>
+
+  <div class="unlock-zone">
+    <p class="sub">A cursed disc player for your iPhone.</p>
+    <div class="unlock" id="unlock">
+      <span class="unlock-label" id="unlockLabel">slide to join the beta</span>
+      <a class="knob" id="knob" href="https://testflight.apple.com/join/jr1YqwtJ" draggable="false"
+         aria-label="Slide to join the iPhone beta on TestFlight">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <g class="g">
+            <circle cx="8" cy="12" r="3.4"/>
+            <path d="M11.4 12H21"/>
+            <path d="M17.6 12v3.4"/>
+            <path d="M20.4 12v2.4"/>
+          </g>
+        </svg>
+      </a>
+    </div>
+    <p class="note">Free on TestFlight · App Store coming soon</p>
+  </div>
+
+</main>
+
+<footer class="foot">
+  <span>© 2026 Fabricio Rosa Marques · <a href="mailto:hello@fabric8.de">hello@fabric8.de</a></span>
+  <span class="made">Artwork and sound effects were made with generative tools under human direction. No AI runs in the app.</span>
+  <nav aria-label="Footer">
+    <a href="../../support.html">Support</a>
+    <a href="../../privacy.html">Privacy</a>
+    <a href="../../press/">Press kit</a>
+  </nav>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  var NAMES=["Haunted house","Creature feature","The coven"];
+  var reduce=window.matchMedia("(prefers-reduced-motion: reduce)");
+  var root=document.documentElement;
+  var stage=document.getElementById("stage");
+  var live=document.getElementById("discNow");
+  var groups=[].slice.call(document.querySelectorAll(".layer,.art"));
+  var cur=0, timer=null;
+
+  function show(i){
+    cur=(i+3)%3;
+    groups.forEach(function(el){
+      el.classList.toggle("is-on", +el.dataset.i===cur);
+    });
+    live.textContent=NAMES[cur];
+  }
+  function restart(){
+    if(timer){clearInterval(timer);timer=null;}
+    if(!reduce.matches) timer=setInterval(function(){show(cur+1);},7000);
+  }
+  function advance(){show(cur+1);restart();}
+  stage.addEventListener("click",advance);
+  stage.addEventListener("keydown",function(e){
+    if(e.key==="Enter"||e.key===" "){e.preventDefault();advance();}
+  });
+
+  /* ---- tilt, parallax and moving reflections ---- */
+  var tx=0,ty=0,cx=0,cy=0,lastMove=-1e9,raf=null;
+  function set(){
+    root.style.setProperty("--tilt-x",(cx*4).toFixed(2)+"deg");
+    root.style.setProperty("--tilt-y",(-cy*4).toFixed(2)+"deg");
+    root.style.setProperty("--par-x",(cx*-7).toFixed(1)+"px");
+    root.style.setProperty("--par-y",(cy*-5).toFixed(1)+"px");
+    root.style.setProperty("--spec",(cx*42+6).toFixed(1)+"%");
+    root.style.setProperty("--rain",(cx*46+cy*20).toFixed(1)+"deg");
+    root.style.setProperty("--sheen",(0.54+Math.abs(cx)*0.28).toFixed(3));
+  }
+  function frame(ts){
+    if(ts-lastMove>2200){ /* nobody is pointing: a slow idle sway */
+      var t=ts/1000;
+      tx=Math.sin(t*0.42)*0.55; ty=Math.sin(t*0.27+1.1)*0.42;
+    }
+    cx+=(tx-cx)*0.075; cy+=(ty-cy)*0.075;
+    set();
+    raf=requestAnimationFrame(frame);
+  }
+  function onMove(e){
+    var r=stage.getBoundingClientRect();
+    tx=Math.max(-1,Math.min(1,(e.clientX-(r.left+r.width/2))/(r.width/2)));
+    ty=Math.max(-1,Math.min(1,(e.clientY-(r.top+r.height/2))/(r.height/2)));
+    lastMove=performance.now();
+  }
+  if(!reduce.matches){
+    window.addEventListener("pointermove",onMove,{passive:true});
+    raf=requestAnimationFrame(frame);
+  }
+
+  /* ---- slide to unlock ---- */
+  var track=document.getElementById("unlock"), knob=document.getElementById("knob");
+  var dragging=false, startX=0, x=0, max=0, moved=0;
+  function measure(){ max=track.clientWidth-knob.offsetWidth-10; }
+  measure(); window.addEventListener("resize",measure);
+
+  function place(v){ knob.style.transform="translateX("+v+"px)";
+    track.querySelector(".unlock-label").style.opacity=String(Math.max(0,1-v/(max*0.55))); }
+  function release(){
+    knob.classList.remove("dragging");
+    if(x>max*0.72){ track.classList.add("done"); place(max); window.location.href=knob.href; }
+    else { x=0; place(0); knob.style.transform=""; track.querySelector(".unlock-label").style.opacity=""; }
+  }
+  /* an <a> is natively draggable: without this, starting a mouse drag hands the
+     gesture to HTML drag-and-drop, which fires pointercancel and kills the slide */
+  knob.addEventListener("dragstart",function(e){ e.preventDefault(); });
+  knob.addEventListener("pointerdown",function(e){
+    if(e.button&&e.button!==0) return;
+    dragging=true; moved=0; startX=e.clientX; measure();
+    knob.classList.add("dragging"); knob.setPointerCapture(e.pointerId);
+  });
+  knob.addEventListener("pointermove",function(e){
+    if(!dragging) return;
+    var d=e.clientX-startX; moved=Math.max(moved,Math.abs(d));
+    x=Math.max(0,Math.min(max,d)); place(x);
+    if(moved>4) e.preventDefault();
+  });
+  knob.addEventListener("pointerup",function(e){
+    if(!dragging) return; dragging=false;
+    if(moved>6){ e.preventDefault(); release(); }
+    else { x=0; knob.style.transform=""; track.querySelector(".unlock-label").style.opacity=""; }
+  });
+  knob.addEventListener("pointercancel",function(){ if(dragging){dragging=false;x=0;release();} });
+  knob.addEventListener("click",function(e){ if(moved>6) e.preventDefault(); });
+  knob.addEventListener("keydown",function(e){
+    if(e.key==="ArrowRight"){ measure(); x=Math.min(max,x+max/4); place(x);
+      if(x>=max){ track.classList.add("done"); window.location.href=knob.href; } e.preventDefault(); }
+    if(e.key==="ArrowLeft"){ x=Math.max(0,x-max/4); place(x); e.preventDefault(); }
+  });
+  knob.addEventListener("blur",function(){ if(!track.classList.contains("done")){
+    x=0; knob.style.transform=""; track.querySelector(".unlock-label").style.opacity=""; } });
+
+  show(0); restart();
+  reduce.addEventListener("change",function(){ restart(); });
+})();
+</script>
+</body>
+</html>

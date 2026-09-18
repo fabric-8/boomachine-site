@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Boo Machine — give your Halloween a sound</title>
+<meta name="description" content="Boo Machine is a cursed disc player for iPhone. Three illustrated discs, thirty-six sounds. Tap, layer, repeat. Offline, no ads, no account. iPhone beta open on TestFlight; App Store coming soon.">
+<meta name="theme-color" content="#050403">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Boo Machine — give your Halloween a sound">
+<meta property="og:description" content="A cursed disc player for iPhone. Three discs, thirty-six sounds. Beta open on TestFlight; App Store coming soon.">
+<meta property="og:image" content="assets/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Boo Machine — give your Halloween a sound">
+<meta name="twitter:description" content="A cursed disc player for iPhone. Beta open on TestFlight; App Store coming soon.">
+<meta name="twitter:image" content="assets/og.jpg">
+<link rel="icon" href="assets/icon.webp" type="image/webp">
+<link rel="preload" href="fonts/Barlow-Medium.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/hand-vampire.webp" as="image" type="image/webp">
+<style>
+@font-face{font-family:"Jacquard12";src:url("fonts/Jacquard12-Regular.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"Barlow";src:url("fonts/Barlow-Medium.woff2") format("woff2");font-weight:500;font-style:normal;font-display:swap}
+
+:root{
+  /* palette lifted from NetherPlayer/Views/Theme.swift */
+  --void:#050403;
+  --case:#292724; --well:#1E1E1E; --key:#282828; --key-down:#1C1C1C;
+  --paper:#EEE8DF; --row:#C4BFBA; --muted:#A19A94; --bronze:#B39A78;
+  --amber:#FFAE3A; --amber-deep:#C87F1E; --red:#F90000;
+
+  --gut:clamp(16px,3.6vw,64px);
+  --maxw:1500px;
+
+  /* measured from the hero box by JS; these are the fallbacks */
+  --vw:100vw; --vh:100svh;
+
+  /* disc anchor: one on-screen spot every hand's disc is pinned to */
+  --Tx:calc(var(--vw) * .54);
+  --Ty:calc(var(--vh) * .400);
+  --tr:clamp(138px, min(calc(var(--vh) * .315), calc(var(--vw) * .455)), 292px);
+
+  /* pointer, -1..1 */
+  --px:0; --py:0;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  background:var(--void); color:var(--row);
+  font-family:"Barlow",system-ui,-apple-system,sans-serif; font-weight:500;
+  font-size:16px; line-height:1.5; overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+img{display:block;max-width:100%}
+a{color:inherit}
+::selection{background:var(--amber);color:#150D03}
+:focus-visible{outline:2px solid var(--amber);outline-offset:3px;border-radius:3px}
+
+.shell{max-width:var(--maxw);margin-inline:auto;padding-inline:var(--gut)}
+.skip{
+  position:absolute;left:-9999px;top:0;z-index:99;
+  background:var(--amber);color:#150D03;padding:10px 16px;
+  font-size:12px;letter-spacing:1.8px;text-transform:uppercase;text-decoration:none;
+}
+.skip:focus{left:12px;top:12px}
+
+/* ---------------- wordmark ---------------- */
+.brand{
+  position:absolute; z-index:6; top:clamp(18px,2.4vw,30px); left:var(--gut);
+  display:inline-block; text-decoration:none; line-height:1;
+  font-family:"Jacquard12",serif; font-weight:400;
+  font-size:clamp(26px,2.2vw,34px);
+  color:var(--amber);
+  text-shadow:0 0 16px rgba(255,150,30,.38),0 0 3px rgba(255,190,110,.5);
+  transition:color .3s ease,text-shadow .3s ease;
+}
+.brand:hover{color:#FFD08A;text-shadow:0 0 22px rgba(255,170,50,.6)}
+
+/* ---------------- hero ---------------- */
+.hero{
+  position:relative; height:100svh; min-height:560px; overflow:hidden;
+  isolation:isolate;
+}
+.stage{
+  position:absolute; inset:0; z-index:0;
+  perspective:1200px; perspective-origin:50% 42%;
+  cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent;
+}
+.plates{
+  position:absolute; inset:0;
+  transform:rotateX(calc(var(--py) * -3.6deg)) rotateY(calc(var(--px) * 4deg));
+  transition:transform .55s cubic-bezier(.16,.64,.32,1);
+}
+.plate{
+  --Wb:calc(var(--tr) / var(--rx));
+  position:absolute; left:0; top:0;
+  width:var(--Wb); height:calc(var(--Wb) * 1.25);
+  transform:translate(
+      calc(var(--Tx) - var(--cx) * var(--Wb)),
+      calc(var(--Ty) - var(--cy) * var(--Wb) * 1.25));
+  opacity:0; visibility:hidden;
+  transition:opacity 1.15s ease,visibility 0s linear 1.15s;
+  -webkit-mask-image:linear-gradient(to bottom,#000 0 var(--fade,86%),rgba(0,0,0,0) 98%);
+          mask-image:linear-gradient(to bottom,#000 0 var(--fade,86%),rgba(0,0,0,0) 98%);
+}
+.plate.is-on{opacity:1;visibility:visible;transition:opacity 1.15s ease,visibility 0s}
+
+.plate[data-hand="vampire"]{--cx:.4911;--cy:.3649;--rx:.2793;--fade:88%;--src:url("assets/hand-vampire.webp")}
+.plate[data-hand="wolf"]   {--cx:.4776;--cy:.3921;--rx:.2759;--fade:86%;--src:url("assets/hand-wolf.webp")}
+.plate[data-hand="witch"]  {--cx:.4210;--cy:.6199;--rx:.3294;--fade:72%;--src:url("assets/hand-witch.webp")}
+
+.plate .hand,.plate .fingers{position:absolute;inset:0;width:100%;height:100%;object-fit:fill}
+.plate .hand{z-index:0}
+.plate .fingers{z-index:5;pointer-events:none}
+
+/* --- the disc: layers placed by the measured ellipse, no wrapper --- */
+.dl{
+  position:absolute; pointer-events:none;
+  left:calc((var(--cx) - var(--rx)) * var(--Wb));
+  top:calc(var(--cy) * var(--Wb) * 1.25 - var(--rx) * var(--Wb));
+  width:calc(var(--rx) * 2 * var(--Wb));
+  height:calc(var(--rx) * 2 * var(--Wb));
+  border-radius:50%;
+}
+/* printed label. the art is the ink; overlay seats it into the silver as real
+   ink behaves; the gloss layer is the same photograph, aligned pixel-for-pixel
+   and blended in overlay, so the silver's own shading, specular and diffraction
+   modulate the ink instead of fogging it.
+   The mask leaves the real clear ring, hub and rim band of the photograph. */
+.art,.gloss{
+  --annulus:radial-gradient(circle closest-side,transparent 0 20.5%,#000 22.4% 89.2%,transparent 91.2%);
+  -webkit-mask-image:var(--annulus); mask-image:var(--annulus);
+  translate:calc(var(--px) * 7px) calc(var(--py) * 5px);
+  transition:translate .55s cubic-bezier(.16,.64,.32,1);
+}
+.art{
+  z-index:1; opacity:1; object-fit:cover; filter:saturate(1.06) contrast(1.04);
+}
+/* the same hand photograph, aligned pixel-for-pixel, clipped to the disc face */
+.gloss{
+  z-index:2; mix-blend-mode:overlay; opacity:.82;
+  background-image:var(--src);
+  background-repeat:no-repeat;
+  background-size:var(--Wb) calc(var(--Wb) * 1.25);
+  background-position:
+    calc(-1 * (var(--cx) - var(--rx)) * var(--Wb))
+    calc(-1 * (var(--cy) * var(--Wb) * 1.25 - var(--rx) * var(--Wb)));
+  translate:calc(var(--px) * 7px) calc(var(--py) * 5px);
+  filter:contrast(1.06) saturate(1.3) brightness(1.02);
+}
+.iris{
+  z-index:3; mix-blend-mode:screen; opacity:.19;
+  background:url("assets/iridescence.webp") center/115% 115% no-repeat;
+  -webkit-mask-image:radial-gradient(circle closest-side,transparent 0 18%,rgba(0,0,0,.18) 32%,#000 60% 88.5%,transparent 91.5%);
+          mask-image:radial-gradient(circle closest-side,transparent 0 18%,rgba(0,0,0,.18) 32%,#000 60% 88.5%,transparent 91.5%);
+  /* the conic texture has a hard seam at its 0 degree edge; a soft blur
+     removes it without touching the colour, which is a smooth gradient anyway */
+  filter:blur(9px) saturate(1.1);
+  rotate:calc(var(--px) * 34deg + var(--py) * 12deg);
+  transition:rotate .6s cubic-bezier(.16,.64,.32,1);
+}
+.spec{
+  z-index:4; mix-blend-mode:screen; opacity:.32; overflow:hidden;
+  -webkit-mask-image:radial-gradient(circle closest-side,transparent 0 15.4%,#000 17% 90%,transparent 91.5%);
+          mask-image:radial-gradient(circle closest-side,transparent 0 15.4%,#000 17% 90%,transparent 91.5%);
+}
+.spec::before{
+  content:""; position:absolute; top:-30%; bottom:-30%; left:-60%; width:220%;
+  background:linear-gradient(104deg,
+     rgba(255,255,255,0) 34%,
+     rgba(255,246,228,.34) 43%,
+     rgba(255,255,255,.92) 48.5%,
+     rgba(226,238,255,.40) 54%,
+     rgba(255,255,255,0) 63%);
+  translate:calc(var(--px) * -26% - var(--py) * 5%) 0;
+  transition:translate .6s cubic-bezier(.16,.64,.32,1);
+}
+
+/* atmosphere over the plates */
+.vignette{
+  position:absolute; inset:0; z-index:2; pointer-events:none;
+  background:
+    radial-gradient(132% 95% at 50% 40%,rgba(0,0,0,0) 44%,rgba(0,0,0,.42) 80%,rgba(5,4,3,.9) 100%);
+}
+.scrim{
+  position:absolute; inset:0; z-index:3; pointer-events:none;
+  background:
+    linear-gradient(to top,var(--void) 0 7%,rgba(5,4,3,.93) 17%,rgba(5,4,3,.60) 31%,rgba(5,4,3,0) 64%),
+    radial-gradient(86% 74% at 0% 100%,rgba(5,4,3,.80),rgba(5,4,3,0) 72%);
+}
+
+/* ---------------- hero foot: 21 TSI hierarchy ---------------- */
+.hero-foot{
+  position:absolute; left:0; right:0; bottom:0; z-index:4;
+  pointer-events:none;
+  padding-bottom:clamp(30px,4.6vh,56px);
+}
+.hero-foot .shell{
+  display:grid; grid-template-columns:minmax(0,1fr) auto;
+  align-items:end; gap:clamp(24px,4vw,64px);
+}
+.hero-foot a,.hero-foot .unlock{pointer-events:auto}
+
+h1{
+  margin:0;
+  font-family:"Barlow",sans-serif; font-weight:500;
+  font-size:clamp(40px,6.4vw,92px);
+  line-height:.9; letter-spacing:-.035em;
+  color:var(--paper);
+  text-shadow:0 2px 34px rgba(0,0,0,.9),0 0 10px rgba(0,0,0,.65);
+}
+h1 .glow{
+  color:var(--amber);
+  text-shadow:0 0 28px rgba(255,150,30,.42),0 2px 30px rgba(0,0,0,.85);
+}
+p.lede span{display:block;text-wrap:balance}
+.lede{
+  margin:clamp(16px,1.8vw,26px) 0 0;
+  max-width:36ch;
+  font-size:clamp(14px,1.08vw,16px);
+  line-height:1.55; color:#B4ADA6;
+  text-shadow:0 1px 14px rgba(0,0,0,.9);
+}
+
+/* scroll marker: the only thing between headline and control */
+.marker{position:absolute;left:50%;translate:-50% 0;bottom:16px;z-index:5;
+  display:flex;flex-direction:column;align-items:center;gap:9px}
+.marker i{display:block;width:1px;height:34px;background:linear-gradient(to bottom,rgba(179,154,120,0),var(--bronze))}
+.marker b{
+  display:block;width:5px;height:5px;border-radius:50%;background:var(--bronze);
+  animation:drift 3.4s cubic-bezier(.5,0,.5,1) infinite;
+}
+@keyframes drift{0%,100%{transform:translateY(0);opacity:.35}50%{transform:translateY(6px);opacity:1}}
+
+/* ---------------- slide to unlock ---------------- */
+.unlock{
+  --u:0;
+  position:relative; display:block; text-decoration:none;
+  width:clamp(316px,26vw,340px); height:64px;
+  border-radius:11px; user-select:none; -webkit-user-select:none;
+  -webkit-user-drag:none; /* an <a> is natively draggable, which cancels the pointer */
+  touch-action:pan-y; -webkit-tap-highlight-color:transparent;
+}
+.track{
+  position:absolute; inset:0; overflow:hidden; border-radius:11px;
+  background:
+    linear-gradient(#131211,#0B0A09);
+  box-shadow:
+    inset 0 2px 3px rgba(0,0,0,.95),
+    inset 0 -1px 0 rgba(140,120,92,.22),
+    inset 0 0 0 1px rgba(0,0,0,.9),
+    0 0 0 1px rgba(122,103,78,.30),
+    0 14px 34px rgba(0,0,0,.6);
+}
+.track::before{ /* worn case patina in the well */
+  content:""; position:absolute; inset:0;
+  background:url("assets/patina.webp") center/220% no-repeat;
+  opacity:.16; mix-blend-mode:overlay;
+}
+.gutter{position:absolute;top:0;bottom:0;left:0;width:calc(var(--u) * 100%);
+  background:linear-gradient(90deg,rgba(255,174,58,.03),rgba(255,174,58,.20));
+  box-shadow:inset 0 -2px 10px rgba(255,150,30,.28);
+  opacity:calc(.25 + var(--u) * .75);
+}
+.cap{
+  position:absolute; left:78px; right:13px; top:50%; translate:0 -50%;
+  text-align:center;
+  font-size:13px; letter-spacing:1.7px; text-transform:uppercase; white-space:nowrap;
+  background:linear-gradient(100deg,
+      var(--bronze) 0 36%,#FFEFD4 45%,var(--amber) 50%,var(--bronze) 60% 100%);
+  background-size:300% 100%;
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+  animation:shim 5s linear infinite;
+  opacity:calc(1 - var(--u) * 1.5);
+  transition:opacity .2s linear;
+}
+@keyframes shim{from{background-position:150% 0}to{background-position:-150% 0}}
+.unlock:hover .cap,.unlock:focus-visible .cap{animation-duration:2.2s}
+
+.knob{
+  position:absolute; top:6px; left:6px; width:64px; height:52px;
+  border-radius:8px; overflow:hidden;
+  background:url("assets/padskin.webp") center/118% no-repeat,linear-gradient(#333029,#191816);
+  background-blend-mode:overlay,normal;
+  box-shadow:
+    inset 0 1px 0 rgba(226,206,176,.30),
+    inset 0 -2px 3px rgba(0,0,0,.85),
+    inset 0 0 0 1px rgba(0,0,0,.55),
+    0 3px 7px rgba(0,0,0,.8);
+  translate:calc(var(--u) * (100cqw - 76px)) 0;
+  transition:translate .42s cubic-bezier(.16,.64,.32,1);
+  display:grid; place-items:center;
+}
+.unlock{container-type:inline-size}
+.unlock:hover .knob,.unlock:focus-visible .knob{translate:calc(var(--u) * (100cqw - 76px) + 7px) 0}
+.unlock.is-drag .knob{transition:none}
+.knob svg{width:20px;height:13px;opacity:1}
+.knob svg path{stroke:#C8AD86;stroke-width:1.8;fill:none;stroke-linecap:square}
+.unlock:hover .knob svg path{stroke:var(--amber)}
+.lamp{
+  position:absolute; top:5px; right:5px; width:9px; height:5px; border-radius:3px;
+  background:linear-gradient(#37110B,#180603);
+  box-shadow:inset 0 1px 0 rgba(255,190,170,.12);
+  transition:background .25s ease,box-shadow .25s ease;
+}
+.unlock:hover .lamp,.unlock:focus-visible .lamp,.unlock.is-drag .lamp{
+  background:linear-gradient(#FF4A22,#9C0800);
+  box-shadow:inset 0 1px 0 rgba(255,220,200,.5),0 0 10px rgba(249,0,0,.75);
+}
+.unlock:active .knob{
+  box-shadow:inset 0 1px 0 rgba(226,206,176,.12),inset 0 3px 6px rgba(0,0,0,.95),inset 0 0 0 1px rgba(0,0,0,.7);
+  filter:brightness(.86);
+}
+
+/* ---------------- below the fold ---------------- */
+.below{padding:clamp(56px,8vh,96px) 0 clamp(40px,6vh,64px)}
+.below .shell{
+  display:flex; align-items:flex-end; gap:clamp(22px,3vw,44px);
+  border-top:1px solid #14120E; padding-top:clamp(40px,5.5vh,64px);
+}
+.capture{
+  flex:0 0 auto; margin:0; width:clamp(132px,12vw,164px);
+  border-radius:13px; overflow:hidden;
+  box-shadow:0 0 0 1px #201D18,0 18px 40px rgba(0,0,0,.7);
+}
+.capture img{width:100%;height:auto}
+.caption{
+  margin:0 0 6px; max-width:36ch;
+  font-size:clamp(13.5px,1vw,15px); line-height:1.65; color:#8E8781;
+}
+.caption em{font-style:normal;color:var(--row)}
+
+/* ---------------- footer ---------------- */
+footer{padding:0 0 clamp(34px,5vh,60px)}
+footer .shell{
+  display:grid; grid-template-columns:auto 1fr; align-items:baseline;
+  row-gap:14px; column-gap:32px; color:var(--muted);
+}
+footer nav{display:flex;flex-wrap:wrap;gap:22px}
+footer a{
+  text-decoration:none; color:var(--muted);
+  font-size:11px; letter-spacing:1.8px; text-transform:uppercase;
+  padding-bottom:3px; border-bottom:1px solid transparent; transition:color .25s,border-color .25s;
+}
+footer a:hover{color:var(--paper);border-color:var(--bronze)}
+footer .cred{margin:0;justify-self:end;color:#6F6862;font-size:11.5px}
+footer .cred a{font-size:11.5px;letter-spacing:0;text-transform:none}
+footer .fine{grid-column:1 / -1;margin:0;color:#5A544E;max-width:64ch;font-size:11.5px;line-height:1.55}
+
+/* ---------------- narrow ---------------- */
+@media (max-width:900px){
+  :root{--Tx:calc(var(--vw) * .5);--Ty:calc(var(--vh) * .355)}
+  footer .shell{grid-template-columns:1fr}
+  footer .cred{justify-self:start}
+  .marker{display:none}
+  .hero-foot .shell{grid-template-columns:minmax(0,1fr);gap:clamp(20px,3.4vh,30px)}
+  .lede{max-width:42ch}
+  .below .shell{flex-direction:column;align-items:flex-start;gap:26px}
+  .capture{width:168px}
+}
+@media (max-width:420px){
+  .cap{left:74px;right:11px;font-size:12px;letter-spacing:1.25px}
+}
+@media (max-width:560px){
+  .hero{min-height:520px}
+  h1{font-size:clamp(38px,11.4vw,54px)}
+  .unlock{width:100%;max-width:340px}
+}
+
+/* ---------------- reduced motion: static ---------------- */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  .plates{transform:none!important}
+  .art,.art-lift{translate:none!important}
+  .iris{rotate:none!important}
+  .spec::before{translate:none!important}
+  .marker b{animation:none}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#below">Skip to the player</a>
+
+<main>
+<section class="hero" id="hero">
+  <a class="brand" href="#hero">Boo Machine</a>
+
+  <div class="stage" id="stage" role="button" tabindex="0" aria-label="Haunted house disc. Activate to show the next disc.">
+    <div class="plates" id="plates">
+
+      <article class="plate is-on" data-hand="vampire" data-disc="Haunted house">
+        <img class="hand" src="assets/hand-vampire.webp" alt="A pale, clawed vampire's hand holding a disc" width="1400" height="1750" fetchpriority="high">
+        <img class="dl art"      src="assets/disc-haunted-house.webp" alt="" aria-hidden="true" width="880" height="880">
+        <i class="dl gloss"></i>
+        <i class="dl iris"></i>
+        <i class="dl spec"></i>
+        <img class="fingers" src="assets/fingers-vampire.webp" alt="" aria-hidden="true" width="1400" height="1750">
+      </article>
+
+      <article class="plate" data-hand="wolf" data-disc="Creature feature">
+        <img class="hand" src="assets/hand-wolf.webp" alt="A werewolf's clawed paw gripping a disc" width="1400" height="1750" loading="lazy">
+        <img class="dl art"      src="assets/disc-creature-feature.webp" alt="" aria-hidden="true" width="880" height="880" loading="lazy">
+        <i class="dl gloss"></i>
+        <i class="dl iris"></i>
+        <i class="dl spec"></i>
+        <img class="fingers" src="assets/fingers-wolf.webp" alt="" aria-hidden="true" width="1400" height="1750" loading="lazy">
+      </article>
+
+      <article class="plate" data-hand="witch" data-disc="The coven">
+        <img class="hand" src="assets/hand-witch.webp" alt="A witch-creature's hand pinching a disc between thumb and forefinger" width="1400" height="1750" loading="lazy">
+        <img class="dl art"      src="assets/disc-the-coven.webp" alt="" aria-hidden="true" width="880" height="880" loading="lazy">
+        <i class="dl gloss"></i>
+        <i class="dl iris"></i>
+        <i class="dl spec"></i>
+        <img class="fingers" src="assets/fingers-witch.webp" alt="" aria-hidden="true" width="1400" height="1750" loading="lazy">
+      </article>
+
+    </div>
+    <div class="vignette"></div>
+    <div class="scrim"></div>
+  </div>
+
+  <div class="marker" aria-hidden="true"><i></i><b></b></div>
+
+  <div class="hero-foot">
+    <div class="shell">
+      <div>
+        <h1>Give your<br>Halloween<br><span class="glow">a sound.</span></h1>
+        <p class="lede">A cursed disc player for iPhone.<span>Beta open now&nbsp;·&nbsp;App Store coming soon.</span></p>
+      </div>
+
+      <a class="unlock" id="unlock" draggable="false" href="https://testflight.apple.com/join/jr1YqwtJ"
+         target="_blank" rel="noopener" aria-label="Slide to join the iPhone beta on TestFlight">
+        <span class="track">
+          <span class="gutter" aria-hidden="true"></span>
+          <span class="cap">slide to join the beta</span>
+          <span class="knob" aria-hidden="true">
+            <svg viewBox="0 0 19 13"><path d="M2 1.5 7 6.5 2 11.5M10 1.5 15 6.5 10 11.5"/></svg>
+            <span class="lamp"></span>
+          </span>
+        </span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<section class="below" id="below">
+  <div class="shell">
+    <figure class="capture">
+      <img src="assets/app-repeat.webp" alt="Boo Machine running on iPhone: the Repeat key lit, with Wind, Whisper and Knock playing together." width="460" height="999">
+    </figure>
+    <p class="caption">The player itself: <em>Repeat</em> lit, Wind and Whisper and Knock stacked into one scene.</p>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="shell">
+    <nav>
+      <a href="../../support.html">Support</a>
+      <a href="../../privacy.html">Privacy</a>
+      <a href="../../press/">Press kit</a>
+    </nav>
+    <p class="cred">© 2026 Fabricio Rosa Marques · <a href="mailto:hello@fabric8.de">hello@fabric8.de</a></p>
+    <p class="fine">Artwork and sound effects were created with generative tools under human direction. No AI runs in the app.</p>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  var root  = document.documentElement;
+  var hero  = document.getElementById('hero');
+  var stage = document.getElementById('stage');
+  var plates= Array.prototype.slice.call(document.querySelectorAll('.plate'));
+  var mq    = window.matchMedia('(prefers-reduced-motion: reduce)');
+  var still = mq.matches;
+  mq.addEventListener('change', function(e){ still = e.matches; if(still) stop(); else start(); });
+
+  /* ---- exact viewport box (avoids the scrollbar error of 100vw) ---- */
+  function measure(){
+    root.style.setProperty('--vw', hero.clientWidth + 'px');
+    root.style.setProperty('--vh', hero.clientHeight + 'px');
+  }
+  measure();
+  if (window.ResizeObserver) new ResizeObserver(measure).observe(hero);
+  else window.addEventListener('resize', measure);
+
+  /* ---- disc cycling: the disc stays pinned, the hands change round it ---- */
+  var i = 0, timer = null;
+  function show(n){
+    i = (n + plates.length) % plates.length;
+    plates.forEach(function(p, k){ p.classList.toggle('is-on', k === i); });
+    stage.setAttribute('aria-label', plates[i].dataset.disc + ' disc. Activate to show the next disc.');
+  }
+  function next(){ show(i + 1); }
+  function start(){ if (!still && !timer) timer = setInterval(next, 7000); }
+  function stop(){ if (timer) { clearInterval(timer); timer = null; } }
+  function advance(){ next(); stop(); start(); }
+
+  stage.addEventListener('click', advance);
+  stage.addEventListener('keydown', function(e){
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); advance(); }
+  });
+  document.addEventListener('visibilitychange', function(){ document.hidden ? stop() : start(); });
+  start();
+
+  /* ---- pointer tilt + parallax ---- */
+  var tx = 0, ty = 0, sway = null;
+  function set(x, y){
+    root.style.setProperty('--px', x.toFixed(3));
+    root.style.setProperty('--py', y.toFixed(3));
+  }
+  if (window.matchMedia('(hover: hover) and (pointer: fine)').matches){
+    hero.addEventListener('pointermove', function(e){
+      if (still) return;
+      var r = hero.getBoundingClientRect();
+      tx = ((e.clientX - r.left) / r.width  - .5) * 2;
+      ty = ((e.clientY - r.top)  / r.height - .5) * 2;
+      set(Math.max(-1, Math.min(1, tx)), Math.max(-1, Math.min(1, ty)));
+    }, {passive:true});
+    hero.addEventListener('pointerleave', function(){ set(0, 0); });
+  } else {
+    /* touch: a slow idle sway so the reflections still move */
+    var t0 = performance.now();
+    (function loop(now){
+      if (!still){
+        var t = (now - t0) / 1000;
+        set(Math.sin(t * 0.34) * 0.72, Math.sin(t * 0.21 + 1.1) * 0.42);
+      }
+      sway = requestAnimationFrame(loop);
+    })(t0);
+  }
+
+  /* ---- slide to unlock ---- */
+  var unlock = document.getElementById('unlock');
+  var u = 0, dragging = false, startX = 0, moved = 0, travel = 1, opened = false;
+
+  function setU(v){ u = Math.max(0, Math.min(1, v)); unlock.style.setProperty('--u', u.toFixed(3)); }
+  function go(){
+    if (opened) return; opened = true;
+    window.open(unlock.href, '_blank', 'noopener');
+    setTimeout(function(){ opened = false; setU(0); }, 700);
+  }
+
+  unlock.addEventListener('dragstart', function(e){ e.preventDefault(); });
+  unlock.addEventListener('pointerdown', function(e){
+    if (e.button !== undefined && e.button !== 0) return;
+    dragging = true; moved = 0; startX = e.clientX;
+    travel = Math.max(1, unlock.clientWidth - 76);
+    unlock.classList.add('is-drag');
+    unlock.setPointerCapture(e.pointerId);
+  });
+  unlock.addEventListener('pointermove', function(e){
+    if (!dragging) return;
+    moved = e.clientX - startX;
+    setU(moved / travel);
+  });
+  function release(e){
+    if (!dragging) return;
+    dragging = false;
+    unlock.classList.remove('is-drag');
+    if (e && e.pointerId !== undefined && unlock.hasPointerCapture(e.pointerId)) unlock.releasePointerCapture(e.pointerId);
+    if (u >= 0.6) { go(); }
+    setU(0);
+  }
+  unlock.addEventListener('pointerup', release);
+  unlock.addEventListener('pointercancel', release);
+  unlock.addEventListener('click', function(e){
+    /* a real drag already opened it; a plain click should still work */
+    if (Math.abs(moved) > 6) { e.preventDefault(); moved = 0; }
+  });
+})();
+</script>
+</body>
+</html>

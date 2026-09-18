@@ -1,0 +1,65 @@
+{
+  "_readme": "Disc ellipse per hand, measured on the shipped 1400x1750 layers. All values are percentages of the layer box: cx/rx of its WIDTH, cy of its HEIGHT. rx and ry are both given relative to WIDTH so a square disc stays square. To line every hand's disc up at one spot, see align_hint.",
+  "canvas": {
+    "w": 1400,
+    "h": 1750,
+    "aspect": "4:5"
+  },
+  "hands": {
+    "vampire": {
+      "cx_pct": 49.11,
+      "cy_pct": 36.49,
+      "rx_pct": 27.93,
+      "ry_pct": 27.87,
+      "rotation_deg": -34.21,
+      "px": {
+        "cx": 687.6,
+        "cy": 638.5,
+        "rx": 391.0,
+        "ry": 390.2
+      },
+      "layers": {
+        "hand": "hand-vampire.webp",
+        "disc_mask": "disc-mask-vampire.png",
+        "fingers": "fingers-vampire.webp"
+      }
+    },
+    "wolf": {
+      "cx_pct": 47.76,
+      "cy_pct": 39.21,
+      "rx_pct": 27.59,
+      "ry_pct": 27.05,
+      "rotation_deg": 63.99,
+      "px": {
+        "cx": 668.7,
+        "cy": 686.2,
+        "rx": 386.3,
+        "ry": 378.7
+      },
+      "layers": {
+        "hand": "hand-wolf.webp",
+        "disc_mask": "disc-mask-wolf.png",
+        "fingers": "fingers-wolf.webp"
+      }
+    },
+    "witch": {
+      "cx_pct": 42.1,
+      "cy_pct": 61.99,
+      "rx_pct": 32.94,
+      "ry_pct": 31.77,
+      "rotation_deg": -87.39,
+      "px": {
+        "cx": 589.3,
+        "cy": 1084.9,
+        "rx": 461.2,
+        "ry": 444.8
+      },
+      "layers": {
+        "hand": "hand-witch.webp",
+        "disc_mask": "disc-mask-witch.png",
+        "fingers": "fingers-witch.webp"
+      }
+    }
+  },
+  "align_hint": "Give the layer box width Wb and height Hb=Wb*1.25. The disc centre lands at (cx_pct*Wb, cy_pct*Hb) and its radius is rx_pct*Wb. To put every disc at target centre (Tx,Ty) with target radius Tr: scale = Tr/(rx_pct/100*Wb), then translate by (Tx - cx_pct/100*Wb*scale, Ty - cy_pct/100*Hb*scale)."
+}

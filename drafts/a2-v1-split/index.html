@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Boo Machine — a cursed disc player for your iPhone</title>
+<meta name="description" content="Boo Machine is a cursed disc player for your iPhone: three illustrated discs of Halloween sound, tapped and layered by hand. iPhone beta open now.">
+<meta name="theme-color" content="#0A0908">
+<link rel="icon" href="assets/icon.webp" type="image/webp">
+<style>
+@font-face{font-family:"Barlow";src:url("fonts/Barlow-Medium.woff2") format("woff2");font-weight:500;font-style:normal;font-display:swap}
+@font-face{font-family:"Jacquard12";src:url("fonts/Jacquard12-Regular.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
+
+:root{
+  /* palette — Theme.swift */
+  --ink:#0A0908;
+  --case:#292724;
+  --well:#141312;
+  --key:#282828;
+  --key-down:#1C1C1C;
+  --paper:#EEE8DF;
+  --row:#C4BFBA;
+  --muted:#A19A94;
+  --dim:#6E6862;
+  --bronze:#B39A78;
+  --phosphor:#F0A33A;
+  --lamp:#F90000;
+
+  /* disc geometry — measured, a2-assets/geometry.json */
+  --d:330px;                 /* disc diameter, the one number everything hangs off */
+  --anchor-x:71%;
+  --anchor-y:47%;
+
+  --px:0; --py:0; --ang:0deg;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+html{-webkit-text-size-adjust:100%;overflow-x:hidden}
+body{
+  background:var(--ink);
+  color:var(--row);
+  font-family:"Barlow",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+  font-weight:500;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+  min-height:100svh;
+}
+img{display:block;max-width:100%}
+a{color:inherit}
+
+/* ── page frame ─────────────────────────────────────────── */
+.page{
+  position:relative;z-index:2;
+  min-height:100svh;
+  display:flex;flex-direction:column;
+  padding:0 clamp(16px,4.4vw,72px);
+}
+
+/* ambient: warm pool behind the disc + a fine grain over everything */
+.ambient{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(52vmin 52vmin at var(--anchor-x) var(--anchor-y), rgba(179,154,120,.11), rgba(179,154,120,.03) 46%, transparent 72%),
+    radial-gradient(120vmax 90vmax at 50% 120%, #14110E 0%, transparent 62%);
+}
+.grain{position:fixed;inset:-50%;z-index:1;pointer-events:none;opacity:.05;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ── masthead ───────────────────────────────────────────── */
+.top{padding:clamp(20px,3.2vh,34px) 0 0;display:flex;align-items:baseline}
+.wordmark{
+  font-family:"Jacquard12",serif;
+  font-size:clamp(28px,3.1vw,40px);
+  line-height:1;letter-spacing:.01em;
+  color:var(--phosphor);
+  text-shadow:0 0 14px rgba(240,163,58,.34),0 0 42px rgba(240,163,58,.12);
+  text-decoration:none;
+}
+
+/* ── hero ───────────────────────────────────────────────── */
+.hero{
+  flex:1 1 auto;position:relative;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);
+  align-items:center;
+  min-height:0;
+}
+.say{position:relative;z-index:3;padding:clamp(12px,3vh,40px) 0;padding-right:clamp(20px,4vw,64px);margin-top:clamp(0px,5.5vh,64px)}
+
+h1{
+  margin:0;
+  font-weight:500;
+  font-size:clamp(44px,7.2vw,104px);
+  line-height:.92;
+  letter-spacing:-.022em;
+  color:var(--paper);
+}
+h1 .lede{display:block}
+h1 .dot{color:var(--phosphor);text-shadow:0 0 12px rgba(240,163,58,.5)}
+
+/* ── slide to unlock ────────────────────────────────────── */
+.unlock{
+  --travel:0px; --armed:0;
+  position:relative;display:block;
+  width:min(478px,100%);height:76px;
+  margin:clamp(26px,4.2vh,48px) 0 0;
+  border-radius:7px;
+  text-decoration:none;
+  background:#0B0A09;
+  box-shadow:
+    inset 0 3px 7px rgba(0,0,0,1),
+    inset 0 -1px 0 rgba(238,232,223,.06),
+    inset 0 0 0 1px rgba(0,0,0,.9),
+    0 1px 0 rgba(238,232,223,.055);
+  overflow:hidden;
+  touch-action:pan-y;
+  -webkit-tap-highlight-color:transparent;
+  -webkit-user-select:none;user-select:none;
+  -webkit-user-drag:none;
+}
+.unlock::before{ /* worn patina + a bronze wear line low in the well */
+  content:"";position:absolute;inset:0;
+  background:
+    linear-gradient(180deg,rgba(0,0,0,.6),transparent 34%,rgba(179,154,120,.05) 88%,transparent),
+    url("assets/padskin.webp") center/260% no-repeat;
+  background-blend-mode:normal,overlay;
+  opacity:.4;filter:contrast(1.5) brightness(.42);
+}
+.unlock::after{ /* the scored channel the key runs in */
+  content:"";position:absolute;left:90px;right:18px;top:50%;height:1px;
+  background:linear-gradient(90deg,rgba(0,0,0,.85),rgba(0,0,0,.2) 70%,transparent);
+  box-shadow:0 1px 0 rgba(238,232,223,.035);
+}
+.unlock-label{
+  position:absolute;inset:0 18px 0 106px;
+  display:flex;align-items:center;
+  font-size:13px;letter-spacing:.2em;text-transform:uppercase;
+  color:#847D75;
+  white-space:nowrap;overflow:hidden;
+  transition:opacity .25s ease;
+}
+.unlock-label span{
+  position:relative;
+  background:linear-gradient(100deg,#847D75 0%,#847D75 34%,var(--paper) 48%,#B4ADA5 56%,#847D75 70%,#847D75 100%);
+  background-size:280% 100%;
+  -webkit-background-clip:text;background-clip:text;
+  color:transparent;
+  animation:sweep 4.6s linear infinite;
+}
+@keyframes sweep{from{background-position:180% 0}to{background-position:-80% 0}}
+.unlock-label .sm{display:none}
+@media (max-width:430px){
+  .unlock-label{inset:0 14px 0 100px;font-size:12px;letter-spacing:.14em}
+  .unlock-label .lg{display:none}
+  .unlock-label .sm{display:inline}
+}
+.unlock:hover .unlock-label span,.unlock:focus-visible .unlock-label span{animation-duration:2.1s}
+
+.knob{
+  position:absolute;top:7px;left:7px;width:80px;height:62px;
+  border-radius:5px;
+  background:
+    linear-gradient(180deg,rgba(238,232,223,.13),rgba(238,232,223,.02) 34%,rgba(0,0,0,.34)),
+    url("assets/padskin.webp") center/340% no-repeat,
+    #2B2926;
+  background-blend-mode:normal,overlay,normal;
+  box-shadow:
+    inset 0 1px 0 rgba(238,232,223,.22),
+    inset 1px 0 0 rgba(238,232,223,.07),
+    inset 0 -2px 0 rgba(0,0,0,.72),
+    inset 0 0 0 1px rgba(0,0,0,.5),
+    0 4px 9px rgba(0,0,0,.72),
+    0 1px 2px rgba(0,0,0,.9);
+  transform:translateX(var(--travel));
+  transition:transform .42s cubic-bezier(.16,.64,.32,1),background-color .12s ease,box-shadow .12s ease;
+  display:grid;place-items:center;
+}
+.unlock.dragging .knob{transition:none}
+.unlock:hover .knob,.unlock:focus-visible .knob{transform:translateX(calc(var(--travel) + 7px))}
+.unlock.dragging:hover .knob{transform:translateX(var(--travel))}
+.unlock:active .knob{
+  background-color:#1C1B19;
+  box-shadow:
+    inset 0 2px 5px rgba(0,0,0,.9),
+    inset 0 0 0 1px rgba(0,0,0,.6),
+    0 1px 2px rgba(0,0,0,.7);
+}
+.chev{width:25px;height:25px;stroke:var(--bronze);stroke-width:1.6;fill:none;
+  stroke-linecap:round;stroke-linejoin:round;
+  opacity:.85;transform:translateX(2px);
+  filter:drop-shadow(0 1px 0 rgba(0,0,0,.7));
+  transition:opacity .2s ease}
+.unlock:hover .chev,.unlock:focus-visible .chev{opacity:1}
+.lamp{
+  position:absolute;top:7px;right:8px;width:8px;height:8px;border-radius:50%;
+  background:radial-gradient(circle at 36% 32%,#FF5A4E,#B31009 52%,#4A0603);
+  box-shadow:inset 0 .5px .5px rgba(238,232,223,.22),0 0 6px rgba(249,0,0,.42),0 0 14px rgba(249,0,0,.16);
+  opacity:.62;
+  transition:background .2s ease,box-shadow .2s ease;
+}
+.unlock:hover .lamp,.unlock:focus-visible .lamp,.unlock.dragging .lamp{
+  background:radial-gradient(circle at 36% 32%,#FF8C80,var(--lamp) 56%,#7A0400);
+  box-shadow:0 0 10px rgba(249,0,0,.85),0 0 24px rgba(249,0,0,.36);
+  opacity:1;
+}
+.gutter{ /* underglow gutter that fills as the key travels */
+  position:absolute;left:7px;right:7px;bottom:5px;height:2.5px;border-radius:2px;
+  background:linear-gradient(90deg,rgba(240,163,58,.95),rgba(240,163,58,.18));
+  transform-origin:0 50%;
+  transform:scaleX(var(--armed));
+  opacity:calc(var(--armed) * .95);
+  box-shadow:0 0 10px rgba(240,163,58,.6);
+  transition:transform .3s ease,opacity .3s ease;
+}
+.unlock.dragging .gutter{transition:none}
+.unlock:focus-visible{outline:2px solid var(--phosphor);outline-offset:3px}
+
+.fineprint{
+  margin:14px 0 0;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;
+  color:#8A837B;
+}
+
+/* ── the rig: hand → disc → fingers ─────────────────────── */
+.stage{
+  position:absolute;inset:0;z-index:1;
+  perspective:1200px;
+  pointer-events:none;
+  overflow:visible;
+}
+.rig{
+  position:absolute;inset:0;
+  transform:rotateX(calc(var(--py) * -6deg)) rotateY(calc(var(--px) * 6deg));
+  transform-origin:var(--anchor-x) var(--anchor-y);
+  will-change:transform;
+}
+.advance{
+  position:absolute;z-index:4;top:0;bottom:0;right:calc(clamp(16px,4.4vw,72px) * -1);
+  left:46%;
+  background:none;border:0;padding:0;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.advance:focus-visible{outline:2px solid rgba(240,163,58,.7);outline-offset:-8px;border-radius:12px}
+
+.layer{
+  position:absolute;left:var(--anchor-x);top:var(--anchor-y);
+  aspect-ratio:4/5;height:auto;
+  opacity:0;transition:opacity .9s ease;
+  will-change:opacity;
+}
+.rig[data-active="vampire"] .l-vampire,
+.rig[data-active="wolf"] .l-wolf,
+.rig[data-active="witch"] .l-witch{opacity:1}
+
+/* per-hand box width and offset, straight from geometry.json:
+   width = d * 50 / rx_pct ; translate = (-cx_pct%, -cy_pct%) of its own box */
+.l-vampire{width:calc(var(--d) * 1.7898);transform:translate(-49.11%,-36.49%)}
+.l-wolf   {width:calc(var(--d) * 1.8123);transform:translate(-47.76%,-39.21%)}
+.l-witch  {width:calc(var(--d) * 1.5179);transform:translate(-42.10%,-61.99%)}
+
+.hand{filter:drop-shadow(0 26px 44px rgba(0,0,0,.75))}
+/* occluders sit on the disc: a soft key-light shadow, and a hair of blur to
+   take the staircase off the stage-1 matte edges */
+.fingers{z-index:3;filter:blur(.35px) drop-shadow(3px 4px 5px rgba(0,0,0,.55))}
+
+/* ── the disc ───────────────────────────────────────────── */
+.disc{
+  position:absolute;left:var(--anchor-x);top:var(--anchor-y);
+  width:calc(var(--d) * 1.005);height:calc(var(--d) * 1.005);
+  transform:translate(-50%,-50%);
+  border-radius:50%;
+  overflow:hidden;isolation:isolate;
+  z-index:2;
+  -webkit-mask-image:radial-gradient(closest-side,#000 0 95.5%,rgba(0,0,0,.5) 98.4%,transparent 100%);
+  mask-image:radial-gradient(closest-side,#000 0 95.5%,rgba(0,0,0,.5) 98.4%,transparent 100%);
+}
+.disc > *{position:absolute;inset:0;pointer-events:none}
+
+.dl-base{
+  background:url("assets/disc-blank.webp") center/102.6% no-repeat;
+}
+/* the printed label: hole for the clear ring + hub, inset from the rim */
+.art{
+  background-position:center;background-size:cover;background-repeat:no-repeat;
+  -webkit-mask-image:radial-gradient(closest-side,transparent 0 24.5%,#000 26.5% 88.5%,transparent 92%);
+  mask-image:radial-gradient(closest-side,transparent 0 24.5%,#000 26.5% 88.5%,transparent 92%);
+  transform:translate(calc(var(--px) * 5px),calc(var(--py) * 5px)) scale(1.02);
+  opacity:0;transition:opacity .9s ease;
+}
+.art{filter:brightness(1.24) saturate(1.1) contrast(1.02)}
+.a-vampire{background-image:url("assets/art-vampire.webp")}
+.a-wolf{background-image:url("assets/art-wolf.webp");filter:brightness(1.3) saturate(1.1) contrast(1.02)}
+.a-witch{background-image:url("assets/art-witch.webp");filter:brightness(1.52) saturate(1.16) contrast(1.02)}
+.rig[data-active="vampire"] .a-vampire,
+.rig[data-active="wolf"]    .a-wolf,
+.rig[data-active="witch"]   .a-witch{opacity:.9}
+
+/* metal reasserted over the print */
+.dl-sheen{
+  background:url("assets/disc-blank.webp") center/102.6% no-repeat;
+  mix-blend-mode:overlay;opacity:.86;
+  -webkit-mask-image:radial-gradient(closest-side,transparent 0 25%,#000 30% 88%,transparent 92%);
+  mask-image:radial-gradient(closest-side,transparent 0 25%,#000 30% 88%,transparent 92%);
+}
+/* the clear inner ring and spindle collar, seated back down into the disc */
+.dl-hub{
+  background:
+    /* spindle hole */
+    radial-gradient(closest-side,#000 0 12.2%,rgba(0,0,0,.92) 13%,transparent 14.4%),
+    /* hole bevel catching the key light */
+    radial-gradient(closest-side at 42% 38%,transparent 0 12.2%,rgba(238,232,223,.3) 13.6%,transparent 16.6%),
+    /* stacking ring */
+    radial-gradient(closest-side,transparent 0 15.4%,rgba(0,0,0,.55) 16.6%,rgba(214,210,205,.3) 18%,rgba(0,0,0,.3) 19.2%,transparent 20.2%),
+    /* clear polycarbonate collar, lit from upper left */
+    radial-gradient(closest-side,transparent 0 20%,rgba(238,232,223,.1) 22%,rgba(0,0,0,.34) 24%,rgba(238,232,223,.26) 25.4%,rgba(0,0,0,.2) 26.6%,transparent 27.6%),
+    linear-gradient(128deg,rgba(238,232,223,.22),transparent 46%,rgba(0,0,0,.34));
+  -webkit-mask-image:radial-gradient(closest-side,#000 0 26.4%,transparent 27.6%);
+  mask-image:radial-gradient(closest-side,#000 0 26.4%,transparent 27.6%);
+}
+/* the metal's own specular streaks, crushed so only the highlights survive,
+   screened back over the printed ink */
+.dl-gloss{
+  background:url("assets/disc-blank.webp") center/102.6% no-repeat;
+  filter:brightness(.42) contrast(3.8);
+  mix-blend-mode:screen;opacity:.64;
+  -webkit-mask-image:radial-gradient(closest-side,transparent 0 25%,rgba(0,0,0,.5) 34%,rgba(0,0,0,.45) 62%,#000 84% 88%,transparent 92%);
+  mask-image:radial-gradient(closest-side,transparent 0 25%,rgba(0,0,0,.5) 34%,rgba(0,0,0,.45) 62%,#000 84% 88%,transparent 92%);
+}
+/* diffraction */
+.dl-rainbow{
+  background:url("assets/iridescence.webp") center/101% no-repeat;
+  mix-blend-mode:screen;opacity:.34;
+  -webkit-mask-image:radial-gradient(closest-side,transparent 0 25%,rgba(0,0,0,.34) 34%,rgba(0,0,0,.3) 58% 80%,#000 90% 97%,transparent 100%);
+  mask-image:radial-gradient(closest-side,transparent 0 25%,rgba(0,0,0,.34) 34%,rgba(0,0,0,.3) 58% 80%,#000 90% 97%,transparent 100%);
+  transform:rotate(var(--ang)) translate(calc(var(--px) * 9px),calc(var(--py) * 9px));
+  will-change:transform;
+}
+.dl-band{ /* narrow bright band that sweeps the rim */
+  background:conic-gradient(from calc(var(--ang) * 2) at 50% 50%,
+    transparent 0deg,rgba(80,255,180,.0) 26deg,rgba(90,255,200,.5) 40deg,
+    rgba(255,220,90,.55) 52deg,rgba(255,90,140,.45) 64deg,rgba(120,120,255,.3) 76deg,
+    transparent 96deg,transparent 360deg);
+  mix-blend-mode:screen;opacity:.4;
+  -webkit-mask-image:radial-gradient(closest-side,transparent 0 40%,rgba(0,0,0,.3) 56%,rgba(0,0,0,.5) 74%,#000 86% 96%,transparent 100%);
+  mask-image:radial-gradient(closest-side,transparent 0 40%,rgba(0,0,0,.3) 56%,rgba(0,0,0,.5) 74%,#000 86% 96%,transparent 100%);
+  filter:blur(6px);
+}
+/* specular streak */
+.dl-spec{
+  inset:-30%;
+  background:linear-gradient(102deg,
+    transparent 30%,rgba(255,255,255,.2) 40%,rgba(255,255,255,.66) 47.6%,
+    rgba(255,255,255,.95) 50%,rgba(255,255,255,.6) 52.6%,rgba(255,255,255,.22) 60%,transparent 70%);
+  mix-blend-mode:screen;opacity:.62;
+  transform:translate(calc(var(--px) * 36px),calc(var(--py) * 28px));
+  filter:blur(2px);
+  will-change:transform;
+}
+/* pressed rings: label edges + hub collar, sharpened over the art */
+.dl-rings{
+  background:
+    radial-gradient(closest-side,transparent 0 26%,rgba(0,0,0,.5) 26.8%,transparent 27.8%),
+    radial-gradient(closest-side,transparent 0 28.2%,rgba(255,255,255,.1) 28.9%,transparent 30%),
+    radial-gradient(closest-side,transparent 0 87.6%,rgba(0,0,0,.5) 88.6%,transparent 89.8%),
+    radial-gradient(closest-side,transparent 0 89.6%,rgba(238,232,223,.22) 90.6%,transparent 92%),
+    radial-gradient(closest-side,transparent 0 93%,rgba(238,232,223,.13) 94.4%,transparent 96%);
+}
+/* rim + edge darkening */
+.dl-rim{
+  border-radius:50%;
+  box-shadow:
+    inset 0 0 18px rgba(0,0,0,.42),
+    inset 0 -12px 24px rgba(0,0,0,.3);
+}
+
+/* ── footer ─────────────────────────────────────────────── */
+footer::before{
+  content:"";position:absolute;left:-50vw;right:-50vw;bottom:0;top:-46px;
+  background:linear-gradient(180deg,transparent,rgba(10,9,8,.72) 44%,rgba(10,9,8,.94));
+  pointer-events:none;
+}
+footer > *{position:relative}
+footer{
+  position:relative;z-index:3;
+  border-top:1px solid rgba(238,232,223,.075);
+  padding:18px 0 clamp(18px,3vh,26px);
+  display:flex;flex-wrap:wrap;gap:10px 28px;align-items:baseline;justify-content:space-between;
+  font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;
+}
+footer nav{display:flex;gap:26px}
+footer a{color:var(--muted);text-decoration:none;transition:color .2s ease}
+footer a:hover,footer a:focus-visible{color:var(--paper)}
+.maker{color:#8A837B;letter-spacing:.1em;text-transform:none;font-size:12px}
+.maker a{color:#8A837B;text-decoration:underline;text-decoration-color:rgba(238,232,223,.28);text-underline-offset:2px}
+
+/* ── narrow ─────────────────────────────────────────────── */
+@media (max-width:900px){
+  :root{--anchor-x:50%;--anchor-y:45%}
+  .hero{display:block;padding-bottom:6px}
+  .say{padding:clamp(10px,2.4vh,20px) 0 0;padding-right:0;margin-top:0}
+  h1{font-size:clamp(38px,11.4vw,56px)}
+  .unlock{margin-top:22px;width:100%}
+  .stage{
+    position:relative;inset:auto;
+    height:calc(var(--d) * 1.46);
+    margin:clamp(6px,1.6vh,18px) -4vw 0;
+    -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 9%,#000 84%,transparent 100%);
+    mask-image:linear-gradient(180deg,transparent 0,#000 9%,#000 84%,transparent 100%);
+  }
+  .advance{left:0;right:0}
+  footer{font-size:10.5px;gap:8px 18px}
+  footer nav{gap:18px}
+  .maker{font-size:11px;letter-spacing:.06em}
+}
+@media (max-width:900px){ :root{--d:250px} }
+@media (max-width:400px){ :root{--d:228px} }
+@media (min-width:901px){ :root{--d:min(35vw,47vh,414px)} }
+
+@media (prefers-reduced-motion:reduce){
+  *{animation:none !important;transition:none !important}
+  .unlock-label span{background:none;-webkit-background-clip:border-box;background-clip:border-box;color:#847D75}
+}
+</style>
+</head>
+<body>
+<div class="ambient"></div>
+<div class="grain"></div>
+
+<div class="page">
+  <header class="top"><a class="wordmark" href="#">Boo Machine</a></header>
+
+  <main class="hero">
+    <div class="say">
+      <h1>
+        <span class="lede">A cursed</span>
+        <span class="lede">disc player</span>
+        <span class="lede">for your</span>
+        <span class="lede">iPhone<span class="dot">.</span></span>
+      </h1>
+
+      <a class="unlock" id="unlock" href="https://testflight.apple.com/join/jr1YqwtJ" target="_blank" rel="noopener" draggable="false"
+         aria-label="Join the iPhone beta on TestFlight">
+        <span class="unlock-label" aria-hidden="true"><span class="lg">slide to join the iPhone beta</span><span class="sm">slide to join the beta</span></span>
+        <span class="gutter" aria-hidden="true"></span>
+        <span class="knob" aria-hidden="true">
+          <span class="lamp"></span>
+          <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4l8 8-8 8"/></svg>
+        </span>
+      </a>
+      <p class="fineprint">TestFlight&nbsp;· App&nbsp;Store coming soon</p>
+    </div>
+
+    <div class="stage" aria-hidden="true">
+      <div class="rig" id="rig" data-active="vampire">
+        <img class="layer hand l-vampire" src="assets/hand-vampire.webp" alt="" width="1400" height="1750" fetchpriority="high">
+        <img class="layer hand l-wolf"    src="assets/hand-wolf.webp"    alt="" width="1400" height="1750" loading="lazy">
+        <img class="layer hand l-witch"   src="assets/hand-witch.webp"   alt="" width="1400" height="1750" loading="lazy">
+
+        <div class="disc">
+          <div class="dl-base"></div>
+          <div class="art a-vampire"></div>
+          <div class="art a-wolf"></div>
+          <div class="art a-witch"></div>
+          <div class="dl-sheen"></div>
+          <div class="dl-gloss"></div>
+          <div class="dl-rainbow"></div>
+          <div class="dl-band"></div>
+          <div class="dl-spec"></div>
+          <div class="dl-hub"></div>
+          <div class="dl-rings"></div>
+          <div class="dl-rim"></div>
+        </div>
+
+        <img class="layer fingers l-vampire" src="assets/fingers-vampire.webp" alt="" width="1400" height="1750" fetchpriority="high">
+        <img class="layer fingers l-wolf"    src="assets/fingers-wolf.webp"    alt="" width="1400" height="1750" loading="lazy">
+        <img class="layer fingers l-witch"   src="assets/fingers-witch.webp"   alt="" width="1400" height="1750" loading="lazy">
+      </div>
+    </div>
+    <button class="advance" id="advance" type="button" aria-label="Show the next disc"></button>
+  </main>
+
+  <footer>
+    <nav>
+      <a href="../../support.html">Support</a>
+      <a href="../../privacy.html">Privacy</a>
+      <a href="../../press/">Press kit</a>
+    </nav>
+    <p class="maker">© 2026 Fabricio Rosa Marques · <a href="mailto:hello@fabric8.de">hello@fabric8.de</a></p>
+  </footer>
+</div>
+
+<script>
+(function(){
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var rig = document.getElementById('rig');
+  var root = document.documentElement;
+  var HANDS = ['vampire','wolf','witch'];
+  var i = 0, timer = null;
+
+  function show(n){ i = (n + HANDS.length) % HANDS.length; rig.dataset.active = HANDS[i]; }
+  function next(){ show(i+1); restart(); }
+  function restart(){ if(reduce) return; clearInterval(timer); timer = setInterval(function(){ show(i+1); }, 7000); }
+
+  if(!reduce) restart();
+  document.getElementById('advance').addEventListener('click', next);
+
+  /* ── tilt / parallax ────────────────────────────────── */
+  var tx = -0.22, ty = -0.18, cx = tx, cy = ty, ang = 0, pointerSeen = false, t0 = performance.now();
+
+  if(reduce){
+    root.style.setProperty('--px', -0.3);
+    root.style.setProperty('--py', -0.25);
+    root.style.setProperty('--ang', '-28deg');
+  } else {
+    addEventListener('pointermove', function(e){
+      if(e.pointerType === 'touch') return;
+      pointerSeen = true;
+      tx = (e.clientX / innerWidth  - 0.5) * 2;
+      ty = (e.clientY / innerHeight - 0.5) * 2;
+    }, {passive:true});
+    addEventListener('pointerleave', function(){ pointerSeen = false; }, {passive:true});
+
+    (function loop(now){
+      if(!pointerSeen){                       /* idle sway for touch / no pointer */
+        var t = (now - t0) / 1000;
+        tx = Math.sin(t * 0.34) * 0.55;
+        ty = Math.sin(t * 0.23 + 1.1) * 0.42;
+      }
+      cx += (tx - cx) * 0.055;
+      cy += (ty - cy) * 0.055;
+      ang += ((cx * 34 + cy * 16) - ang) * 0.05;
+      root.style.setProperty('--px', cx.toFixed(4));
+      root.style.setProperty('--py', cy.toFixed(4));
+      root.style.setProperty('--ang', ang.toFixed(2) + 'deg');
+      requestAnimationFrame(loop);
+    })(performance.now());
+  }
+
+  /* ── slide to unlock ────────────────────────────────── */
+  var slider = document.getElementById('unlock');
+  var maxT = 0, dragging = false, startX = 0, cur = 0, moved = 0;
+
+  function measure(){ maxT = slider.clientWidth - 80 - 14; }
+  measure(); addEventListener('resize', measure);
+
+  function setT(v){
+    cur = Math.max(0, Math.min(maxT, v));
+    slider.style.setProperty('--travel', cur.toFixed(1) + 'px');
+    slider.style.setProperty('--armed', maxT ? (cur / maxT).toFixed(3) : 0);
+  }
+  function fire(){
+    setT(maxT);
+    window.open(slider.href, '_blank', 'noopener');
+    setTimeout(function(){ slider.classList.remove('dragging'); setT(0); }, 520);
+  }
+
+  slider.addEventListener('pointerdown', function(e){
+    if(e.button) return;
+    measure(); dragging = true; moved = 0; startX = e.clientX;
+    slider.classList.add('dragging');
+    slider.setPointerCapture(e.pointerId);
+  });
+  slider.addEventListener('pointermove', function(e){
+    if(!dragging) return;
+    var dx = e.clientX - startX;
+    moved = Math.max(moved, Math.abs(dx));
+    if(moved > 4) e.preventDefault();
+    setT(dx);
+  });
+  function end(){
+    if(!dragging) return;
+    dragging = false;
+    if(cur >= maxT * 0.62){ fire(); }
+    else { slider.classList.remove('dragging'); setT(0); }
+  }
+  slider.addEventListener('pointerup', end);
+  slider.addEventListener('pointercancel', function(){ dragging = false; slider.classList.remove('dragging'); setT(0); });
+  slider.addEventListener('click', function(e){ if(moved > 6) e.preventDefault(); moved = 0; });
+  slider.addEventListener('dragstart', function(e){ e.preventDefault(); });
+})();
+</script>
+</body>
+</html>
