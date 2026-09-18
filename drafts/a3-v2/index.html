@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boo Machine — a cursed disc player for your iPhone</title>
+<meta name="description" content="Boo Machine is a Halloween soundboard for iPhone, built as a cursed disc player. iPhone beta open on TestFlight.">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#000000">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Boo Machine — a cursed disc player for your iPhone">
+<meta property="og:description" content="A cursed disc player for your iPhone. Beta open on TestFlight.">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/icon.webp" type="image/webp">
+<link rel="preload" href="fonts/Jacquard12-Regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/hand-vampire.webp" as="image">
+<style>
+@font-face{font-family:"Jacquard12";src:url("fonts/Jacquard12-Regular.woff2") format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Barlow";src:url("fonts/Barlow-Medium.woff2") format("woff2");font-weight:500;font-display:swap}
+
+:root{
+  --ink:#000; --case:#292724; --well:#1E1E1E; --key:#282828; --key-down:#1C1C1C;
+  --paper:#EEE8DF; --row:#C4BFBA; --muted:#A19A94; --bronze:#B39A78;
+  --amber:#FFB347; --amber-dim:#C87F1E; --red:#F90000;
+  --gut:clamp(16px,4vw,48px);
+
+  /* disc radius on screen — everything in the rig is derived from this */
+  --Tr:min(34vw,21.5svh);
+  /* where the disc centre is pinned, measured from the top of the stage */
+  --disc-y:43%;
+  --tilt-x:0deg; --tilt-y:0deg;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+html{-webkit-text-size-adjust:100%}
+body{
+  background:var(--ink); color:var(--row);
+  font-family:"Barlow",system-ui,sans-serif; font-weight:500; font-size:16px; line-height:1.5;
+  min-height:100svh; display:flex; flex-direction:column; overflow-x:hidden;
+}
+img{display:block;max-width:100%}
+a{color:inherit}
+::selection{background:var(--amber);color:#160D02}
+:focus-visible{outline:2px solid var(--bronze);outline-offset:4px}
+
+/* ============ hero ============ */
+.hero{
+  position:relative; flex:1 1 auto; min-height:560px;
+  display:block; overflow:hidden;
+  /* the room the machine sits in: one cold pool of light, nothing else */
+  background:
+    radial-gradient(120% 70% at 50% 44%, #15120E 0%, #0A0908 38%, #000 72%);
+}
+
+/* ---- masthead ---- */
+.masthead{
+  position:absolute; left:0; right:0; top:0;
+  padding:clamp(18px,4.2svh,52px) var(--gut) 0;
+  text-align:center; pointer-events:none;
+}
+/* ---- the title and the room light live in title.css (drop-in) ----
+   V2's .title / .title::after / .title .on / @keyframes power were removed
+   from this inline block; title.css redefines all four. ---- */
+.sub{
+  margin:0;
+  font-size:clamp(12px,1.05vw,14px); letter-spacing:1.8px; text-transform:uppercase;
+  color:var(--bronze); opacity:0; animation:fadein .8s ease .85s both;
+  text-shadow:0 0 14px #000,0 0 30px rgba(0,0,0,.95);
+}
+@keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.note{
+  margin:0; font-size:11px; letter-spacing:.7px; color:#8E8882;
+  text-shadow:0 0 12px #000,0 0 24px rgba(0,0,0,.9);
+  opacity:0; animation:fadein .8s ease 1.05s both;
+}
+
+/* ---- stage: hand + disc ---- */
+.stage{
+  position:absolute; inset:0;
+  cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent;
+}
+/* Three planes share one tilt, and the title is threaded between them:
+   hands (z1) → the masthead (z2) → disc (z3) → fingers (z4). The title is printed
+   across the fur and the skin; the disc climbs in front of the title. */
+.plane{
+  position:absolute; inset:0;
+  perspective:1400px; perspective-origin:50% var(--disc-y);
+}
+.plane.veil{
+  /* no ghosting: the hands run at full strength everywhere they matter. All that is
+     left is a dissolve at the very bottom so the arm does not collide with the control. */
+  --veil:linear-gradient(to bottom,#000 0 78%,rgba(0,0,0,.5) 90%,transparent 100%);
+  -webkit-mask-image:var(--veil); mask-image:var(--veil);
+}
+.p-hands{z-index:1}
+.p-disc{z-index:3}
+.p-fingers{z-index:4}
+.rig{
+  position:absolute; left:50%; top:var(--disc-y); width:0; height:0;
+  transform-style:preserve-3d;
+  transform:rotateY(var(--tilt-x)) rotateX(var(--tilt-y));
+  transition:transform .6s cubic-bezier(.16,.64,.32,1);
+}
+.layer{position:absolute;max-width:none;height:auto;aspect-ratio:1400/1750;opacity:0;transition:opacity 1.05s ease;pointer-events:none}
+.layer.is-on{opacity:1}
+
+/* Per-hand placement, derived from a3/mattes/disc-<name>.json so the disc lands
+   on exactly the same screen point for all three hands:
+     width = --Tr / (r% / 100)            height = width * 1750/1400
+     left  = -cx% * width                 top    = -cy% * height
+   The CSS disc is drawn at radius exactly --Tr, which equals r% of the layer
+   width by construction. */
+.l-vampire{width:calc(var(--Tr)*3.53995);left:calc(var(--Tr)*-1.70045);top:calc(var(--Tr)*-1.62479)}
+.l-wolf   {width:calc(var(--Tr)*3.31422);left:calc(var(--Tr)*-1.55536);top:calc(var(--Tr)*-1.54724)}
+.l-witch  {width:calc(var(--Tr)*2.96165);left:calc(var(--Tr)*-1.24756);top:calc(var(--Tr)*-2.29602)}
+
+/* No mask on .hand any more: assets/hand-*.webp arrive with the photographed
+   disc already knocked out per pixel (a3/mattes), and assets/fingers-*.webp
+   carry every hand pixel inside the circle back on top of the CSS disc.
+   The old disc-mask-*.png files are gone. */
+
+/* ---- the disc itself: everything below is in disc.css ---- */
+.rig .disc{
+  position:absolute; z-index:3;
+  left:calc(var(--Tr) * -1); top:calc(var(--Tr) * -1);
+}
+
+/* ---- slide to unlock ---- */
+.unlock-zone{
+  position:absolute; z-index:5; left:0; right:0; bottom:clamp(14px,3.4svh,40px);
+  padding-inline:var(--gut);
+  display:flex; flex-direction:column; align-items:center; gap:clamp(10px,1.6svh,16px);
+}
+.unlock-zone::before{
+  content:""; position:absolute; z-index:-1; left:0; right:0; bottom:-40px;
+  top:clamp(-70px,-7svh,-40px);
+  background:linear-gradient(to top,#000 26%,rgba(0,0,0,.86) 56%,rgba(0,0,0,0) 100%);
+  pointer-events:none;
+}
+.unlock{
+  position:relative; width:min(392px,100%); height:62px; border-radius:31px;
+  background:
+    linear-gradient(#0B0B0A,#141310 62%,#0A0A09),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/><feColorMatrix type='saturate' values='0'/></filter><rect width='120' height='120' filter='url(%23n)' opacity='.5'/></svg>");
+  background-blend-mode:normal,overlay;
+  border:1px solid #2A2319;
+  box-shadow:
+    inset 0 2px 6px rgba(0,0,0,.95), inset 0 -1px 0 rgba(255,225,180,.07),
+    0 1px 0 rgba(255,225,180,.05), 0 14px 34px rgba(0,0,0,.7);
+  overflow:hidden; touch-action:pan-y;
+}
+.unlock::before{ /* worn bronze wear in the middle of the track */
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(70% 140% at 50% 50%,rgba(179,154,120,.11),rgba(0,0,0,0) 72%);
+}
+.unlock-label{
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  padding-left:26px; pointer-events:none;
+  font-size:12.5px; letter-spacing:2.6px; text-transform:uppercase; white-space:nowrap;
+  color:#9A7F55;
+  background-image:linear-gradient(100deg,
+    rgba(255,205,130,0) 36%, rgba(255,214,150,.95) 48%, rgba(255,205,130,0) 60%);
+  background-size:260% 100%; background-repeat:no-repeat;
+  -webkit-background-clip:text; background-clip:text;
+  animation:shimmer 3.6s linear infinite;
+  transition:opacity .3s ease;
+}
+@keyframes shimmer{from{background-position:190% 0}to{background-position:-90% 0}}
+.knob{
+  position:absolute; top:5px; left:5px; width:74px; height:52px; border-radius:26px;
+  display:flex; align-items:center; justify-content:center; text-decoration:none;
+  background-color:var(--key);
+  background-image:linear-gradient(rgba(58,50,38,.22),rgba(6,6,5,.5));
+  box-shadow:
+    inset 0 1px 0 rgba(255,236,205,.26), inset 0 -3px 0 rgba(0,0,0,.72),
+    inset 0 0 0 1px rgba(0,0,0,.6), 0 4px 0 #0A0A09, 0 10px 20px rgba(0,0,0,.8);
+  cursor:grab; touch-action:none; -webkit-user-drag:none; user-select:none; -webkit-user-select:none;
+  transition:transform .42s cubic-bezier(.16,.64,.32,1), box-shadow .2s ease, background-color .2s ease;
+}
+.knob:active{cursor:grabbing}
+.knob.dragging{transition:box-shadow .2s ease}
+.knob svg{width:26px;height:26px;display:block}
+.knob .g{fill:none;stroke:#D8C6A6;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;
+  filter:drop-shadow(0 0 5px rgba(255,160,50,.45));transition:stroke .25s ease}
+.unlock:hover .knob{transform:translateX(9px)}
+.unlock:hover .knob .g,.knob:focus-visible .g{stroke:#FFD79A}
+.unlock:hover .unlock-label{animation-duration:1.8s}
+.knob:focus-visible{outline:2px solid var(--bronze);outline-offset:3px}
+.unlock.done .unlock-label{opacity:0}
+
+/* ============ footer ============ */
+.foot{
+  flex:0 0 auto; position:relative; z-index:4;
+  display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between;
+  gap:6px 26px; padding:clamp(14px,2.2svh,20px) var(--gut);
+  border-top:1px solid #15140F; background:#000;
+  font-size:11px; letter-spacing:1.6px; text-transform:uppercase; color:#838078;
+}
+.foot a{color:#B3ACA5;text-decoration:none;transition:color .25s}
+.foot span a{text-decoration:underline;text-decoration-color:rgba(179,172,165,.45);text-underline-offset:3px}
+.foot a:hover{color:var(--paper)}
+.foot nav{display:flex;gap:20px}
+.foot .made{flex:1 1 320px;text-align:center;letter-spacing:1.2px;text-transform:none;font-size:11px;color:#7E7872}
+
+@media (max-width:860px){
+  .foot{justify-content:center;text-align:center;gap:8px 18px}
+  .foot .made{order:3;flex:1 1 100%}
+}
+@media (max-width:520px){
+  :root{--Tr:min(40vw,22svh);--disc-y:33%}
+  .plane.veil{--veil:linear-gradient(to bottom,
+    #000 0 74%, rgba(0,0,0,.5) 89%, transparent 100%)}
+  .unlock{height:58px}
+  .knob{width:68px;height:48px;top:5px}
+  .unlock-label{font-size:11.5px;letter-spacing:2.2px}
+  .foot{font-size:10px;letter-spacing:1.2px}
+  .foot nav{gap:16px}
+}
+/* short-and-wide: keep the disc from crowding the title */
+@media (max-height:760px) and (min-width:861px){
+  :root{--Tr:min(30vw,20svh)}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .title .on,.sub,.note{animation:none;opacity:1}
+  .unlock-label{animation:none;color:#C0A276}
+  .rig,.knob,.layer{transition:none}
+  .unlock:hover .knob{transform:none}
+}
+</style>
+<link rel="stylesheet" href="disc.css">
+<link rel="stylesheet" href="title.css">
+</head>
+<body>
+
+<main class="hero" id="hero">
+
+  <div class="masthead">
+    <h1 class="title" aria-label="Boo Machine"><span class="on">Boo Machine</span></h1>
+  </div>
+
+  <div class="stage" id="stage" role="button" tabindex="0" aria-label="Change the disc">
+
+    <div class="plane veil p-hands"><div class="rig">
+      <img class="layer hand l-vampire is-on" data-i="0" src="assets/hand-vampire.webp" alt="A vampire's pale clawed hand holding a disc" width="1400" height="1750" fetchpriority="high">
+      <img class="layer hand l-wolf" data-i="1" src="assets/hand-wolf.webp" alt="A werewolf's clawed paw holding a disc" width="1400" height="1750" loading="lazy">
+      <img class="layer hand l-witch" data-i="2" src="assets/hand-witch.webp" alt="A witch-creature's hand pinching a disc between two fingers" width="1400" height="1750" loading="lazy">
+    </div></div>
+
+    <div class="plane p-disc"><div class="rig">
+      <div class="disc" id="disc" data-art="0">
+        <div class="d-body">
+          <img class="d-plate" src="assets/disc-blank.webp" alt="" width="1600" height="1600">
+
+          <img class="d-art" data-i="0" src="assets/disc-starter.webp"   alt="" width="940" height="940">
+          <img class="d-art" data-i="1" src="assets/disc-creatures.webp" alt="" width="940" height="940">
+          <img class="d-art" data-i="2" src="assets/disc-coven.webp"     alt="" width="940" height="940">
+
+          <img class="d-metal"         src="assets/disc-blank.webp" alt="" width="1600" height="1600" aria-hidden="true">
+          <img class="d-metal is-hard" src="assets/disc-blank.webp" alt="" width="1600" height="1600" aria-hidden="true">
+          <div class="d-brush"></div>
+          <div class="d-grain"></div>
+
+          <div class="d-iris"></div>
+          <div class="d-iris2"></div>
+          <div class="d-spec"></div>
+          <div class="d-sheen"></div>
+          <div class="d-room"></div>
+
+          <div class="d-scratch"></div>
+          <div class="d-scuff"></div>
+          <div class="d-crack"></div>
+
+          <div class="d-hub"></div>
+          <div class="d-rim"></div>
+        </div>
+      </div>
+    </div></div>
+
+    <div class="plane veil p-fingers"><div class="rig">
+      <img class="layer fingers l-vampire is-on" data-i="0" src="assets/fingers-vampire.webp" alt="" width="1400" height="1750">
+      <img class="layer fingers l-wolf" data-i="1" src="assets/fingers-wolf.webp" alt="" width="1400" height="1750" loading="lazy">
+      <img class="layer fingers l-witch" data-i="2" src="assets/fingers-witch.webp" alt="" width="1400" height="1750" loading="lazy">
+    </div></div>
+
+  </div>
+
+  <!-- room light: a failing red bulb over the machine.
+       .rl-halo (z1) sits above the hands and behind the title (z2);
+       .rl-wash (z4) sits above the disc (z3) and the fingers (z4) so the
+       grip and the disc rim pick up a red rim from above. Both screen-blend.
+       The position of this block in the DOM is load-bearing. -->
+  <div class="roomlight" aria-hidden="true">
+    <span class="rl-halo"></span>
+    <span class="rl-wash"></span>
+  </div>
+
+  <p id="discNow" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap">Haunted house</p>
+
+  <div class="unlock-zone">
+    <p class="sub">A cursed disc player for your iPhone.</p>
+    <div class="unlock" id="unlock">
+      <span class="unlock-label" id="unlockLabel">slide to join the beta</span>
+      <a class="knob" id="knob" href="https://testflight.apple.com/join/jr1YqwtJ" draggable="false"
+         aria-label="Slide to join the iPhone beta on TestFlight">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <g class="g">
+            <circle cx="8" cy="12" r="3.4"/>
+            <path d="M11.4 12H21"/>
+            <path d="M17.6 12v3.4"/>
+            <path d="M20.4 12v2.4"/>
+          </g>
+        </svg>
+      </a>
+    </div>
+    <p class="note">Free on TestFlight · App Store coming soon</p>
+  </div>
+
+</main>
+
+<footer class="foot">
+  <span>© 2026 Fabricio Rosa Marques · <a href="mailto:hello@fabric8.de">hello@fabric8.de</a></span>
+  <span class="made">Artwork and sound effects were made with generative tools under human direction. No AI runs in the app.</span>
+  <nav aria-label="Footer">
+    <a href="../../support.html">Support</a>
+    <a href="../../privacy.html">Privacy</a>
+    <a href="../../press/">Press kit</a>
+  </nav>
+</footer>
+
+<!-- not deferred: the inline script below calls Disc.setArt() while it runs -->
+<script src="disc.js"></script>
+<script>
+(function(){
+  "use strict";
+  var NAMES=["Haunted house","Creature feature","The coven"];
+  var reduce=window.matchMedia("(prefers-reduced-motion: reduce)");
+  var root=document.documentElement;
+  var stage=document.getElementById("stage");
+  var live=document.getElementById("discNow");
+  /* the disc is no longer part of this set — Disc.setArt() drives it */
+  var groups=[].slice.call(document.querySelectorAll(".layer"));
+  var cur=0, timer=null;
+
+  function show(i){
+    cur=(i+3)%3;
+    groups.forEach(function(el){
+      el.classList.toggle("is-on", +el.dataset.i===cur);
+    });
+    if(window.Disc) window.Disc.setArt(cur);
+    live.textContent=NAMES[cur];
+  }
+  function restart(){
+    if(timer){clearInterval(timer);timer=null;}
+    if(!reduce.matches) timer=setInterval(function(){show(cur+1);},7000);
+  }
+  function advance(){show(cur+1);restart();}
+  stage.addEventListener("click",advance);
+  stage.addEventListener("keydown",function(e){
+    if(e.key==="Enter"||e.key===" "){e.preventDefault();advance();}
+  });
+
+  /* ---- tilt and the disc's light angle ---- */
+  var tx=0,ty=0,cx=0,cy=0,lastMove=-1e9,holdUntil=-1e9,raf=null;
+  function set(){
+    /* the page tilts the whole rig; nothing inside the disc is ever transformed */
+    root.style.setProperty("--tilt-x",(cx*4).toFixed(2)+"deg");
+    root.style.setProperty("--tilt-y",(-cy*4).toFixed(2)+"deg");
+    /* third arg true: this loop already smooths, disc.js must not ease again */
+    if(window.Disc) window.Disc.setPointer(cx,cy,true);
+  }
+  function frame(ts){
+    if(ts>holdUntil && ts-lastMove>2200){ /* nobody is pointing: a slow idle sway */
+      var t=ts/1000;
+      tx=Math.sin(t*0.42)*0.55; ty=Math.sin(t*0.27+1.1)*0.42;
+    }
+    cx+=(tx-cx)*0.075; cy+=(ty-cy)*0.075;
+    set();
+    raf=requestAnimationFrame(frame);
+  }
+  function clamp1(v){ v=+v; if(v!==v) return 0; return v<-1?-1:v>1?1:v; }
+  /* QA hook: park the pointer at (x,y) and keep the idle sway off it for 5s,
+     so a screenshot taken a second later is reproducible. */
+  function setPointer(x,y){
+    tx=clamp1(x); ty=clamp1(y);
+    lastMove=performance.now();
+    holdUntil=lastMove+5000;
+    return [tx,ty];
+  }
+  window.__setPointer=setPointer;
+  function onMove(e){
+    var r=stage.getBoundingClientRect();
+    tx=Math.max(-1,Math.min(1,(e.clientX-(r.left+r.width/2))/(r.width/2)));
+    ty=Math.max(-1,Math.min(1,(e.clientY-(r.top+r.height/2))/(r.height/2)));
+    lastMove=performance.now();
+  }
+  if(!reduce.matches){
+    window.addEventListener("pointermove",onMove,{passive:true});
+    raf=requestAnimationFrame(frame);
+  }
+  /* ?px=&py= — same thing from the URL, for reproducible screenshots */
+  try{
+    var qs=new URLSearchParams(window.location.search);
+    if(qs.has("px")||qs.has("py")) setPointer(qs.get("px")||0, qs.get("py")||0);
+  }catch(err){}
+
+  /* ---- slide to unlock ---- */
+  var track=document.getElementById("unlock"), knob=document.getElementById("knob");
+  var dragging=false, startX=0, x=0, max=0, moved=0;
+  function measure(){ max=track.clientWidth-knob.offsetWidth-10; }
+  measure(); window.addEventListener("resize",measure);
+
+  function place(v){ knob.style.transform="translateX("+v+"px)";
+    track.querySelector(".unlock-label").style.opacity=String(Math.max(0,1-v/(max*0.55))); }
+  function release(){
+    knob.classList.remove("dragging");
+    if(x>max*0.72){ track.classList.add("done"); place(max); window.location.href=knob.href; }
+    else { x=0; place(0); knob.style.transform=""; track.querySelector(".unlock-label").style.opacity=""; }
+  }
+  /* an <a> is natively draggable: without this, starting a mouse drag hands the
+     gesture to HTML drag-and-drop, which fires pointercancel and kills the slide */
+  knob.addEventListener("dragstart",function(e){ e.preventDefault(); });
+  knob.addEventListener("pointerdown",function(e){
+    if(e.button&&e.button!==0) return;
+    dragging=true; moved=0; startX=e.clientX; measure();
+    knob.classList.add("dragging"); knob.setPointerCapture(e.pointerId);
+  });
+  knob.addEventListener("pointermove",function(e){
+    if(!dragging) return;
+    var d=e.clientX-startX; moved=Math.max(moved,Math.abs(d));
+    x=Math.max(0,Math.min(max,d)); place(x);
+    if(moved>4) e.preventDefault();
+  });
+  knob.addEventListener("pointerup",function(e){
+    if(!dragging) return; dragging=false;
+    if(moved>6){ e.preventDefault(); release(); }
+    else { x=0; knob.style.transform=""; track.querySelector(".unlock-label").style.opacity=""; }
+  });
+  knob.addEventListener("pointercancel",function(){ if(dragging){dragging=false;x=0;release();} });
+  knob.addEventListener("click",function(e){ if(moved>6) e.preventDefault(); });
+  knob.addEventListener("keydown",function(e){
+    if(e.key==="ArrowRight"){ measure(); x=Math.min(max,x+max/4); place(x);
+      if(x>=max){ track.classList.add("done"); window.location.href=knob.href; } e.preventDefault(); }
+    if(e.key==="ArrowLeft"){ x=Math.max(0,x-max/4); place(x); e.preventDefault(); }
+  });
+  knob.addEventListener("blur",function(){ if(!track.classList.contains("done")){
+    x=0; knob.style.transform=""; track.querySelector(".unlock-label").style.opacity=""; } });
+
+  show(0); restart();
+  reduce.addEventListener("change",function(){ restart(); });
+})();
+</script>
+<script src="title.js"></script>
+</body>
+</html>

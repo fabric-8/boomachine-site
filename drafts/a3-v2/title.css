@@ -1,0 +1,201 @@
+/* ==========================================================================
+   Boo Machine — masthead title + room light (drop-in for V2 "masthead")
+   Replaces the .title / .title::after / .title .on / @keyframes power block.
+   Everything here is scoped to .title, .ch and .roomlight. Nothing else moves:
+   no layout, no type size, no z-order (hands z1 -> title z2 -> disc z3 -> fingers z4).
+   ========================================================================== */
+
+/* ---- animatable scalars -------------------------------------------------
+   Registered so several independent keyframe tracks can each drive one
+   number; the title and the bulb multiply them together. Different prime
+   durations mean the combined pattern does not visibly repeat.            */
+@property --tf-a{syntax:"<number>";inherits:true;initial-value:1}
+@property --tf-b{syntax:"<number>";inherits:true;initial-value:1}
+@property --tf-c{syntax:"<number>";inherits:true;initial-value:1}
+@property --rl-a{syntax:"<number>";inherits:true;initial-value:1}
+@property --rl-b{syntax:"<number>";inherits:true;initial-value:1}
+@property --rl-c{syntax:"<number>";inherits:true;initial-value:1}
+
+:root{
+  /* amber phosphor: dim glass core, hot lit edge */
+  --tube-core:#C77A16;          /* the unlit body of the tube */
+  --tube-edge:#FFB347;          /* where the phosphor actually burns */
+  --tube-bloom:rgba(255,100,12,.32);
+  /* the failing red bulb: hot on paper, desaturated on screen */
+  --rl-deep:107,15,10;          /* #6B0F0A */
+  --rl-hot:249,0,0;             /* #F90000 */
+  --rl-alert:255,38,0;          /* #FF2600 */
+}
+
+/* ============ the nameplate ============ */
+.title{
+  font-family:"Jacquard12",serif; font-weight:400;
+  font-size:clamp(62px,13.2vw,178px); line-height:.86; letter-spacing:.006em;
+  margin:0; color:var(--tube-core);
+  position:relative; display:inline-block; z-index:2; isolation:isolate;
+
+  /* one number for "how lit is the tube right now" */
+  --lit:calc(var(--tf-a) * var(--tf-b) * var(--tf-c) * var(--tf-s, 1));
+  filter:brightness(calc(.36 + .64 * var(--lit))) saturate(calc(.86 + .14 * var(--lit)));
+  opacity:calc(.44 + .56 * var(--lit));
+
+  animation:
+    tfA 11.3s linear infinite,
+    tfB 17.9s linear infinite,
+    tfC 29.3s linear infinite;
+}
+
+/* per-letter: base glyph + lit edge + horizontal phosphor bloom */
+.title .ch{
+  position:relative; display:inline-block;
+  text-shadow:
+    0 0 2px rgba(0,0,0,.92),
+    0 2px 5px rgba(0,0,0,.78),
+    0 0 .05em rgba(255,164,72,.46),
+    0 0 .14em rgba(255,150,45,.30),
+    0 0 .42em rgba(255,120,20,.18),
+    0 0 1.05em rgba(255,92,0,.10);
+  transition:opacity .09s linear, filter .09s linear;
+}
+/* the lit edge of the tube — hairline, warm, never an outline you'd call a stroke */
+.title .ch::before{
+  content:attr(data-c);
+  position:absolute; left:0; top:0; z-index:1; pointer-events:none;
+  color:transparent;
+  -webkit-text-stroke:.006em var(--tube-edge);
+  text-shadow:0 0 .026em rgba(255,170,78,.55);
+  mix-blend-mode:screen;
+}
+/* phosphor bloom: smeared sideways, the way a tube spills along its length */
+.title .ch::after{
+  content:attr(data-c);
+  position:absolute; left:0; top:0; z-index:2; pointer-events:none;
+  color:var(--tube-bloom);
+  filter:blur(.038em);
+  transform:scaleX(1.16);
+  transform-origin:50% 52%;
+  mix-blend-mode:screen;
+}
+.title .sp{display:inline-block;white-space:pre}
+
+/* one letter browns out for a moment */
+.title .ch.is-dim{opacity:.30;filter:brightness(.46) saturate(.72)}
+
+/* scanlines — unchanged from V2, just a touch finer */
+.title::after{
+  content:""; position:absolute; inset:-6% -2%; pointer-events:none; z-index:3;
+  background:repeating-linear-gradient(to bottom,rgba(0,0,0,.30) 0 1px,rgba(0,0,0,0) 1px 3px);
+  mix-blend-mode:multiply; opacity:.55;
+}
+
+/* power-up on load (V2 behaviour, kept) */
+.title .on{display:inline-block;animation:power .95s steps(1,end) both}
+@keyframes power{
+  0%{opacity:0}12%{opacity:.85}17%{opacity:.08}26%{opacity:1}31%{opacity:.35}
+  40%{opacity:.95}46%{opacity:.6}58%{opacity:1}100%{opacity:1}
+}
+
+/* ambient flicker: three tracks, none of them rhythmic, all mostly "on" */
+@keyframes tfA{
+  0%,18.4%{--tf-a:1}
+  18.7%{--tf-a:.42} 19.1%{--tf-a:.94} 19.4%{--tf-a:.30} 19.9%{--tf-a:1}
+  100%{--tf-a:1}
+}
+@keyframes tfB{
+  0%,52.3%{--tf-b:1}
+  52.5%{--tf-b:.55} 52.9%{--tf-b:1} 71.2%{--tf-b:1}
+  71.4%{--tf-b:.24} 71.7%{--tf-b:.88} 72.1%{--tf-b:1}
+  100%{--tf-b:1}
+}
+@keyframes tfC{
+  0%{--tf-c:1} 33.6%{--tf-c:1} 33.9%{--tf-c:.78} 34.3%{--tf-c:1}
+  86.1%{--tf-c:1} 86.4%{--tf-c:.36} 86.6%{--tf-c:.9} 86.9%{--tf-c:.5} 87.3%{--tf-c:1}
+  100%{--tf-c:1}
+}
+
+/* when the red bulb flares, the amber leans warmer for that instant */
+html.rl-flare .title{--tf-s:.82}
+html.rl-flare .title .ch{
+  text-shadow:
+    0 0 2px rgba(0,0,0,.92),
+    0 2px 5px rgba(0,0,0,.78),
+    0 0 .05em rgba(255,150,60,.50),
+    0 0 .15em rgba(255,116,28,.40),
+    0 0 .46em rgba(240,64,6,.26),
+    0 0 1.1em rgba(214,34,0,.15);
+}
+html.rl-flare .title .ch::after{color:rgba(255,140,52,.46)}
+
+/* strong flicker, fired by the JS scheduler (80–260 ms).
+   Declared after the flare rules, and one class heavier, so a flare that
+   happens to overlap a flicker cannot hold the tube lit. */
+html .title.is-flick{--tf-s:.13}
+
+/* ============ the room light: a failing red bulb above the machine ============
+   Two gradient planes, both screen-blended at low opacity:
+     .rl-halo  z1 — sits above the hands, behind the title (z2): the air glowing
+     .rl-wash  z4 — sits above disc (z3) and fingers (z4): red rim from above
+   Neither can darken anything (screen), so the amber cannot go orange-brown. */
+.roomlight{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+
+.rl-halo{
+  position:absolute; z-index:1; left:50%; top:0;
+  width:min(1240px,112vw); aspect-ratio:1.52/1;
+  transform:translate(-50%,-40%);
+  background:
+    radial-gradient(42% 42% at 50% 50%,
+      rgba(var(--rl-hot),.15), rgba(var(--rl-deep),.084) 40%, rgba(var(--rl-deep),.028) 66%, transparent 78%),
+    radial-gradient(19% 24% at 42% 57%,
+      rgba(var(--rl-alert),.11), transparent 72%),
+    radial-gradient(30% 15% at 60% 45%,
+      rgba(var(--rl-hot),.064), transparent 76%);
+  mix-blend-mode:screen;
+  /* the gradients carry twice the alpha they need and the layer is held at
+     roughly half opacity, so a flare has somewhere to go: the red is already
+     at full R, so neither brightness() nor a higher colour can raise it. */
+  opacity:calc(.43 * var(--rl-a) * var(--rl-b) * var(--rl-c) * var(--rl-s, 1));
+  animation:rlA 13.1s ease-in-out infinite, rlB 19.7s ease-in-out infinite, rlC 31.3s linear infinite;
+}
+.rl-wash{
+  position:absolute; z-index:4; inset:0;
+  background:
+    /* the rim light: reaches the top of the disc and the top of the grip, then stops */
+    radial-gradient(76% 52% at 50% 14%,
+      rgba(var(--rl-hot),.27) 0 28%, rgba(var(--rl-deep),.10) 58%, transparent 84%),
+    /* an off-centre lobe so the source does not read as a symmetrical blob */
+    radial-gradient(34% 26% at 34% 11%, rgba(var(--rl-alert),.09), transparent 74%),
+    /* the last of the spill, dying out well above the slide control */
+    linear-gradient(to bottom, rgba(var(--rl-deep),.064) 0%, rgba(var(--rl-deep),.024) 34%, transparent 58%);
+  mix-blend-mode:screen;
+  --rl-cut:linear-gradient(to bottom,
+    rgba(0,0,0,.30) 0, rgba(0,0,0,.72) 8%, #000 17% 40%, rgba(0,0,0,.34) 64%, transparent 84%);
+  -webkit-mask-image:var(--rl-cut); mask-image:var(--rl-cut);
+  opacity:calc(.44 * var(--rl-a) * var(--rl-c) * var(--rl-s, 1));
+  animation:rlA 13.1s ease-in-out infinite, rlC 31.3s linear infinite;
+}
+
+/* slow breathing + rare bulb stutter, on prime-ish cycles */
+@keyframes rlA{0%{--rl-a:1}29%{--rl-a:.82}54%{--rl-a:1.12}78%{--rl-a:.9}100%{--rl-a:1}}
+@keyframes rlB{0%{--rl-b:1}41%{--rl-b:1.1}67%{--rl-b:.86}100%{--rl-b:1}}
+@keyframes rlC{
+  0%,23.1%{--rl-c:1}
+  23.3%{--rl-c:.34} 23.6%{--rl-c:1.05} 23.9%{--rl-c:.52} 24.3%{--rl-c:1}
+  61.4%{--rl-c:1} 61.6%{--rl-c:.28} 62%{--rl-c:1}
+  100%{--rl-c:1}
+}
+/* Strong flare, fired by the JS scheduler. It has to move the layer ALPHA:
+   the gradients are already pure red at full R, so filter:brightness() on them
+   changes nothing, and an opacity multiplier only works because both layers are
+   deliberately parked near .43 with the alpha doubled to compensate. */
+html.rl-flare .rl-halo,html.rl-flare .rl-wash{--rl-s:2.05}
+
+/* ============ reduced motion: one static, soft, unmoving glow ============ */
+@media (prefers-reduced-motion:reduce){
+  .title,.rl-halo,.rl-wash,.title .on{animation:none}
+  .title{--tf-s:1;filter:none;opacity:1}
+  .title .ch{transition:none}
+  /* same effective strength as the animated rest state */
+  .rl-halo{opacity:.43}
+  .rl-wash{opacity:.44}
+  html.rl-flare .title{--tf-s:1}
+}
