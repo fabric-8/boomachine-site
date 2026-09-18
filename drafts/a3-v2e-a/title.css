@@ -1,0 +1,327 @@
+/* ==========================================================================
+   Boo Machine — masthead title + room light   (v2e-a: THE SIGN IS RED)
+
+   v2d-c drew the sign in amber phosphor. Here the same sign is a red one:
+   a hot pink-white core running down each glyph into saturated red, a tight
+   red glass edge around it, three blooms of increasing width, and the dark
+   housing behind it picking up the light and a faint mirror of the letters.
+
+   Nothing about the type moves: same Jacquard 12, same font-size clamp, same
+   line-height, same letter-spacing, same box, same z-order
+   (hands z1 -> title z2 -> disc z3 -> fingers z4). Only colour and the paint
+   layers inside .ch changed.
+
+   PAINT ORDER INSIDE ONE GLYPH (all three use the same glyph box, so they
+   cannot drift):
+     .ch            the blooms      — text-shadow stack, colour:transparent
+     .ch::before    the hot core    — the pink-white -> red gradient,
+                                      background-clip:text
+     .ch::after     the glass edge  — a hairline #F90000 text-stroke on top
+   ========================================================================== */
+
+/* ---- animatable scalars -------------------------------------------------
+   Registered so several independent keyframe tracks can each drive one
+   number; the title and the bulb multiply them together. Different prime
+   durations mean the combined pattern does not visibly repeat.            */
+@property --tf-a{syntax:"<number>";inherits:true;initial-value:1}
+@property --tf-b{syntax:"<number>";inherits:true;initial-value:1}
+@property --tf-c{syntax:"<number>";inherits:true;initial-value:1}
+@property --rl-a{syntax:"<number>";inherits:true;initial-value:1}
+@property --rl-b{syntax:"<number>";inherits:true;initial-value:1}
+@property --rl-c{syntax:"<number>";inherits:true;initial-value:1}
+
+:root{
+  /* the lit tube, top to bottom: the core is NOT pure red */
+  --sign-core-hi:#FFD9D2;       /* pink-white, where the filament is hottest */
+  --sign-core-m1:#FFA391;
+  --sign-core-mid:#FF5A40;
+  --sign-core-lo:#FF3B2A;       /* saturated red at the foot of the glyph   */
+  --sign-core-foot:#F02010;
+  --sign-edge:#F90000;          /* the glass itself, seen edge-on           */
+  /* the same tube with the current cut: dark cherry, never black */
+  --sign-dead-hi:#8E1A16;
+  --sign-dead-lo:#3E0406;
+  --sign-dead-edge:#6B0F0A;
+  /* the failing red bulb above the machine — one step deeper and cooler than
+     the sign, so the two red sources do not collapse into one flat field */
+  --rl-deep:96,10,8;            /* #600A08 */
+  --rl-hot:230,0,4;             /* #E60004 */
+  --rl-alert:255,38,0;          /* #FF2600 */
+}
+
+/* ============ the nameplate ============ */
+.title{
+  /* the `topglow` fx token drives these two: light falls UP off a tube, so the
+     blooms are nudged above the glyph. Zero here = the token is off. */
+  --tg-y:0em; --tg-y2:0em;
+
+  font-family:"Jacquard12",serif; font-weight:400;
+  font-size:clamp(62px,13.2vw,178px); line-height:.86; letter-spacing:.006em;
+  margin:0; color:transparent;
+  position:relative; display:inline-block; z-index:2; isolation:isolate;
+
+  /* one number for "how lit is the tube right now" */
+  --lit:calc(var(--tf-a) * var(--tf-b) * var(--tf-c) * var(--tf-s, 1));
+  /* the dip is colour-driven (see .is-flick below), so the filter only has to
+     carry the small ambient wobble — it must not take the sign to black. */
+  filter:brightness(calc(.62 + .38 * var(--lit))) saturate(calc(.90 + .10 * var(--lit)));
+  opacity:calc(.66 + .34 * var(--lit));
+
+  animation:
+    tfA 11.3s linear infinite,
+    tfB 17.9s linear infinite,
+    tfC 29.3s linear infinite;
+}
+
+/* ---- the widest bloom: one layer for the whole sign ----------------------
+   Z-ORDER INSIDE .title (one isolated group):
+     0 .plate    the housing + its red glow   2 .title::before  the air in front
+                                                 3 .on/.ch          the tubes
+                                                 4 .title::after    the scanlines
+
+   The third and widest bloom is not painted per glyph — at this radius a
+   blurred word IS an ellipse, and ten 900 px text-shadows cost real frame
+   time for a 3 % result. One gradient, the width of the masthead, 3 %.      */
+.title::before{
+  content:""; position:absolute; z-index:2; pointer-events:none;
+  left:-42%; right:-42%; top:-150%; bottom:-170%;
+  background:
+    radial-gradient(ellipse 46% 44% at 50% 50%,
+      rgba(255,44,26,.030) 0%, rgba(249,0,0,.018) 42%,
+      rgba(198,12,8,.008) 68%, rgba(0,0,0,0) 86%);
+}
+
+/* ---- 1. the blooms ------------------------------------------------------
+   text-shadow paints the FIRST entry on top, so the list runs hot-and-tight
+   to cool-and-wide. Every offset is a small NEGATIVE y: light falls up off a
+   tube, and this is where the old `topglow` bias now lives.                */
+.title .ch{
+  position:relative; display:inline-block;
+  color:transparent;
+  text-shadow:
+    /* the glass edge: a tight, almost opaque saturated red hugging the glyph.
+       It is painted UNDER the core (which is a child box), so it reads as the
+       red rim of a lit bar and never as an outline drawn on top of one. */
+    0 0 .014em rgba(249,0,0,.95),
+    0 0 .030em rgba(249,0,0,.62),
+    /* then the blooms, tight to wide */
+    0 var(--tg-y) .050em rgba(255,128,104,.52),
+    0 var(--tg-y2) .150em rgba(255,58,36,.36),
+    0 0 .440em rgba(249,0,0,.200),
+    0 0 1.150em rgba(236,14,8,.105),
+    /* and a dark contact shadow UNDER all of it, so the glyphs keep an edge
+       against the red halo the bulb throws on the same air */
+    0 2px 6px rgba(0,0,0,.72),
+    0 0 3px rgba(0,0,0,.85);
+  transition:opacity .09s linear, filter .09s linear;
+}
+.title .sp{display:inline-block;white-space:pre}
+
+/* ---- 2. the hot core ----------------------------------------------------
+   background-clip:text on a pseudo-element: the gradient is painted in the
+   element's background step and clipped to the glyph, so nothing can print
+   over it the way a text-shadow would.                                     */
+.title .ch::before{
+  content:attr(data-c);
+  position:absolute; left:0; top:0; z-index:1; pointer-events:none;
+  color:transparent;
+  /* pink-white only at the very top of the em box — by the cap line it is
+     already on its way to the saturated red, so the glyph reads as red with a
+     hot top, not as a pale salmon fill (seen at 3x, retuned). */
+  background-image:linear-gradient(to bottom,
+      var(--sign-core-hi) 0%,
+      var(--sign-core-m1) 12%,
+      var(--sign-core-mid) 30%,
+      var(--sign-core-lo) 64%,
+      var(--sign-core-foot) 100%);
+  -webkit-background-clip:text; background-clip:text;
+}
+
+/* ---- 3. the glass edge --------------------------------------------------
+   A hairline of the saturated red ON TOP of the core, centred on the outline,
+   so half of it bites into the pink and half sits outside it. That contact is
+   what makes the core read as the inside of a tube rather than a fill.      */
+.title .ch::after{
+  content:attr(data-c);
+  position:absolute; left:0; top:0; z-index:2; pointer-events:none;
+  color:transparent;
+  -webkit-text-stroke:.006em var(--sign-edge);
+  /* NO zero-offset text-shadow here: a shadow is painted from the glyph
+     SILHOUETTE, so a 0/0 blurred red one lands on the whole glyph face and
+     flattens the core to a single red (seen at 3x, fixed). Anything this
+     layer adds has to be offset clear of the ink. */
+}
+
+/* one letter browns out for a moment — dark cherry, not off */
+.title .ch.is-dim::before{
+  background-image:linear-gradient(to bottom,var(--sign-dead-hi),var(--sign-dead-lo));
+}
+.title .ch.is-dim::after{-webkit-text-stroke-color:var(--sign-dead-edge)}
+.title .ch.is-dim{
+  text-shadow:0 0 .014em rgba(126,16,12,.92), 0 0 .07em rgba(142,26,22,.36), 0 2px 6px rgba(0,0,0,.72);
+}
+
+/* scanlines — unchanged from V2, just a touch finer */
+.title::after{
+  content:""; position:absolute; inset:-6% -2%; pointer-events:none; z-index:4;
+  background:repeating-linear-gradient(to bottom,rgba(0,0,0,.30) 0 1px,rgba(0,0,0,0) 1px 3px);
+  mix-blend-mode:multiply; opacity:.44;
+}
+
+/* power-up on load (V2 behaviour, kept) */
+.title .on{display:inline-block;animation:power .95s steps(1,end) both;position:relative;z-index:3}
+@keyframes power{
+  0%{opacity:0}12%{opacity:.85}17%{opacity:.08}26%{opacity:1}31%{opacity:.35}
+  40%{opacity:.95}46%{opacity:.6}58%{opacity:1}100%{opacity:1}
+}
+
+/* ambient flicker: three tracks, none of them rhythmic, all mostly "on" */
+@keyframes tfA{
+  0%,18.4%{--tf-a:1}
+  18.7%{--tf-a:.42} 19.1%{--tf-a:.94} 19.4%{--tf-a:.30} 19.9%{--tf-a:1}
+  100%{--tf-a:1}
+}
+@keyframes tfB{
+  0%,52.3%{--tf-b:1}
+  52.5%{--tf-b:.55} 52.9%{--tf-b:1} 71.2%{--tf-b:1}
+  71.4%{--tf-b:.24} 71.7%{--tf-b:.88} 72.1%{--tf-b:1}
+  100%{--tf-b:1}
+}
+@keyframes tfC{
+  0%{--tf-c:1} 33.6%{--tf-c:1} 33.9%{--tf-c:.78} 34.3%{--tf-c:1}
+  86.1%{--tf-c:1} 86.4%{--tf-c:.36} 86.6%{--tf-c:.9} 86.9%{--tf-c:.5} 87.3%{--tf-c:1}
+  100%{--tf-c:1}
+}
+
+/* when the red bulb flares, the sign leans a shade hotter for that instant */
+html.rl-flare .title{--tf-s:.88}
+html.rl-flare .title .ch::before{
+  background-image:linear-gradient(to bottom,#FFE3DC 0%,#FFB2A0 12%,#FF6A4E 30%,#FF4A32 64%,#FA2A16 100%);
+}
+html.rl-flare .title .ch{
+  text-shadow:
+    0 0 .014em rgba(255,10,0,.95),
+    0 0 .030em rgba(255,10,0,.64),
+    0 var(--tg-y) .052em rgba(255,140,116,.56),
+    0 var(--tg-y2) .160em rgba(255,70,44,.40),
+    0 0 .460em rgba(255,16,4,.22),
+    0 0 1.200em rgba(244,20,10,.115),
+    0 2px 6px rgba(0,0,0,.72),
+    0 0 3px rgba(0,0,0,.85);
+}
+
+/* ---- the strong flicker -------------------------------------------------
+   Fired by the JS scheduler (80–260 ms). Declared after the flare rules, and
+   one class heavier, so a flare that overlaps a flicker cannot hold the tube
+   lit. The dip is a COLOUR change first: the tube goes to dark cherry with
+   its ember still in it, and only then loses a little brightness. It never
+   goes to black — that read as a dropped frame, not as a failing sign.     */
+html .title.is-flick{--tf-s:.30}
+html .title.is-flick .ch::before{
+  background-image:linear-gradient(to bottom,var(--sign-dead-hi),var(--sign-dead-lo));
+}
+html .title.is-flick .ch::after{-webkit-text-stroke-color:var(--sign-dead-edge)}
+html .title.is-flick .ch{
+  text-shadow:
+    0 0 .014em rgba(126,16,12,.92),
+    0 var(--tg-y2) .060em rgba(158,30,24,.42),
+    0 0 .300em rgba(120,12,10,.18),
+    0 2px 6px rgba(0,0,0,.72),
+    0 0 3px rgba(0,0,0,.85);
+}
+html .title.is-flick::before{
+  background:radial-gradient(ellipse 46% 44% at 50% 50%,
+      rgba(150,18,12,.016) 0%, rgba(110,10,8,.008) 48%, rgba(0,0,0,0) 82%);
+}
+
+/* ============ the housing ============
+   .plate is the sign's own dark backplate (fx token `plate`). It dims the
+   bulb's halo BEHIND the sign — an object in the room, not a decal on the air
+   — and it catches the tubes: a soft red glow on the band directly behind the
+   glyphs, blurred 16 px, with no letterform anywhere in it.               */
+.title .plate{
+  display:none;
+  position:absolute; z-index:0; pointer-events:none;
+  left:-5%; right:-5%; top:-3%; bottom:-7%;
+  background:
+    /* the light the tubes throw back onto their own housing */
+    radial-gradient(ellipse 54% 46% at 50% 42%,
+      rgba(255,64,40,.130) 0%, rgba(214,18,10,.065) 44%, rgba(0,0,0,0) 78%),
+    /* the scorched plate itself */
+    radial-gradient(ellipse 60% 58% at 50% 48%,
+      rgba(0,0,0,.20) 0%, rgba(0,0,0,.18) 46%, rgba(0,0,0,.12) 72%,
+      rgba(0,0,0,0) 96%);
+  filter:blur(16px);
+}
+.hero[data-fx~="plate"] .title .plate{display:block}
+
+/* NOTE: there is deliberately no mirror of the letters here. An earlier pass
+   put a flipped, masked copy of the word on the plate; at this size it floated
+   as a readable upside-down "Boo Machine" in mid-air below the sign, and there
+   is no surface in the scene at that distance to carry it. The disc keeps its
+   reflection (fx.js -> .d-refl) because the disc IS a mirror and is right
+   there; the housing gets light, not an image. */
+
+/* ============ the room light: a failing red bulb above the machine ============
+     .rl-halo  z1 — above the hands, behind the title: the air glowing
+     .rl-wash  z6 — above disc and fingers: the red rim from above
+   Both screen-blended, so neither can darken anything. They are deliberately
+   a deeper, cooler red than the sign's core: with the sign red too, a wash of
+   the SAME red would stop reading as a second source. */
+.roomlight{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+
+.rl-halo{
+  position:absolute; z-index:1; left:50%; top:0;
+  width:min(1240px,112vw); aspect-ratio:1.52/1;
+  transform:translate(-50%,-40%);
+  background:
+    radial-gradient(42% 42% at 50% 50%,
+      rgba(var(--rl-hot),.15), rgba(var(--rl-deep),.084) 40%, rgba(var(--rl-deep),.028) 66%, transparent 78%),
+    radial-gradient(19% 24% at 42% 57%,
+      rgba(var(--rl-alert),.11), transparent 72%),
+    radial-gradient(30% 15% at 60% 45%,
+      rgba(var(--rl-hot),.064), transparent 76%);
+  mix-blend-mode:screen;
+  /* the gradients carry twice the alpha they need and the layer is held at
+     roughly half opacity, so a flare has somewhere to go. */
+  opacity:calc(.43 * var(--rl-a) * var(--rl-b) * var(--rl-c) * var(--rl-s, 1));
+  animation:rlA 13.1s ease-in-out infinite, rlB 19.7s ease-in-out infinite, rlC 31.3s linear infinite;
+}
+.rl-wash{
+  position:absolute; z-index:6; inset:0;
+  background:
+    /* the rim light: reaches the top of the disc and the top of the grip.
+       Carried a third harder than v2d-c: the hand under it is already red,
+       and so is the sign above it, so the rim needs the extra separation. */
+    radial-gradient(76% 52% at 50% 14%,
+      rgba(var(--rl-hot),.35) 0 28%, rgba(var(--rl-deep),.13) 58%, transparent 84%),
+    radial-gradient(34% 26% at 34% 11%, rgba(var(--rl-alert),.12), transparent 74%),
+    linear-gradient(to bottom, rgba(var(--rl-deep),.075) 0%, rgba(var(--rl-deep),.028) 34%, transparent 58%);
+  mix-blend-mode:screen;
+  --rl-cut:linear-gradient(to bottom,
+    rgba(0,0,0,.30) 0, rgba(0,0,0,.72) 8%, #000 17% 40%, rgba(0,0,0,.34) 64%, transparent 84%);
+  -webkit-mask-image:var(--rl-cut); mask-image:var(--rl-cut);
+  opacity:calc(.48 * var(--rl-a) * var(--rl-c) * var(--rl-s, 1));
+  animation:rlA 13.1s ease-in-out infinite, rlC 31.3s linear infinite;
+}
+
+/* slow breathing + rare bulb stutter, on prime-ish cycles */
+@keyframes rlA{0%{--rl-a:1}29%{--rl-a:.82}54%{--rl-a:1.12}78%{--rl-a:.9}100%{--rl-a:1}}
+@keyframes rlB{0%{--rl-b:1}41%{--rl-b:1.1}67%{--rl-b:.86}100%{--rl-b:1}}
+@keyframes rlC{
+  0%,23.1%{--rl-c:1}
+  23.3%{--rl-c:.34} 23.6%{--rl-c:1.05} 23.9%{--rl-c:.52} 24.3%{--rl-c:1}
+  61.4%{--rl-c:1} 61.6%{--rl-c:.28} 62%{--rl-c:1}
+  100%{--rl-c:1}
+}
+html.rl-flare .rl-halo,html.rl-flare .rl-wash{--rl-s:2.05}
+
+/* ============ reduced motion: one static, soft, unmoving sign ============ */
+@media (prefers-reduced-motion:reduce){
+  .title,.rl-halo,.rl-wash,.title .on{animation:none}
+  .title{--tf-s:1;filter:none;opacity:1}
+  .title .ch{transition:none}
+  .rl-halo{opacity:.43}
+  .rl-wash{opacity:.48}
+  html.rl-flare .title{--tf-s:1}
+}
