@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boo Machine — a cursed disc player for your iPhone</title>
+<meta name="description" content="Boo Machine is a Halloween soundboard for iPhone built as a cursed disc player: 36 sounds on three illustrated discs. Tap, layer, repeat. Offline, no ads, no account. iPhone beta open now.">
+<meta name="theme-color" content="#17150F">
+<link rel="preload" href="fonts/Jacquard12-Regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/Barlow-Medium.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+/* ---------- fonts (SIL OFL 1.1, see fonts/OFL-*.txt) ---------- */
+@font-face{font-family:"Jacquard 12";src:url("fonts/Jacquard12-Regular.woff2") format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Barlow";src:url("fonts/Barlow-Medium.woff2") format("woff2");font-weight:500;font-display:swap}
+
+/* ---------- tokens: straight from NetherPlayer/Views/Theme.swift + LCDView.swift ---------- */
+:root{
+  --case:#292724; --tray:#242321; --well:#1E1E1E; --glass:#100A03;
+  --ink:#17150F;
+  --phosphor:#FFD077; --phosphor-glow:#FF8A00; --phosphor-in:#FFB02E;
+  --lcd-red:#F90000; --alert:#FF2600;
+  --paper:#EEE8DF; --row:#C4BFBA; --muted:#A19A94; --bronze:#B39A78;
+  --hair:rgba(179,154,120,.24);
+  --hair-soft:rgba(179,154,120,.13);
+  --gutter:16px; --page:1180px;
+  --label:500 11px/1 "Barlow",system-ui,sans-serif;
+  --track:.18em;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--ink); color:var(--row);
+  font:500 17px/1.6 "Barlow",system-ui,-apple-system,sans-serif;
+  overflow-x:hidden;
+}
+img{display:block;max-width:100%;height:auto}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--phosphor);outline-offset:3px;border-radius:2px}
+
+/* the page's material: the app's own case patina, held still behind everything */
+body::before{
+  content:""; position:fixed; inset:0; z-index:-2;
+  background:url("assets/case-patina.webp") center/cover no-repeat;
+  opacity:.55; filter:saturate(.75);
+}
+body::after{
+  content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
+  background:
+    radial-gradient(120% 80% at 50% 0%,rgba(255,138,0,.055),transparent 60%),
+    radial-gradient(100% 100% at 50% 50%,transparent 35%,rgba(0,0,0,.72) 100%);
+}
+
+.wrap{width:100%;max-width:var(--page);margin:0 auto;padding:0 var(--gutter)}
+
+/* ---------- small engraved label, the app's utility rail face ---------- */
+.label{font:var(--label);letter-spacing:var(--track);text-transform:uppercase;color:var(--bronze)}
+
+/* ---------- top rail ---------- */
+.rail{border-bottom:1px solid var(--hair-soft);background:rgba(23,21,15,.55)}
+.rail .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:46px;padding-block:8px}
+.rail .label{white-space:nowrap}
+.rail__beta{display:inline-flex;align-items:center;gap:8px;color:var(--muted)}
+.rail__dot{width:7px;height:7px;border-radius:50%;background:var(--lcd-red);
+  box-shadow:0 0 6px rgba(249,0,0,.9),0 0 14px rgba(249,0,0,.45)}
+
+/* ---------- masthead: the app's display plate, its readout rebuilt in HTML ---------- */
+.masthead{position:relative;padding:28px 0 0;z-index:1}
+.plate{position:relative;z-index:1;width:100%;max-width:796px;margin:0 auto;aspect-ratio:3001/1247}
+.plate__metal{width:100%;height:100%;object-fit:fill;filter:contrast(1.04) brightness(.96)}
+.plate__glass{
+  position:absolute;left:5.9%;top:14.2%;width:56.2%;height:68.4%;
+  display:flex;flex-direction:column;justify-content:center;
+  padding:clamp(4px,1vw,14px) clamp(6px,1.4vw,18px);
+}
+@media (prefers-reduced-motion:no-preference){
+  .plate__glass{animation:phosphor 5.5s steps(1,end) infinite}
+}
+@keyframes phosphor{
+  0%,42%,44%,71%,73%,100%{opacity:1}
+  43%{opacity:.9} 72%{opacity:.94}
+}
+.wordmark{
+  margin:0;
+  font:400 clamp(30px,5.55vw,84px)/.92 "Jacquard 12",serif;
+  letter-spacing:.005em;
+  color:var(--phosphor);
+  text-shadow:
+    0 0 1px var(--phosphor-in),
+    0 0 7px rgba(255,138,0,.85),
+    0 0 22px rgba(255,138,0,.4);
+  white-space:nowrap;
+}
+.rule{
+  height:3px;margin:clamp(6px,1.1vw,14px) 0 clamp(6px,1vw,12px);
+  background:repeating-linear-gradient(90deg,var(--lcd-red) 0 3px,transparent 3px 6px);
+  box-shadow:0 0 8px rgba(249,0,0,.55);
+  opacity:.95;
+}
+.plate__line{
+  margin:0;font:500 clamp(8px,1.12vw,16px)/1.3 "Barlow",sans-serif;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--phosphor);
+  text-shadow:0 0 6px rgba(255,138,0,.6);
+}
+.plate__status{
+  margin:auto 0 0;font:500 clamp(7px,.86vw,12px)/1.3 "Barlow",sans-serif;
+  letter-spacing:.2em;text-transform:uppercase;color:#FF6A50;
+  text-shadow:0 0 7px rgba(255,26,10,.75);
+}
+
+/* purple growth, twice on the whole page */
+.growth{position:absolute;pointer-events:none;z-index:2;opacity:.9}
+.growth--crown{
+  width:min(190px,21vw);bottom:-52px;left:max(calc(50% - 466px),-8px);z-index:3;
+  transform:rotate(8deg);opacity:.86;
+  filter:drop-shadow(0 10px 18px rgba(0,0,0,.75)) saturate(.88)
+}
+.growth--roots{
+  width:min(720px,82vw);left:-5%;bottom:-58px;opacity:.55;z-index:0;
+  filter:drop-shadow(0 6px 16px rgba(0,0,0,.55))
+}
+
+/* ---------- lede + primary key ---------- */
+.lede{padding:26px 0 34px;text-align:center}
+.lede__copy{
+  max-width:44ch;margin:0 auto;color:var(--paper);
+  font-size:clamp(16px,1.42vw,19px);line-height:1.56;text-wrap:balance;
+}
+.lede__copy em{font-style:normal;color:var(--bronze)}
+.keyrow{margin-top:20px;display:flex;flex-direction:column;align-items:center;gap:12px}
+
+/* the hardware key: the app's pad skin, well, bevel, lamp and underglow gutter */
+.key{
+  --lamp:rgba(120,18,12,.9);
+  position:relative;display:inline-block;isolation:isolate;
+  padding:7px;border-radius:12px;
+  background:linear-gradient(#141414,#0b0b0b);
+  box-shadow:
+    inset 0 2px 5px rgba(0,0,0,.95),
+    inset 0 -1px 0 rgba(255,255,255,.045),
+    0 10px 26px rgba(0,0,0,.55);
+  text-decoration:none;
+}
+.key::after{ /* the lit gutter under the cap */
+  content:"";position:absolute;left:12%;right:12%;bottom:3px;height:4px;border-radius:3px;
+  background:var(--alert);opacity:0;filter:blur(3px);transition:opacity .22s ease;z-index:-1;
+}
+.key__face{
+  position:relative;display:flex;align-items:center;justify-content:center;
+  min-height:56px;padding:0 clamp(26px,4vw,52px);
+  border:30px solid transparent;
+  border-image:url("assets/pad-skin.webp") 150 fill stretch;
+  border-radius:8px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.1),inset 0 -2px 6px rgba(0,0,0,.6);
+  transition:transform .12s cubic-bezier(.16,.64,.32,1),filter .22s ease;
+}
+.key__face::before{ /* the pad skin is lit for a screenshot; seat it back into the case */
+  content:"";position:absolute;inset:-30px;border-radius:9px;pointer-events:none;
+  background:linear-gradient(rgba(10,8,6,.34),rgba(0,0,0,.56));
+}
+.key__label,.key__lamp{z-index:1}
+.key__label{
+  font:500 clamp(12px,1.25vw,15px)/1 "Barlow",sans-serif;
+  letter-spacing:var(--track);text-transform:uppercase;color:var(--paper);
+  text-shadow:0 1px 0 rgba(0,0,0,.85);white-space:nowrap;
+}
+.key__lamp{
+  position:absolute;top:9px;right:12px;width:15px;height:7px;border-radius:4px;
+  background:radial-gradient(60% 120% at 50% 20%,#5a1410,#240705 70%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.14),inset 0 -1px 1px rgba(0,0,0,.8);
+  transition:background .22s ease,box-shadow .22s ease;
+}
+.key:hover .key__face,.key:focus-visible .key__face{filter:brightness(1.12)}
+.key:hover .key__lamp,.key:focus-visible .key__lamp{
+  background:radial-gradient(60% 120% at 50% 20%,#ff6a50,var(--lcd-red) 75%);
+  box-shadow:0 0 8px rgba(255,38,0,.9),0 0 18px rgba(255,38,0,.45),inset 0 1px 0 rgba(255,255,255,.3);
+}
+.key:hover::after,.key:focus-visible::after{opacity:.55}
+.key:active .key__face{transform:translateY(3px);filter:brightness(.82)}
+.key:active::after{opacity:.85}
+.keyrow .label{color:var(--muted)}
+.keyrow .label b{color:var(--bronze);font-weight:500}
+
+/* ---------- section rules ---------- */
+.srule{
+  display:flex;align-items:baseline;justify-content:space-between;gap:16px;
+  border-top:1px solid var(--hair);padding-top:10px;margin-bottom:26px;
+}
+.srule span:last-child{color:var(--muted)}
+
+/* ---------- the discs ---------- */
+.discs{position:relative;padding:0 0 64px}
+.discs>.wrap{position:relative;z-index:1}
+.fan{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  gap:clamp(14px,3vw,44px);align-items:end;margin-bottom:30px;
+}
+.disc{
+  --bleed:clamp(10px,2.6vw,36px);
+  position:relative;width:calc(100% + var(--bleed));margin-left:calc(var(--bleed) / -2);
+  aspect-ratio:1;border-radius:50%;transform-origin:50% 50%;overflow:hidden;
+}
+.fan>li:nth-child(odd) .disc{transform:translateY(3.5%)}
+.fan>li:nth-child(2) .disc{transform:translateY(-6.5%)}
+.disc__art{
+  width:100%;height:100%;border-radius:50%;object-fit:cover;
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.85),
+    0 18px 38px rgba(0,0,0,.62),
+    inset 0 0 60px rgba(0,0,0,.5);
+}
+@media (prefers-reduced-motion:no-preference){
+  .disc__art{animation:spin var(--spin,60s) linear infinite}
+  .disc:hover .disc__art,.disc:focus-within .disc__art{animation-play-state:paused}
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.disc__sheen{
+  position:absolute;inset:0;border-radius:50%;pointer-events:none;
+  background:
+    radial-gradient(60% 60% at 30% 22%,rgba(255,255,255,.1),transparent 60%),
+    conic-gradient(from 210deg,rgba(255,255,255,.055),transparent 22%,rgba(0,0,0,.28) 48%,transparent 72%,rgba(255,255,255,.04));
+  mix-blend-mode:screen;opacity:.8;
+}
+.disc__hole{
+  position:absolute;left:50%;top:50%;width:25%;aspect-ratio:1;
+  transform:translate(-50%,-50%);border-radius:50%;
+  box-shadow:0 2px 10px rgba(0,0,0,.8);
+  pointer-events:none;
+}
+.fan>li{list-style:none;margin:0}
+.fan{margin-inline:0;padding:0}
+
+.disc__name{
+  margin:22px 0 2px;text-align:center;
+  font:400 clamp(24px,2.6vw,38px)/1 "Jacquard 12",serif;color:var(--phosphor);
+  text-shadow:0 0 8px rgba(255,138,0,.45);
+}
+.disc__meta{display:block;text-align:center;color:var(--muted);margin-bottom:14px}
+
+/* tracklist, set like the back of a sleeve */
+.track{margin:0;padding:0;list-style:none;border-top:1px solid var(--hair-soft)}
+.track li{
+  display:grid;grid-template-columns:2.1em 1fr 1.1em;align-items:center;gap:8px;
+  padding:6px 2px;border-bottom:1px solid var(--hair-soft);
+}
+.track .n{font:500 11px/1 "Barlow",sans-serif;letter-spacing:.06em;color:var(--bronze);
+  font-variant-numeric:tabular-nums}
+.track .s{font:500 13px/1.1 "Barlow",sans-serif;letter-spacing:.13em;text-transform:uppercase;color:var(--row)}
+.track .free .s{color:var(--paper)}
+.lamp{
+  justify-self:end;width:8px;height:8px;border-radius:50%;
+  background:radial-gradient(60% 60% at 50% 30%,#ff7a5e,var(--lcd-red) 70%);
+  box-shadow:0 0 6px rgba(249,0,0,.85),0 0 13px rgba(249,0,0,.35);
+}
+.lock{justify-self:end;width:9px;height:11px;fill:none;stroke:var(--bronze);stroke-width:1.5;opacity:.72}
+.disc__meta .lock{justify-self:auto;opacity:.9;margin-right:6px}
+.meta-lock{display:inline-flex;align-items:center;color:var(--bronze);white-space:nowrap}
+
+.legend{
+  display:flex;flex-wrap:wrap;gap:8px 26px;align-items:center;justify-content:center;
+  margin:30px auto 0;max-width:62ch;text-align:center;
+}
+.legend p{margin:0;color:var(--muted);font-size:14px}
+.legend i{display:inline-block;vertical-align:middle;margin-right:7px;font-style:normal}
+
+/* ---------- the machine ---------- */
+.machine{border-top:1px solid var(--hair);padding:56px 0 64px}
+.machine__grid{display:grid;grid-template-columns:minmax(240px,320px) 1fr;gap:clamp(28px,5vw,72px);align-items:center}
+.shot{
+  width:100%;border-radius:22px;
+  box-shadow:0 26px 60px rgba(0,0,0,.65),0 0 0 1px rgba(179,154,120,.18);
+}
+.moves{margin:0;display:grid;gap:24px clamp(24px,3.4vw,52px)}
+@media (min-width:900px){.moves{grid-template-columns:1fr 1fr}}
+.moves div{border-top:1px solid var(--hair-soft);padding-top:12px}
+.moves dt{font:500 12px/1 "Barlow",sans-serif;letter-spacing:var(--track);text-transform:uppercase;color:var(--bronze);margin-bottom:6px}
+.moves dd{margin:0;color:var(--paper);font-size:clamp(16px,1.35vw,18px);line-height:1.55;max-width:46ch}
+.facts{
+  margin:30px 0 0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:8px 18px;
+}
+.facts li{font:var(--label);letter-spacing:var(--track);text-transform:uppercase;color:var(--muted)}
+.facts li::before{content:"·";margin-right:18px;color:var(--bronze)}
+.facts li:first-child::before{content:"";margin:0}
+
+/* ---------- closing ---------- */
+.close{border-top:1px solid var(--hair);padding:56px 0 10px;text-align:center}
+.close h2{
+  margin:0 0 8px;font:400 clamp(28px,4vw,52px)/1.05 "Jacquard 12",serif;
+  color:var(--phosphor);text-shadow:0 0 10px rgba(255,138,0,.4);
+}
+.close p{margin:0 auto 26px;max-width:40ch;color:var(--muted)}
+footer{padding:44px 0 46px;border-top:1px solid var(--hair-soft);margin-top:54px}
+footer .wrap{display:flex;flex-wrap:wrap;gap:12px 28px;align-items:baseline;justify-content:space-between}
+footer nav{display:flex;flex-wrap:wrap;gap:12px 22px}
+footer a{color:var(--bronze);text-decoration:none;border-bottom:1px solid transparent;transition:border-color .2s}
+footer a:hover{border-bottom-color:var(--bronze)}
+.colophon{width:100%;color:var(--muted);font-size:12px;line-height:1.6;max-width:72ch;margin-top:6px}
+
+/* ---------- responsive ---------- */
+@media (max-width:900px){
+  .machine__grid{grid-template-columns:1fr;justify-items:center;text-align:left}
+  .shot{max-width:280px}
+  .fan{grid-template-columns:1fr;gap:0}
+  .fan>li{
+    display:grid;grid-template-columns:auto 1fr;
+    grid-template-areas:"disc name" "disc meta" "track track";
+    column-gap:20px;align-items:center;
+    padding:26px 0;border-top:1px solid var(--hair-soft);
+  }
+  .fan>li:first-child{border-top:0;padding-top:8px}
+  .fan>li .disc{grid-area:disc;width:min(140px,36vw);margin:0;transform:none;align-self:center}
+  .disc__name{grid-area:name;margin:0;text-align:left;align-self:end}
+  .disc__meta{grid-area:meta;text-align:left;margin:5px 0 0;align-self:start}
+  .track{grid-area:track;border-top:0;margin-top:16px}
+  .growth--crown{width:min(132px,30vw);left:-10px;bottom:-34px;right:auto;top:auto}
+  .growth--roots{bottom:-30px;width:min(640px,100vw);left:-8%;opacity:.45}
+  .legend{gap:10px;flex-direction:column;align-items:flex-start;text-align:left;margin-top:24px}
+  .masthead{padding-top:24px}
+  .lede{padding:28px 0 40px}
+}
+@media (min-width:560px) and (max-width:900px){
+  .track{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(6,auto);
+    grid-auto-flow:column;column-gap:clamp(24px,5vw,56px)}
+}
+.narrow{display:none}
+@media (max-width:700px){
+  .narrow{display:inline}
+  .meta-sep{display:none}
+  .meta-lock{display:flex;margin-top:3px}
+  .facts{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px}
+  .facts li::before{content:"";margin:0}
+  .plate__glass{width:63%}
+  .wide{display:none}
+  .plate__line{letter-spacing:.1em}
+  .plate__status{letter-spacing:.12em}
+}
+@media (max-width:430px){
+  :root{--label:500 10px/1 "Barlow",system-ui,sans-serif}
+  .fan>li{column-gap:16px}
+  .track .s{font-size:12px;letter-spacing:.1em}
+  .lede__copy{font-size:16px}
+}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute">
+  <symbol id="lockicon" viewBox="0 0 9 11">
+    <rect x="0.75" y="4.4" width="7.5" height="5.85" rx="1.1"></rect>
+    <path d="M2.6 4.4V3.1a1.9 1.9 0 0 1 3.8 0v1.3"></path>
+  </symbol>
+</svg>
+
+<header class="rail">
+  <div class="wrap">
+    <span class="label">Boo Machine — Fabric8</span>
+    <span class="label rail__beta"><span class="rail__dot" aria-hidden="true"></span><span class="wide">App Store 29 September</span><span class="narrow">App Store 29 Sep</span></span>
+  </div>
+</header>
+
+<main>
+
+  <section class="masthead">
+    <div class="wrap">
+      <img class="growth growth--crown" src="assets/growthcrown.webp" alt="" width="760" height="507" aria-hidden="true">
+      <div class="plate">
+        <img class="plate__metal" src="assets/plate.webp" alt="" width="1800" height="748">
+        <div class="plate__glass">
+          <h1 class="wordmark">Boo Machine</h1>
+          <div class="rule" aria-hidden="true"></div>
+          <p class="plate__line">A cursed disc player<span class="wide"> for your iPhone</span></p>
+          <p class="plate__status">TestFlight beta open<span class="wide"> · 36 sounds · 3 discs</span></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="lede">
+    <div class="wrap">
+      <p class="lede__copy">Thirty-six sounds pressed onto three illustrated discs. Tap a pad, layer a few,
+        turn Repeat on and the scene keeps going. Hold Repeat and the house goes quiet.</p>
+      <div class="keyrow">
+        <a class="key" href="https://testflight.apple.com/join/jr1YqwtJ">
+          <span class="key__face">
+            <span class="key__lamp" aria-hidden="true"></span>
+            <span class="key__label">Join the iPhone beta</span>
+          </span>
+        </a>
+        <p class="label">Free on TestFlight · <b>iPhone only</b></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="discs">
+    <div class="wrap">
+      <div class="srule">
+        <span class="label">The discs</span>
+        <span class="label">Six of thirty-six play free</span>
+      </div>
+
+      <ul class="fan">
+        <li>
+          <div class="disc" style="--spin:58s">
+            <img class="disc__art" src="assets/disc-haunted-house.webp" alt="Haunted house disc: a lit Victorian house on a hill under a blood-red moon." width="760" height="760">
+            <span class="disc__sheen" aria-hidden="true"></span>
+            <img class="disc__hole" src="assets/spindle.webp" alt="" width="700" height="700" aria-hidden="true">
+          </div>
+          <h2 class="disc__name">Haunted house</h2>
+          <span class="disc__meta label">Disc one · 12 sounds · 6 free</span>
+          <ol class="track">
+            <li class="free"><span class="n">01</span><span class="s">Wind</span><span class="lamp" title="Free"></span></li>
+            <li class="free"><span class="n">02</span><span class="s">Whisper</span><span class="lamp" title="Free"></span></li>
+            <li><span class="n">03</span><span class="s">Thunder</span><svg class="lock" aria-label="Locked"><use href="#lockicon"></use></svg></li>
+            <li><span class="n">04</span><span class="s">Organ</span><svg class="lock" aria-label="Locked"><use href="#lockicon"></use></svg></li>
+            <li class="free"><span class="n">05</span><span class="s">Knock</span><span class="lamp" title="Free"></span></li>
+            <li class="free"><span class="n">06</span><span class="s">Steps</span><span class="lamp" title="Free"></span></li>
+            <li class="free"><span class="n">07</span><span class="s">Heartbeat</span><span class="lamp" title="Free"></span></li>
+            <li class="free"><span class="n">08</span><span class="s">Creak</span><span class="lamp" title="Free"></span></li>
+            <li><span class="n">09</span><span class="s">Scream</span><svg class="lock" aria-label="Locked"><use href="#lockicon"></use></svg></li>
+            <li><span class="n">10</span><span class="s">Laugh</span><svg class="lock" aria-label="Locked"><use href="#lockicon"></use></svg></li>
+            <li><span class="n">11</span><span class="s">Howl</span><svg class="lock" aria-label="Locked"><use href="#lockicon"></use></svg></li>
+            <li><span class="n">12</span><span class="s">Bell</span><svg class="lock" aria-label="Locked"><use href="#lockicon"></use></svg></li>
+          </ol>
+        </li>
+
+        <li>
+          <div class="disc" style="--spin:71s">
+            <img class="disc__art" src="assets/disc-creature-feature.webp" alt="Creature feature disc: a werewolf rising out of black water." width="760" height="760">
+            <span class="disc__sheen" aria-hidden="true"></span>
+            <img class="disc__hole" src="assets/spindle.webp" alt="" width="700" height="700" aria-hidden="true">
+          </div>
+          <h2 class="disc__name">Creature feature</h2>
+          <span class="disc__meta label">Disc two · 12 sounds<span class="meta-sep"> · </span><span class="meta-lock"><svg class="lock" aria-hidden="true"><use href="#lockicon"></use></svg>Unlock</span></span>
+          <ol class="track">
+            <li><span class="n">01</span><span class="s">Ghost</span></li>
+            <li><span class="n">02</span><span class="s">Bats</span></li>
+            <li><span class="n">03</span><span class="s">Swamp</span></li>
+            <li><span class="n">04</span><span class="s">Skitter</span></li>
+            <li><span class="n">05</span><span class="s">Claws</span></li>
+            <li><span class="n">06</span><span class="s">Bones</span></li>
+            <li><span class="n">07</span><span class="s">Tentacle</span></li>
+            <li><span class="n">08</span><span class="s">Chomp</span></li>
+            <li><span class="n">09</span><span class="s">Zombie</span></li>
+            <li><span class="n">10</span><span class="s">Werewolf</span></li>
+            <li><span class="n">11</span><span class="s">Gargoyle</span></li>
+            <li><span class="n">12</span><span class="s">Roar</span></li>
+          </ol>
+        </li>
+
+        <li>
+          <div class="disc" style="--spin:64s">
+            <img class="disc__art" src="assets/disc-coven.webp" alt="The coven disc: a witch leaning over a cauldron of green smoke." width="760" height="760">
+            <span class="disc__sheen" aria-hidden="true"></span>
+            <img class="disc__hole" src="assets/spindle.webp" alt="" width="700" height="700" aria-hidden="true">
+          </div>
+          <h2 class="disc__name">The coven</h2>
+          <span class="disc__meta label">Disc three · 12 sounds<span class="meta-sep"> · </span><span class="meta-lock"><svg class="lock" aria-hidden="true"><use href="#lockicon"></use></svg>Unlock</span></span>
+          <ol class="track">
+            <li><span class="n">01</span><span class="s">Cauldron</span></li>
+            <li><span class="n">02</span><span class="s">Chant</span></li>
+            <li><span class="n">03</span><span class="s">Hum</span></li>
+            <li><span class="n">04</span><span class="s">Drum</span></li>
+            <li><span class="n">05</span><span class="s">Rattle</span></li>
+            <li><span class="n">06</span><span class="s">Cackle</span></li>
+            <li><span class="n">07</span><span class="s">Cat</span></li>
+            <li><span class="n">08</span><span class="s">Screech</span></li>
+            <li><span class="n">09</span><span class="s">Raven</span></li>
+            <li><span class="n">10</span><span class="s">Spell</span></li>
+            <li><span class="n">11</span><span class="s">Gong</span></li>
+            <li><span class="n">12</span><span class="s">Demon</span></li>
+          </ol>
+        </li>
+      </ul>
+
+      <div class="legend">
+        <p><i class="lamp" style="display:inline-block;width:8px;height:8px" aria-hidden="true"></i>Six sounds play free.</p>
+        <p><svg class="lock" style="display:inline-block;vertical-align:-1px;margin-right:7px" aria-hidden="true"><use href="#lockicon"></use></svg>One $3.99 unlock opens all 36 when the App Store version lands.</p>
+      </div>
+    </div>
+    <img class="growth growth--roots" src="assets/growthroots.webp" alt="" width="1500" height="500" aria-hidden="true">
+  </section>
+
+  <section class="machine">
+    <div class="wrap">
+      <div class="srule">
+        <span class="label">The machine</span>
+        <span class="label">Four controls, nothing to learn</span>
+      </div>
+      <div class="machine__grid">
+        <img class="shot" src="assets/capture-player.webp" alt="The Boo Machine player: a worn metal case with twelve lit pads, an amber display reading Haunted house, and Eject and Repeat keys." width="660" height="1434">
+        <div>
+          <dl class="moves">
+            <div><dt>Tap</dt><dd>Twelve pads on the disc in the tray. Press one, it plays.</dd></div>
+            <div><dt>Layer</dt><dd>Press more. Wind under whispers under footsteps — they stack into a room.</dd></div>
+            <div><dt>Repeat</dt><dd>Turn Repeat on and the scene runs by itself. Hold it down to silence everything at once.</dd></div>
+            <div><dt>Eject</dt><dd>Eject swaps the disc. Three to choose from, each with its own twelve.</dd></div>
+          </dl>
+          <ul class="facts">
+            <li>Offline</li><li>No ads</li><li>No account</li><li>No subscription</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="close">
+    <div class="wrap">
+      <h2>Give your Halloween a sound</h2>
+      <p>The beta is open on TestFlight. The App Store version arrives 29 September 2026.</p>
+      <div class="keyrow">
+        <a class="key" href="https://testflight.apple.com/join/jr1YqwtJ">
+          <span class="key__face">
+            <span class="key__lamp" aria-hidden="true"></span>
+            <span class="key__label">Join the iPhone beta</span>
+          </span>
+        </a>
+        <p class="label">iPhone · TestFlight</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span class="label">© 2026 Fabricio Rosa Marques · hello@fabric8.de</span>
+    <nav class="label">
+      <a href="../../support.html">Support</a>
+      <a href="../../privacy.html">Privacy</a>
+      <a href="../../press/">Press kit</a>
+      <a href="https://testflight.apple.com/join/jr1YqwtJ">TestFlight</a>
+    </nav>
+    <p class="colophon">Artwork and sound effects were created with generative tools under human direction. No AI runs in the app.
+      Type: Jacquard 12 and Barlow, both SIL Open Font License 1.1.</p>
+  </div>
+</footer>
+
+</body>
+</html>
