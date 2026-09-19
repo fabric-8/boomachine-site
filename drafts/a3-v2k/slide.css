@@ -1,0 +1,267 @@
+/* ==========================================================================
+   Boo Machine — slide to join   (v2k: the light, alive)
+
+   v2j offered three fills; the client picked `light` — "an intensely lit
+   red-ish hot light with great attention to detail" — and asked for it to
+   be less static. slide.js draws the uncovered region with that one
+   renderer on a canvas that IS the track's box, clipped to its inner
+   rounded rect; everything that moves, moves on the canvas. The CSS here is
+   v2j's minus the two other fills' idle states:
+
+     * the CRISP track of v2g — dark scorched metal, a real inner shadow, one
+       faint red edge light, one fine noise tile, no filter anywhere. The
+       outer glow that came up with the travel is cut to a couple of px: the
+       only light that may leave the slot is the border's;
+     * the canvas the fill is drawn on — the track's own box, nothing more;
+     * the idle state in the seam at the left cap (a leak of the red light),
+       so the control is never cold and a page nobody has touched pays no
+       rAF;
+     * the label, the knob — with v2j's RIM LIGHT: `--kg` (0..1, published by
+       slide.js every frame) is the light's brightness right behind the knob,
+       and it lights the knob's left edge — and the completion flare.
+
+   The two registered custom properties survive from v2f, because the spring
+   back on release is still a CSS transition rather than a script loop:
+
+       --rev    <length>   how far the knob has travelled, in px from the
+                           track's left edge (= the knob's right edge)
+       --revp   <number>   the same as 0..1
+
+   They now drive only CSS lighting (the scorch at the mouth, the track's
+   border glow). The fill itself is driven by the knob's MEASURED position in
+   slide.js, so it follows the CSS spring on release and the CSS ease on a
+   keyboard step without knowing about either.
+
+       --kg     <number>   0..1, the light's brightness at the knob (slide.js)
+
+   Z-ORDER inside .unlock
+     0  the track's own background, .flame-glow (the idle state)
+     1  canvas.hell-flame (the fill)      2  .unlock-label
+     3  .knob                             4  .hell-flare
+   ========================================================================== */
+
+@property --rev  { syntax:"<length>"; inherits:true; initial-value:0px }
+@property --revp { syntax:"<number>"; inherits:true; initial-value:0 }
+
+:root{
+  --hell-hot:255,38,0;        /* #FF2600 — the sign's alert red   */
+  --hell-mid:255,122,0;       /* #FF7A00                          */
+  --hell-core:255,248,232;    /* white-hot                        */
+}
+
+.unlock-wrap{
+  position:relative; width:min(392px,100%);
+  /* --kw is the knob's width, so the CSS can work in the knob's own frame.
+     v2g moves --rev's RESTING value from v2f's 0 to the knob's right edge at
+     rest (--kw + 5), which is what slide.js has always published: v2f's layers
+     all grew from the track's left edge, so 0 meant "shut"; v2g's one CSS layer
+     hangs off the knob's LEFT edge, and 0 put it 143 px outside the track
+     (seen: an orange rectangle floating left of the control at rest). */
+  --kw:74px;
+  --rev:calc(var(--kw) + 5px); --revp:0;
+  --kg:0;   /* the fill's light at the knob, 0..1 (slide.js, every frame) */
+  transition:--rev .4s cubic-bezier(.32,.02,.2,1),
+             --revp .4s cubic-bezier(.32,.02,.2,1);
+}
+/* while a finger is on the knob the lighting must track it exactly */
+.unlock-wrap.is-drag{transition:none}
+/* hover: the knob creeps 9 px and a small fire breathes in the first ~40 px
+   of the track (slide.js). */
+.unlock-wrap:not(.is-drag):not(.is-done):hover,
+.unlock-wrap.is-hover-demo{--rev:calc(var(--kw) + 14px); --revp:.10}
+/* ?slide=hover forces exactly the hover state, for a reproducible frame */
+.unlock-wrap.is-hover-demo .knob{transform:translateX(9px)}
+.unlock-wrap.is-hover-demo .knob .g{stroke:#FFD2B4}
+
+/* ---------- the track: crisp scorched metal ----------------------------
+   One flat gradient, one 120 px noise tile at low strength for the grain of
+   burnt steel (it is a TEXTURE, not a blur: no filter touches this element),
+   a hard 1 px border, a deep inner shadow, and a faint red edge light top and
+   bottom. Nothing in here is segmented and nothing in here moves. */
+.unlock{
+  position:relative; z-index:1; width:100%; height:62px; border-radius:31px;
+  background:
+    linear-gradient(#0B0908,#151110 56%,#090707),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3'/><feColorMatrix type='saturate' values='0'/></filter><rect width='120' height='120' filter='url(%23n)' opacity='.34'/></svg>");
+  background-blend-mode:normal,overlay;
+  border:1px solid #2E1310;
+  box-shadow:
+    /* the well */
+    inset 0 2px 6px rgba(0,0,0,.95), inset 0 8px 14px -8px rgba(0,0,0,.9),
+    /* the faint red edge light: a rim of the room's red on the metal */
+    inset 0 -1px 0 rgba(255,96,54,.13), inset 0 1px 0 rgba(255,60,26,.05),
+    0 0 0 1px rgba(var(--hell-hot),calc(.07 + .20 * var(--revp))),
+    /* v2i: at most a couple of px of light outside the rails — the border's
+       own glow, coming up with the travel. v2h's 40 px bloom is gone. */
+    0 0 3px 1px rgba(255,84,18,calc(.10 + .40 * var(--revp))),
+    0 14px 34px rgba(0,0,0,.72);
+  touch-action:pan-y;
+  /* still not overflow:hidden (the knob's own shadow and edge light sit
+     outside the rail); the fill is clipped by the canvas itself (slide.js). */
+}
+/* the metal nearest the flame is burnt: a scorch at the mouth that comes up
+   with the travel. A radial gradient on the track's own box, clipped by its
+   radius — no separate element, no blur. */
+.unlock::before{
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:0;
+  border-radius:inherit;
+  background:radial-gradient(64% 130% at 4% 50%,
+      rgba(var(--hell-hot),.13), rgba(120,26,10,.055) 44%, rgba(0,0,0,0) 76%);
+  opacity:calc(.45 + .55 * var(--revp));
+}
+
+/* ---------- the fill --------------------------------------------------- */
+/* A canvas, drawn at devicePixelRatio, sitting under the label and the knob.
+   It is EXACTLY the track's box — nothing is drawn outside the rails — and
+   slide.js clips every frame to the inner rounded rect, inset 2 px. (A canvas is a replaced element: `left`+`right` with
+   `width:auto` leaves it at its intrinsic 2 px — v2f measured 8x8 that way.
+   It gets an explicit width/height here, and a pixel size in slide.js.) */
+.hell-flame{
+  position:absolute; z-index:1; pointer-events:none;
+  left:0; top:0; width:100%; height:100%;
+  mix-blend-mode:screen;
+}
+/* the idle embers live in their own clip box: .unlock is deliberately NOT
+   overflow:hidden, so a CSS layer inside the track needs its own rounded clip
+   or it can hang off the cap. */
+.flame-clip{
+  position:absolute; inset:0; z-index:0; pointer-events:none;
+  border-radius:inherit; overflow:hidden;
+}
+
+/* IDLE. FIXED to the cap (not to the knob): at rest the knob covers all but
+   the ~5 px seam around it, so what shows is a hint in the seam at its left
+   end — the red light leaking around the knob: a soft glow at the cap with a
+   small pink-white hot spot in the seam. As the knob moves off (`.is-open`)
+   or the pointer is over the control, the canvas takes over and the idle
+   layer is hidden so it cannot show through the (screened) fill. The control
+   is never cold, and a page nobody has touched pays no rAF. Breathing 3.4 s,
+   screen-blended. */
+.flame-glow{
+  position:absolute; z-index:0; pointer-events:none;
+  left:0; top:0; width:80px; height:100%;
+  background:
+    radial-gradient(10px 16px at 9px 52%, rgba(255,200,180,.55), rgba(255,90,60,.30) 45%, rgba(0,0,0,0) 100%),
+    radial-gradient(46px 40px at 8px 50%, rgba(255,38,0,.42), rgba(120,10,4,.20) 55%, rgba(0,0,0,0) 100%);
+  background-repeat:no-repeat;
+  mix-blend-mode:screen;
+  animation:crackBreath 3.4s ease-in-out infinite alternate;
+  transition:opacity .35s ease;
+}
+/* once the knob has moved off, the fill on the canvas covers the cap: the
+   idle layer goes, so it cannot show through the (screened) fill */
+.unlock-wrap.is-open .flame-glow,
+.unlock-wrap:not(.is-drag):not(.is-done):hover .flame-glow,
+.unlock-wrap.is-hover-demo .flame-glow{opacity:0!important;animation:none}
+@keyframes crackBreath{from{opacity:.5}to{opacity:1}}
+
+/* ---------- the completion flare --------------------------------------- */
+/* one bright sweep along the WHOLE track, then slide.js navigates */
+.hell-flare{
+  position:absolute; inset:0; z-index:4; pointer-events:none; opacity:0;
+  border-radius:inherit;
+  /* hottest AT THE KNOB, where the flame has been burning, and running back
+     down the track it just crossed — not a white pill. */
+  background:
+    linear-gradient(90deg,
+      rgba(255,64,10,.26) 0%, rgba(var(--hell-hot),.48) 30%,
+      rgba(var(--hell-mid),.66) 62%, rgba(255,206,120,.80) 86%, rgba(var(--hell-core),.90) 100%),
+    radial-gradient(60% 170% at 88% 55%, rgba(var(--hell-core),.7), rgba(0,0,0,0) 76%);
+  mix-blend-mode:screen;
+}
+.unlock.is-flare .hell-flare{animation:hellFlare 300ms cubic-bezier(.2,.7,.3,1) both}
+/* ?slide=flare parks the flare at its peak so it can be photographed */
+.unlock.is-flare-hold .hell-flare{animation:none;opacity:1}
+@keyframes hellFlare{0%{opacity:0}16%{opacity:1}100%{opacity:0}}
+
+/* ---------- the `hell` switch -----------------------------------------
+   One token in data-fx on <main class="hero">, like the rest of the scene —
+   the NAME is v2f's, so every QA URL and every note that says ?fx=-hell still
+   works; what it switches off is now the fire. With it off the control is the
+   plain scorched track: it still drags, still completes, still goes to
+   TestFlight, and slide.js runs no rAF at all. */
+.hero:not([data-fx~="hell"]) .hell-flame,
+.hero:not([data-fx~="hell"]) .flame-clip,
+.hero:not([data-fx~="hell"]) .hell-flare{display:none}
+
+/* ---------- the label -------------------------------------------------- */
+.unlock-label{
+  position:absolute; inset:0; z-index:2;
+  display:flex; align-items:center; justify-content:center;
+  padding-left:26px; pointer-events:none;
+  font-size:12.5px; letter-spacing:2.6px; text-transform:uppercase; white-space:nowrap;
+  /* dim red-orange, with a hotter ember sliding through it */
+  color:#A4502C;
+  background-image:linear-gradient(100deg,
+    rgba(255,120,60,0) 36%, rgba(255,176,116,.95) 48%, rgba(255,120,60,0) 60%);
+  background-size:260% 100%; background-repeat:no-repeat;
+  -webkit-background-clip:text; background-clip:text;
+  animation:shimmer 3.6s linear infinite;
+  transition:opacity .3s ease;
+  /* v2h: the label sits ABOVE the fire (z2 over the canvas at z1) and must
+     still read where the inferno has reached it at low progress — a tight
+     dark halo under the letters, plus the wide one. */
+  text-shadow:0 0 2px rgba(0,0,0,.95), 0 0 5px rgba(0,0,0,.9), 0 0 14px rgba(0,0,0,.85);
+}
+@keyframes shimmer{from{background-position:190% 0}to{background-position:-90% 0}}
+.unlock.done .unlock-label{opacity:0}
+
+/* ---------- the knob --------------------------------------------------- */
+.knob{
+  position:absolute; z-index:3; top:5px; left:5px; width:74px; height:52px;
+  border-radius:26px;
+  display:flex; align-items:center; justify-content:center; text-decoration:none;
+  background-color:#17110F;
+  background-image:linear-gradient(rgba(74,44,34,.30),rgba(6,4,4,.55));
+  box-shadow:
+    inset 0 1px 0 rgba(255,168,128,.22), inset 0 -3px 0 rgba(0,0,0,.76),
+    inset 0 0 0 1px rgba(0,0,0,.62),
+    /* v2j: the RIM LIGHT. The light is on this side of the knob and it
+       catches the knob's own edge: a 1 px pink-white line down the
+       left curve, a red spread behind it a few px deep, and a short outer
+       glow — all three scaled by --kg, the fill's brightness at the knob,
+       so the rim comes up with a drag, breathes with a hover, dies with the
+       release. Kept short: the knob sits 5 px inside the rail. */
+    inset 1px 0 0 rgba(255,178,150,calc(.90 * var(--kg))),
+    inset 3px 0 5px -1px rgba(255,64,20,calc(.85 * var(--kg))),
+    inset 7px 0 10px -6px rgba(var(--hell-hot),calc(.55 * var(--kg))),
+    0 0 0 1px rgba(var(--hell-hot),calc(.14 + .22 * var(--revp) + .16 * var(--kg))),
+    -2px 0 7px rgba(var(--hell-hot),calc(.06 + .14 * var(--revp) + .34 * var(--kg))),
+    0 4px 0 #090807, 0 10px 20px rgba(0,0,0,.84);
+  cursor:grab; touch-action:none; -webkit-user-drag:none; user-select:none; -webkit-user-select:none;
+  transition:transform .42s cubic-bezier(.16,.64,.32,1), box-shadow .2s ease, background-color .2s ease;
+}
+.knob:active{cursor:grabbing}
+.knob.dragging{transition:box-shadow .2s ease}
+.knob svg{width:26px;height:26px;display:block}
+.knob .g{
+  fill:none; stroke:#E8B49A; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round;
+  filter:drop-shadow(0 0 5px rgba(var(--hell-hot),.55));
+  transition:stroke .25s ease;
+}
+.unlock-wrap:hover .knob{transform:translateX(9px)}
+.unlock-wrap:hover .knob .g,.knob:focus-visible .g{stroke:#FFD2B4}
+.unlock-wrap:hover .unlock-label{animation-duration:1.8s}
+.knob:focus-visible{outline:2px solid #C4643C;outline-offset:3px}
+
+/* ---------- small screens ---------------------------------------------- */
+@media (max-width:520px){
+  .unlock{height:58px}
+  .unlock-wrap{--kw:68px}
+  .knob{width:68px;height:48px;top:5px}
+  .unlock-label{font-size:11.5px;letter-spacing:2.2px}
+}
+
+/* ---------- reduced motion ---------------------------------------------
+   No shimmer, no embers, no bubbles, no hover creep, no spring, no breathing:
+   the fill is ONE pre-rendered frame in the uncovered region, drawn by
+   slide.js when the knob's position changes and never animated. The canvas
+   stays visible for that; the loop is never started. */
+@media (prefers-reduced-motion:reduce){
+  .unlock-wrap{transition:none}
+  .unlock-label{animation:none;color:#C07349}
+  .knob{transition:none}
+  .unlock-wrap:hover .knob{transform:none}
+  .flame-glow{animation:none;opacity:.85}
+  .unlock.is-flare .hell-flare{animation:none;opacity:0}
+}
