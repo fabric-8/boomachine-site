@@ -1,0 +1,213 @@
+/* =========================================================================
+   fx.css (v2d) — the atmosphere pass, on top of v2c.
+
+   Five scene additions, each switched by one token in the `data-fx` list on
+   <main class="hero">. All five ship ON; removing a token removes the effect
+   completely (display:none / the base v2c rule), so the client can compare:
+
+     refl      the title's reflection in the polycarbonate   (canvas, fx.js)
+     grain     full-hero film grain                           (this file)
+     motes     dust motes drifting in the red light          (canvas, fx.js)
+     spill     amber falling from the sign onto the hand     (this file)
+     plate     the sign's housing + its mirror of the sign  (title.css)
+     topglow   the bloom biased to the letter tops           (title.css)
+     buzz      one letter buzzing at 30 Hz, every 20-40 s    (title.css + title.js)
+
+   `?fx=` overrides the list from the URL; window.booFx.on/off/toggle at
+   runtime. Every effect is inert under prefers-reduced-motion (grain frozen
+   on one tile, motes drawn once and left, no buzz).
+
+   v2f note: `hell` is declared in slide.css, next to the control it belongs to,
+   exactly as `plate`/`topglow` moved to title.css in v2e-b. fx.js only lists it.
+
+   Z-ORDER (one stacking context, see index.html):
+     1 .rl-halo  2 .title  3 .p-unit  4 .p-spill  5 .p-light
+     6 .rl-wash  7 .fx-motes  8 .fx-grain  9 .unlock-zone
+   ========================================================================= */
+
+:root{
+  --spill-op:.54;      /* how hard the amber spill is screened onto the hand */
+  --refl-op:1;         /* the title's reflection, inside the light plane (v2h .62) */
+  --grain-op:.055;     /* 5.5% — see the README for why hard-light, not overlay */
+  --grain-blend:hard-light;
+  --mote-op:.9;
+}
+
+/* =========================================================================
+   1. the title's reflection — fx.js draws it into .d-refl, one per .lbox.
+   It lives INSIDE .disc-light, so it is screened with the rest of the light
+   and multiplied by that hand's face mask: it cannot leave the disc face and
+   it is bitten out by the fingers exactly like the iris fans.
+   The canvas is transparent everywhere it is not painting (unlike .d-spec,
+   which is opaque black), so translating it can never leave a seam.
+   ========================================================================= */
+.disc-light .d-refl{
+  /* a canvas is a REPLACED element: inset:0 alone leaves it at its intrinsic
+     (backing-store) size, which is the box x DPR, so the reflection landed at
+     twice the offset and fell off the disc entirely. Both canvases in this
+     file carry an explicit CSS size for that reason. */
+  width:100%; height:100%;
+  mix-blend-mode:screen;
+  opacity:var(--refl-op);
+  /* slides with the pointer like the specular, about a third as far (v2i;
+     v2h 2.2 / 1.7 %) */
+  transform:translate(calc(var(--px) * 3.4%), calc(var(--py) * 2.6%));
+  will-change:transform;
+}
+.hero:not([data-fx~="refl"]) .d-refl{display:none}
+/* the tube browns out -> so does its reflection */
+html.t-flick .d-refl{opacity:calc(var(--refl-op) * .22)}
+
+/* =========================================================================
+   2. film grain — one 180 px feTurbulence tile, stepped at 12 fps.
+   The tile is rasterised once by the browser; the animation only moves
+   background-position, so nothing is regenerated per frame.
+
+   Blend: `hard-light`, not `overlay`. On a set this black overlay is
+   arithmetically invisible: over #0A0908 at 6 % it moves a pixel by ~1/255.
+   hard-light lets the light half of the noise screen into the blacks
+   (measured +-7/255 at 5.5 %) and barely touches the amber, which is what
+   film does on a night exterior. `--grain-blend` is a var, so the client can
+   put overlay back in one line.
+   ========================================================================= */
+.fx-grain{
+  position:absolute; inset:0; z-index:8; pointer-events:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='g' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='2' stitchTiles='stitch' seed='7'/><feColorMatrix type='saturate' values='0'/></filter><rect width='180' height='180' filter='url(%23g)'/></svg>");
+  background-size:180px 180px;
+  background-repeat:repeat;
+  mix-blend-mode:var(--grain-blend);
+  opacity:var(--grain-op);
+  animation:grainStep .75s steps(1,end) infinite;
+}
+.hero:not([data-fx~="grain"]) .fx-grain{display:none}
+/* nine tile offsets, 12 per second, none of them a neighbour of the last */
+@keyframes grainStep{
+  0%      {background-position:   0px    0px}
+  11.111% {background-position: -37px   64px}
+  22.222% {background-position:  91px  -22px}
+  33.333% {background-position:-113px  -71px}
+  44.444% {background-position:  53px  118px}
+  55.556% {background-position: -68px   29px}
+  66.667% {background-position: 124px   87px}
+  77.778% {background-position: -22px -137px}
+  88.889% {background-position:  77px  -96px}
+}
+
+/* =========================================================================
+   3. dust motes — fx.js owns the canvas; only the box is here.
+   ========================================================================= */
+.fx-motes{
+  position:absolute; inset:0; width:100%; height:100%; z-index:7; pointer-events:none;
+  mix-blend-mode:screen; opacity:var(--mote-op);
+}
+.hero:not([data-fx~="motes"]) .fx-motes{display:none}
+
+/* =========================================================================
+   4. the amber spill — the sign is a lamp, and the hand is under it.
+
+   Same construction as the light plane, one step further out: a plane that is
+   SCREENED onto the page, holding one isolated box per hand. Inside the box,
+   an opaque black field carries a soft amber gradient that starts at the
+   title's own bounding box (fx.js measures it into --sp-x/--sp-w/--sp-y0) and
+   is cut off exactly at the disc centre; the hand's own silhouette
+   (assets/hand-<hand>.png, made by work/make-hand-masks.py from the unit's
+   alpha) is then MULTIPLIED over it. Black is screen's no-op, so the amber
+   reaches the photographed hand and nothing else -- no mask-image, which
+   Chromium refuses to load over file:// (see the v2c README).
+   ========================================================================= */
+.p-spill{ z-index:4; mix-blend-mode:screen; opacity:var(--spill-op); }
+.hero:not([data-fx~="spill"]) .p-spill{display:none}
+.sbox{
+  position:absolute; aspect-ratio:1400/1750;
+  opacity:0; transition:opacity 1.05s ease; pointer-events:none;
+  isolation:isolate;
+  /* opaque, so the silhouette multiplied on top has something to multiply
+     with everywhere inside the box (over transparency, multiply would paint
+     the mask itself). Black costs nothing under screen. */
+  background:#000;
+  /* and CLIPPED to the box: the gradient below is measured off the title, so
+     it is wider than the unit frame, and the silhouette that switches it off
+     only covers the frame. Without this the spill escapes as a lit rectangle
+     across the set (seen, fixed). */
+  overflow:hidden;
+}
+.sbox.is-on{opacity:1}
+.sbox.l-vampire{--hand:url("assets/hand-vampire.png")}
+.sbox.l-wolf   {--hand:url("assets/hand-wolf.png")}
+.sbox.l-witch  {--hand:url("assets/hand-witch.png")}
+.sbox .d-spill{
+  position:absolute;
+  /* The box hangs off the title's own box, which fx.js measures into
+     --sp-x / --sp-w / --sp-y0 (all relative to the photographed disc centre).
+     It is 1.55x taller than that drop so it starts ABOVE the sign's bottom
+     line -- a lamp does not have a horizontal edge, and cutting the box at the
+     title's baseline drew one straight across the wolf's claws and the witch's
+     arm (seen, fixed). It still ENDS exactly on the disc centre, and the
+     gradient is transparent well before it gets there. */
+  left:calc(var(--fx) + var(--sp-x, 0px) - var(--sp-w, 40%) * .95);
+  width:calc(var(--sp-w, 40%) * 1.9);
+  /* v2f: + --Tr*--dy. The sbox itself is lifted (or dropped) by the hand's
+     --dy, and this gradient is measured off the TITLE, which did not move —
+     so the shift has to be taken back out here or the sign's pool of light
+     travels with the hand. */
+  top:calc(var(--fy) + var(--sp-y0, -90%) * 1.55 + var(--Tr) * var(--dy, 0));
+  height:calc(0px - var(--sp-y0, -90%) * 1.55);
+  /* the pool sits at 35.5% of the box == the title's bottom edge */
+  /* v2e: red-orange, not amber — this is the sign's own light, and the sign
+     is a red one. Hotter and a touch more orange than the bulb's wash so the
+     two sources still separate on the hand. */
+  background:radial-gradient(ellipse 52% 62% at 50% 35.5%,
+      rgba(255,104,64,.46) 0%,
+      rgba(255,64,28,.25)  38%,
+      rgba(190,28,10,.09)  62%,
+      rgba(0,0,0,0)        80%);
+  /* ...and the top edge of the box is masked out, so there is no line where
+     the box starts either. A CSS gradient mask is fine over file:// -- the
+     restriction that forced the multiply trick applies to mask IMAGES. */
+  --sp-fade:linear-gradient(to bottom,
+      rgba(0,0,0,0) 0%, rgba(0,0,0,.55) 15%, #000 34%, #000 100%);
+  -webkit-mask-image:var(--sp-fade); mask-image:var(--sp-fade);
+}
+.sbox .d-hand{
+  position:absolute; inset:0; pointer-events:none;
+  background-image:var(--hand);
+  background-size:100% 100%; background-repeat:no-repeat;
+  mix-blend-mode:multiply;
+}
+/* the tube browns out -> the hand loses the amber with it */
+html.t-flick .p-spill{opacity:calc(var(--spill-op) * .2)}
+/* the red bulb flares -> the amber leans warm, like the title does */
+html.rl-flare .sbox .d-spill{
+  background:radial-gradient(ellipse 52% 62% at 50% 35.5%,
+      rgba(255,122,80,.48) 0%,
+      rgba(255,74,34,.27)  38%,
+      rgba(178,20,8,.10)   62%,
+      rgba(0,0,0,0)        80%);
+}
+
+/* =========================================================================
+   5. title details
+   ========================================================================= */
+
+/* 5a-b. the housing (`plate`) and the top-of-letter bias (`topglow`) — MOVED
+   to title.css in v2e-b. Both are properties of the sign, and in this variant
+   the sign is one photograph plus the air around it, so they are declared with
+   it: `plate` switches the backplate AND the sign's mirror on it, `topglow`
+   lifts the ambient bloom above the letter line and adds the hot top lobe. */
+
+/* 5c. one letter buzzing: 300 ms of 30 Hz. In v2e-b the letters are pixels in
+   a photograph, so the buzz is carried by the dead-letter patch (title.css
+   .dead.is-buzz / @keyframes chBuzzPatch, placed by title.js) rather than by a
+   per-letter span. The token still gates it, from there. */
+
+/* =========================================================================
+   reduced motion — everything holds still. The grain keeps ONE tile (a still
+   frame of a film still has grain), the motes are drawn once by fx.js and the
+   buzz never fires.
+   ========================================================================= */
+@media (prefers-reduced-motion:reduce){
+  .fx-grain{animation:none}
+  .sbox{transition:none}
+  .disc-light .d-refl{will-change:auto}
+  .hero[data-fx~="buzz"] .title .dead.is-buzz{animation:none}
+}
