@@ -1,0 +1,241 @@
+/* ==========================================================================
+   Boo Machine — masthead title + room light   (v2e-b: THE SIGN IS A PHOTO)
+
+   The glyphs are no longer drawn by the browser. `assets/title-sign.webp` is a
+   photograph of the same word, generated from a 2x white-on-black render of
+   this page's own Jacquard 12 setting (work/title-src.png -> nano-banana-pro,
+   work/prompt-v2.txt) and matted off black. work/README-fit.md has the fit.
+
+   The <h1> still contains the text, laid out at exactly the same size and in
+   exactly the same place — it is what sizes the box, what fx.js measures, and
+   what the dead-letter patch is positioned from — it simply paints nothing.
+   The box, the z-order (hands z1 -> title z2 -> disc z3 -> fingers z4), the
+   disc overlap and the hands-in-front order are therefore identical to v2d-c.
+   ========================================================================== */
+
+@property --tf-a{syntax:"<number>";inherits:true;initial-value:1}
+@property --tf-b{syntax:"<number>";inherits:true;initial-value:1}
+@property --tf-c{syntax:"<number>";inherits:true;initial-value:1}
+@property --rl-a{syntax:"<number>";inherits:true;initial-value:1}
+@property --rl-b{syntax:"<number>";inherits:true;initial-value:1}
+@property --rl-c{syntax:"<number>";inherits:true;initial-value:1}
+@property --rl-d{syntax:"<number>";inherits:true;initial-value:1}
+
+:root{
+  /* the failing red bulb above the machine — one step deeper and cooler than
+     the photographed sign, so the two red sources do not collapse into one */
+  --rl-deep:96,10,8;            /* #600A08 */
+  --rl-hot:230,0,4;             /* #E60004 */
+  --rl-alert:255,38,0;          /* #FF2600 */
+  /* where the matted photograph sits, in units of the h1's own box.
+     v2i: the Pirata One sign (signs/pirata/fit.json), baked in by
+     signs/apply-sign.sh — do not hand-edit. */
+  --sign-l:-5.796%; --sign-t:-71.175%; --sign-w:112.116%; --sign-h:258.365%;  /* signs/pirata fit.json */
+}
+
+/* ============ the nameplate ============ */
+.title{
+  font-family:"Jacquard12",serif; font-weight:400;
+  font-size:clamp(62px,13.2vw,178px); line-height:.86; letter-spacing:.006em;
+  margin:0; color:transparent;
+  position:relative; display:inline-block; z-index:2; isolation:isolate;
+
+  --lit:calc(var(--tf-a) * var(--tf-b) * var(--tf-c) * var(--tf-s, 1));
+  animation:
+    tfA 11.3s linear infinite,
+    tfB 17.9s linear infinite,
+    tfC 29.3s linear infinite;
+}
+
+/* the text: still laid out, never painted. It keeps the box honest and gives
+   the dead-letter patch something to measure; the h1's aria-label is the name
+   the assistive tree gets (title.js sets it, as in v2d). */
+.title .on{display:inline-block;opacity:0;visibility:visible}
+.title .ch{position:relative;display:inline-block}
+.title .sp{display:inline-block;white-space:pre}
+
+/* ---- the photograph -----------------------------------------------------
+   Sized and placed off the h1's own box, so it tracks the font-size clamp
+   across every breakpoint without a single media query. */
+/* Z-ORDER INSIDE .title (one isolated group):
+     0 .plate    the housing + its red glow   3 .signimg  the sign
+     2 ::before  the air in front of it       4 .dead     the failing letter
+                                              5 ::after   the scanlines        */
+.title .signimg{
+  position:absolute; z-index:3; pointer-events:none;
+  left:var(--sign-l); top:var(--sign-t);
+  width:var(--sign-w); height:var(--sign-h);
+  max-width:none;
+  /* the ambient wobble: brightness only, and never anywhere near black */
+  opacity:calc(.72 + .28 * var(--lit));
+  filter:brightness(calc(.70 + .30 * var(--lit)));
+  animation:power .95s steps(1,end) both;
+  will-change:opacity,filter;
+}
+
+/* ---- the strong flicker -------------------------------------------------
+   Driven on the image, as opacity + filter. brightness() alone takes a photo
+   to grey-black, so the saturate() goes UP as the brightness goes down: what
+   is left is a dark cherry sign with its ember still in it. */
+html .title.is-flick .signimg{opacity:.72}
+/* the red bulb flares -> the sign reads a shade hotter for that instant */
+html.rl-flare .title .signimg{filter:brightness(1.06) saturate(1.06)}
+/* declared after the flare, and one class heavier, so a flare that overlaps a
+   flicker cannot hold the sign lit */
+html .title.is-flick .signimg{filter:brightness(.34) saturate(2.6) contrast(1.06)}
+
+/* ---- the wide bloom: the air around the whole sign ----------------------
+   The photograph carries its own bloom out to ~1 glyph height; this is the
+   last 3 % of it, across the masthead, which no crop could contain. */
+.title::before{
+  content:""; position:absolute; z-index:2; pointer-events:none;
+  left:-42%; right:-42%; top:-150%; bottom:-170%;
+  background:
+    radial-gradient(ellipse 46% 44% at 50% 50%,
+      rgba(255,44,26,.030) 0%, rgba(249,0,0,.018) 42%,
+      rgba(198,12,8,.008) 68%, rgba(0,0,0,0) 86%);
+}
+/* `topglow`: light falls up off a tube, so the ambient bloom is lifted above
+   the letter line and a tighter hot lobe is added at the letter tops. */
+.hero[data-fx~="topglow"] .title::before{
+  background:
+    radial-gradient(ellipse 34% 22% at 50% 36%,
+      rgba(255,96,64,.028) 0%, rgba(255,30,14,.012) 58%, rgba(0,0,0,0) 88%),
+    radial-gradient(ellipse 46% 44% at 50% 43%,
+      rgba(255,44,26,.030) 0%, rgba(249,0,0,.018) 42%,
+      rgba(198,12,8,.008) 68%, rgba(0,0,0,0) 86%);
+}
+
+/* ---- one letter dies / buzzes ------------------------------------------
+   The glyphs are pixels in a photograph, so a single letter cannot be styled.
+   title.js measures the letter it picked off the (invisible) .ch span and puts
+   this patch on it: a soft dark-cherry lozenge, multiplied, with no straight
+   edge anywhere in it. Positioned in px by the script. */
+.title .dead{
+  position:absolute; z-index:4; pointer-events:none; opacity:0;
+  background:radial-gradient(ellipse 58% 62% at 50% 48%,
+      rgba(58,6,8,.94) 0%, rgba(74,10,10,.78) 46%, rgba(120,18,14,.30) 74%,
+      rgba(0,0,0,0) 92%);
+  mix-blend-mode:multiply;
+  filter:blur(6px);
+  transition:opacity .10s linear;
+}
+.title .dead.is-on{opacity:1}
+.hero[data-fx~="buzz"] .title .dead.is-buzz{animation:chBuzzPatch 33.34ms steps(1,end) 9}
+@keyframes chBuzzPatch{0%{opacity:.86}50%{opacity:0}}
+
+/* scanlines — unchanged from V2, a touch lighter over a photograph */
+.title::after{
+  content:""; position:absolute; inset:-6% -2%; pointer-events:none; z-index:5;
+  background:repeating-linear-gradient(to bottom,rgba(0,0,0,.30) 0 1px,rgba(0,0,0,0) 1px 3px);
+  mix-blend-mode:multiply; opacity:.34;
+}
+
+@keyframes power{
+  0%{opacity:0}12%{opacity:.85}17%{opacity:.08}26%{opacity:1}31%{opacity:.35}
+  40%{opacity:.95}46%{opacity:.6}58%{opacity:1}100%{opacity:1}
+}
+
+/* ambient flicker: three tracks, none of them rhythmic, all mostly "on" */
+@keyframes tfA{
+  0%,18.4%{--tf-a:1}
+  18.7%{--tf-a:.42} 19.1%{--tf-a:.94} 19.4%{--tf-a:.30} 19.9%{--tf-a:1}
+  100%{--tf-a:1}
+}
+@keyframes tfB{
+  0%,52.3%{--tf-b:1}
+  52.5%{--tf-b:.55} 52.9%{--tf-b:1} 71.2%{--tf-b:1}
+  71.4%{--tf-b:.24} 71.7%{--tf-b:.88} 72.1%{--tf-b:1}
+  100%{--tf-b:1}
+}
+@keyframes tfC{
+  0%{--tf-c:1} 33.6%{--tf-c:1} 33.9%{--tf-c:.78} 34.3%{--tf-c:1}
+  86.1%{--tf-c:1} 86.4%{--tf-c:.36} 86.6%{--tf-c:.9} 86.9%{--tf-c:.5} 87.3%{--tf-c:1}
+  100%{--tf-c:1}
+}
+
+/* ============ the housing ============
+   The photograph brings its own scorched backplate; this is the part of the
+   housing that has to exist in the PAGE: it dims the bulb's halo behind the
+   sign (an object in the room, not a decal on the air) and carries a soft red
+   glow on the band directly behind the glyphs, blurred 16 px, with no
+   letterform in it. `plate` switches it. */
+.title .plate{
+  display:none;
+  position:absolute; z-index:0; pointer-events:none;
+  left:-5%; right:-5%; top:-3%; bottom:-7%;
+  background:
+    radial-gradient(ellipse 54% 46% at 50% 42%,
+      rgba(255,64,40,.120) 0%, rgba(214,18,10,.060) 44%, rgba(0,0,0,0) 78%),
+    radial-gradient(ellipse 60% 58% at 50% 48%,
+      rgba(0,0,0,.20) 0%, rgba(0,0,0,.18) 46%, rgba(0,0,0,.12) 72%,
+      rgba(0,0,0,0) 96%);
+  filter:blur(16px);
+}
+.hero[data-fx~="plate"] .title .plate{display:block}
+
+/* NOTE: there is deliberately no flipped copy of the sign here. An earlier pass
+   put one on the plate; at this size it floated as a readable upside-down
+   "Boo Machine" in mid-air below the sign, and there is no surface in the scene
+   at that distance to carry it. The disc keeps its reflection (fx.js ->
+   .d-refl) because the disc IS a mirror and is right there; the housing gets
+   light, not an image. */
+
+/* ============ the room light: a failing red bulb above the machine ======== */
+.roomlight{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+
+.rl-halo{
+  position:absolute; z-index:1; left:50%; top:0;
+  width:min(1240px,112vw); aspect-ratio:1.52/1;
+  transform:translate(-50%,-40%);
+  background:
+    radial-gradient(42% 42% at 50% 50%,
+      rgba(var(--rl-hot),.15), rgba(var(--rl-deep),.084) 40%, rgba(var(--rl-deep),.028) 66%, transparent 78%),
+    radial-gradient(19% 24% at 42% 57%,
+      rgba(var(--rl-alert),.11), transparent 72%),
+    radial-gradient(30% 15% at 60% 45%,
+      rgba(var(--rl-hot),.064), transparent 76%);
+  mix-blend-mode:screen;
+  /* v2i: --rl-d is the SLIDE. slide.js drives it 1 -> 1.7 with the travel
+     (v2h went to 1.95, v2f to 2.15; the client wanted it gentler), and 1.7
+     for the beat of the completion flare. It multiplies the flicker instead of replacing it,
+     so the bulb keeps failing while the room gets brighter. */
+  opacity:calc(.43 * var(--rl-a) * var(--rl-b) * var(--rl-c) * var(--rl-s, 1) * var(--rl-d, 1));
+  animation:rlA 13.1s ease-in-out infinite, rlB 19.7s ease-in-out infinite, rlC 31.3s linear infinite;
+}
+.rl-wash{
+  position:absolute; z-index:6; inset:0;
+  background:
+    radial-gradient(76% 52% at 50% 14%,
+      rgba(var(--rl-hot),.35) 0 28%, rgba(var(--rl-deep),.13) 58%, transparent 84%),
+    radial-gradient(34% 26% at 34% 11%, rgba(var(--rl-alert),.12), transparent 74%),
+    linear-gradient(to bottom, rgba(var(--rl-deep),.075) 0%, rgba(var(--rl-deep),.028) 34%, transparent 58%);
+  mix-blend-mode:screen;
+  --rl-cut:linear-gradient(to bottom,
+    rgba(0,0,0,.30) 0, rgba(0,0,0,.72) 8%, #000 17% 40%, rgba(0,0,0,.34) 64%, transparent 84%);
+  -webkit-mask-image:var(--rl-cut); mask-image:var(--rl-cut);
+  opacity:calc(.48 * var(--rl-a) * var(--rl-c) * var(--rl-s, 1) * var(--rl-d, 1));
+  animation:rlA 13.1s ease-in-out infinite, rlC 31.3s linear infinite;
+}
+@keyframes rlA{0%{--rl-a:1}29%{--rl-a:.82}54%{--rl-a:1.12}78%{--rl-a:.9}100%{--rl-a:1}}
+@keyframes rlB{0%{--rl-b:1}41%{--rl-b:1.1}67%{--rl-b:.86}100%{--rl-b:1}}
+@keyframes rlC{
+  0%,23.1%{--rl-c:1}
+  23.3%{--rl-c:.34} 23.6%{--rl-c:1.05} 23.9%{--rl-c:.52} 24.3%{--rl-c:1}
+  61.4%{--rl-c:1} 61.6%{--rl-c:.28} 62%{--rl-c:1}
+  100%{--rl-c:1}
+}
+html.rl-flare .rl-halo,html.rl-flare .rl-wash{--rl-s:2.05}
+
+/* ============ reduced motion ============ */
+@media (prefers-reduced-motion:reduce){
+  .title,.rl-halo,.rl-wash,.title .signimg{animation:none}
+  .title{--tf-s:1}
+  .title .signimg{opacity:1;filter:none;will-change:auto}
+  .title .dead{transition:none;display:none}
+  /* the door still lifts the room under reduced motion — it is a state, not
+     an animation — but nothing eases into it */
+  .rl-halo{opacity:calc(.43 * var(--rl-d, 1))}
+  .rl-wash{opacity:calc(.48 * var(--rl-d, 1))}
+  html.rl-flare .title .signimg{filter:none}
+}
