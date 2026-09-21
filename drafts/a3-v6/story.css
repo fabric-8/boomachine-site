@@ -1,0 +1,250 @@
+/* ==========================================================================
+   Boo Machine — the single page below the hero   (v6: scrolling story)
+
+     .bar        the floating ISLAND: a centred capsule at the BOTTOM (max
+                 420 x 52 px, 16 px + the safe area from the bottom): icon,
+                 the name, one button (STORE_URL / STORE_LABEL in
+                 index.html). Slides UP into view once the page is scrolled
+                 past 80 px (story.js), down and away at the top. Dark, a
+                 1 px red edge light, a soft shadow. Opaque (no
+                 backdrop-filter: a blurred backdrop over a playing video is
+                 re-blurred every frame; `.bar.glass` is the alternative).
+     .story      the SCROLLING story: two columns on desktop — the chapters
+                 on the left (three, each one viewport tall: the rendered
+                 heading sign + the copy, scrolling like any content) and
+                 the one shared phone on the right, sticky and centred in
+                 the viewport for the whole story (the app's captures
+                 crossfaded on its display via matrix3d, three creature-hand
+                 layers morphing on the same frame — story.js drives both
+                 from each chapter's entry). On a phone: one column, the
+                 phone sticky at the top, the chapters scrolling under it.
+                 The room continues from the hero: the bulb's pool on the
+                 seam is one ellipse painted in two halves with the same
+                 radii (index.html .hero / .story here), the film is one
+                 fixed layer over the whole page (fx.css .film).
+     .support    one paragraph.   .foot   one line.
+
+   Hero z-order is untouched (index.html). The bar sits at 50, above all of
+   it; the film at 40.
+   ========================================================================== */
+
+/* ---------- the floating island ---------------------------------------- */
+.bar{
+  position:fixed; z-index:50;
+  bottom:calc(16px + env(safe-area-inset-bottom, 0px)); left:50%;
+  width:min(420px, 100vw - 32px); height:52px;
+  padding:0 8px 0 10px; border-radius:26px;
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  background:linear-gradient(rgba(22,14,13,.98), rgba(9,6,6,.98));
+  border:1px solid rgba(255,38,0,.34);
+  box-shadow:
+    inset 0 1px 0 rgba(255,140,110,.12),
+    0 0 0 1px rgba(0,0,0,.65),
+    0 0 18px rgba(255,38,0,.10),
+    0 14px 34px rgba(0,0,0,.6);
+  /* v6: parked BELOW the viewport; .is-on brings it up */
+  transform:translate(-50%, calc(100% + 24px + env(safe-area-inset-bottom, 0px)));
+  visibility:hidden;
+  transition:transform .42s cubic-bezier(.2,.7,.2,1), visibility 0s linear .42s;
+  will-change:transform;
+}
+.bar.is-on{transform:translate(-50%, 0); visibility:visible; transition:transform .42s cubic-bezier(.2,.7,.2,1), visibility 0s}
+/* the measured alternative: dark glass. Off by default (story.css header). */
+.bar.glass{background:rgba(12,8,8,.78); -webkit-backdrop-filter:blur(14px) saturate(1.2); backdrop-filter:blur(14px) saturate(1.2)}
+.bar-brand{
+  display:flex; align-items:center; gap:10px; text-decoration:none; min-width:0;
+  color:var(--paper); font-size:13px; letter-spacing:1.4px; text-transform:uppercase; white-space:nowrap;
+}
+.bar-brand img{width:28px; height:28px; border-radius:8px; box-shadow:0 0 0 1px rgba(255,255,255,.06), 0 2px 8px rgba(0,0,0,.6)}
+.bar-cta{
+  display:inline-flex; align-items:center; height:36px; padding:0 15px; border-radius:18px;
+  text-decoration:none; white-space:nowrap;
+  font-size:12px; letter-spacing:1.6px; text-transform:uppercase; color:#FFE9DF;
+  background:linear-gradient(#3A1410,#220A08);
+  border:1px solid rgba(255,38,0,.45);
+  box-shadow:inset 0 1px 0 rgba(255,168,128,.18), 0 0 14px rgba(255,38,0,.18), 0 4px 12px rgba(0,0,0,.6);
+  transition:box-shadow .25s ease, background .25s ease, border-color .25s ease;
+}
+.bar-cta:hover{background:linear-gradient(#4A1A14,#2A0C0A); border-color:rgba(255,64,20,.7); box-shadow:inset 0 1px 0 rgba(255,168,128,.22), 0 0 22px rgba(255,38,0,.32), 0 4px 12px rgba(0,0,0,.6)}
+.bar-cta:focus-visible{outline:2px solid #C4643C; outline-offset:3px}
+@media (max-width:520px){
+  .bar{width:calc(100vw - 24px); bottom:calc(12px + env(safe-area-inset-bottom, 0px))}
+  .bar-brand{font-size:12px; letter-spacing:1.2px}
+  .bar-cta{height:34px; padding:0 13px; font-size:11px; letter-spacing:1.3px}
+}
+
+/* ---------- the story ---------------------------------------------------- */
+/* everything under the hero. z-index 1: the hero (z 2) paints over the
+   story's top, so the hand's dissolving arm and the slide zone's soft black
+   can overhang the seam (index.html, .hero). No overflow, no isolation: the
+   sticky phone sticks to the viewport, and nothing blends. */
+.below{position:relative; z-index:1; background:#000; overflow-x:clip}   /* clip (not hidden): no scroll container, the sticky phone still sticks to the viewport; the pool around the phone is wider than the page */
+.story{
+  position:relative;
+  color:var(--row);
+  /* the room continues: the LOWER half of the bulb's pool, the same ellipse
+     the hero's foot paints the upper half of (index.html .hero) — the same
+     radii, so the seam is one function of y */
+  background:radial-gradient(var(--pool-rx) var(--pool-ry) at 50% 0%, var(--pool-0), var(--pool-1) 55%, rgba(0,0,0,0) 100%);
+}
+.story-in{
+  position:relative;
+  width:min(1280px,100%); margin:0 auto;
+  padding:0 var(--gut);
+  /* the phone's column IS the frame's width (--frame-h tall, --frame-k =
+     w/h; see .phone-fig), capped at 56 % of the row so the copy keeps room */
+  --frame-h:100svh; --frame-k:0.8000;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) min(calc(var(--frame-h) * var(--frame-k)), 56%);
+  grid-template-areas:"chapters phone";
+  column-gap:clamp(24px,4vw,64px);
+  align-items:start;
+}
+
+/* the chapters: three, each one viewport tall, the copy centred */
+.chapters{grid-area:chapters; min-width:0}
+.chapter{
+  min-height:100svh; display:flex; flex-direction:column; justify-content:center;
+  padding:6svh 0;
+}
+.copy{max-width:520px}
+.copy-in{will-change:transform,opacity}   /* the reveal moves this, the triggers measure .copy */
+/* v6: MORE body text, bigger: 18 px, 1.6, the paper tone, ~46ch */
+.copy p.body{margin:0; font-size:18px; line-height:1.6; color:var(--paper); text-wrap:pretty; max-width:46ch}
+.copy p.body + p.body{margin-top:1em}
+
+/* the phone: sticky, vertically centred in the viewport for the whole story.
+   The figure is one viewport tall (a flex box that centres the phone) so the
+   centring needs no measurement; the phone is the column's width, capped
+   by the viewport's height. */
+.phone-fig{
+  grid-area:phone; margin:0; position:relative;
+  position:sticky; top:0; height:100svh;
+  display:flex; align-items:center; justify-content:center;
+  align-self:start; justify-self:stretch;
+  z-index:1;
+}
+.phone{position:relative; width:min(100%, calc(100svh * var(--frame-k))); aspect-ratio:var(--frame-ar, 1856/2320); flex:0 0 auto}
+.phone > *{position:absolute; left:0; top:0; width:100%; height:100%}
+/* the bulb's pool around the phone (v5 had it on the pinned stage): it
+   travels with the sticky figure, transparent at its edges */
+.fig-pool{
+  position:absolute; left:-50%; right:-50%; top:-15%; bottom:-15%; pointer-events:none; z-index:-1;
+  background:radial-gradient(38% 36% at 50% 47%, rgba(96,10,8,.30), rgba(96,10,8,.08) 52%, rgba(0,0,0,0) 78%);
+}
+/* the morph's flare: the bulb stutters when the hand changes (story.js) */
+.fig-flare{
+  position:absolute; left:-50%; right:-50%; top:-15%; bottom:-15%; pointer-events:none; z-index:0; opacity:0;
+  background:radial-gradient(44% 40% at 50% 46%, rgba(230,0,4,.30), rgba(150,10,8,.10) 48%, rgba(0,0,0,0) 74%);
+  mix-blend-mode:screen;
+}
+.hands{pointer-events:none}
+/* the three photographs are separate composited layers (opacity is what the
+   morph's DOM path drives); nothing else is ever transformed or filtered */
+.hand-layer{position:absolute; left:0; top:0; width:100%; height:100%; opacity:0; will-change:opacity; object-fit:fill}
+.hand-layer.is-on{opacity:1}
+.hands .morph{position:absolute; left:0; top:0; width:100%; height:100%; display:none; pointer-events:none}
+.plate{pointer-events:none}
+/* the flare on the phone itself: a hot rim of red light from above */
+.phone .flare{
+  inset:-12%; width:auto; height:auto; opacity:0; pointer-events:none;
+  background:radial-gradient(50% 44% at 50% 30%, rgba(255,38,0,.32), rgba(230,0,4,.10) 52%, rgba(0,0,0,0) 78%);
+  mix-blend-mode:screen;
+}
+/* LAYER ORDER (phones3: the plate with the display cut out, the hands with
+   the phone removed but the claws over it kept): display -> plate -> hands,
+   so claws that overlap the phone really do. */
+.phone[data-phones="2"] .display,.phone[data-phones="3"] .display{z-index:1}
+.phone[data-phones="2"] .plate,.phone[data-phones="3"] .plate{z-index:2}
+.phone[data-phones="2"] .hands,.phone[data-phones="3"] .hands{z-index:3}
+.phone[data-phones="2"] .flare,.phone[data-phones="3"] .flare{z-index:4}
+
+/* the display layer: the whole phone box; masked to the display's own shape
+   (alpha = visible) when the page is served over http — Chromium refuses a
+   mask image over file://, so story.js adds .has-mask only then, and the
+   wrapper's own radius carries the corners regardless */
+.display{pointer-events:none; overflow:hidden}
+.display.has-mask{-webkit-mask-image:var(--screen-mask); mask-image:var(--screen-mask); -webkit-mask-size:100% 100%; mask-size:100% 100%; -webkit-mask-repeat:no-repeat; mask-repeat:no-repeat}
+/* the videos' wrapper: the video's own pixel size, mapped onto the display
+   quad by story.js (matrix3d, transform-origin 0 0) */
+.screen{
+  position:absolute; left:0; top:0; width:906px; height:1970px;
+  transform-origin:0 0; will-change:transform;
+  overflow:hidden; border-radius:138px;
+  background:#07070A;
+  backface-visibility:hidden;
+}
+.screen video{position:absolute; inset:0; display:block; width:100%; height:100%; object-fit:cover; background:#07070A; opacity:0}
+.screen video.is-on{opacity:1}
+/* the reflection sheet (604 x 1312, alpha peak .32) over the videos in the
+   same mapped wrapper */
+.screen .glass{position:absolute; inset:0; width:100%; height:100%; pointer-events:none; mix-blend-mode:screen; opacity:.45}
+/* the flares are opacity-only: composited, never repainted */
+.fig-flare,.phone .flare{will-change:opacity}
+
+/* ---------- support + footer -------------------------------------------- */
+.support{
+  position:relative; z-index:1;
+  padding:clamp(56px,10svh,120px) var(--gut) clamp(48px,8svh,96px);
+  text-align:center; color:#B9B2AB;
+  background:linear-gradient(to bottom, rgba(0,0,0,0), #000 40%);
+}
+.support h2{margin:0 0 14px; font-family:"Barlow",system-ui,sans-serif; font-weight:500; font-size:clamp(22px,2.4vw,30px); letter-spacing:.01em; color:var(--paper)}
+.support p{margin:0 auto; max-width:46ch; font-size:16px; line-height:1.6; text-wrap:pretty}
+.support a{color:var(--paper); text-decoration:underline; text-decoration-color:rgba(255,38,0,.5); text-underline-offset:4px}
+.support a:hover{text-decoration-color:rgba(255,38,0,.9)}
+
+/* v3: one line. The original .foot rules (index.html) still apply; these
+   narrow them to the single centred line. v6: room for the island. */
+.foot{justify-content:center; text-align:center; gap:6px 10px; border-top-color:#15140F; padding-bottom:calc(84px + env(safe-area-inset-bottom, 0px))}
+.foot nav{gap:10px; align-items:baseline}
+.foot .sep{color:#4A4540}
+@media (max-width:520px){
+  /* two lines on a phone: the name, then the two links */
+  .foot{flex-direction:column; align-items:center; gap:8px}
+  .foot .sep-who{display:none}
+}
+
+/* ---------- phones ------------------------------------------------------- */
+@media (max-width:860px){
+  .story-in{
+    grid-template-columns:minmax(0,1fr); grid-template-areas:"phone" "chapters";
+    padding:0 12px;
+    /* the sticky frame: ~52svh tall, at the top under the safe area */
+    --mfh:52svh; --mtop:calc(8px + env(safe-area-inset-top, 0px));
+  }
+  .phone-fig{
+    top:var(--mtop); height:var(--mfh); align-items:flex-start;
+    z-index:2;
+  }
+  .phone{width:calc(var(--mfh) * var(--frame-k))}
+  .fig-pool{left:-40%; right:-40%; top:-30%; bottom:-30%}
+  .fig-flare{left:-40%; right:-40%; top:-30%; bottom:-30%}
+  /* the chapters scroll UNDER the phone: each ~60svh, the copy at its top,
+     18 px in from the edge; the copy fades as it passes under the phone
+     (story.js) */
+  .chapters{padding:0 max(0px, calc(var(--gut) - 12px)) calc(72px + env(safe-area-inset-bottom, 0px)); z-index:1; position:relative}
+  .chapter{min-height:60svh; justify-content:flex-start; padding:4svh 0 8svh; will-change:opacity}
+  /* the first chapter's copy ENTERS from the fold once the phone has stuck
+     (the chapters follow the phone in the flow; without this offset the
+     first copy would sit at the phone's foot the moment the phone sticks
+     and fade out at once): its top starts one viewport below the phone's
+     top, i.e. at the fold when the phone sticks */
+  .chapter:first-child{padding-top:calc(100svh - var(--mfh) - var(--mtop))}
+  .copy{max-width:none}
+  /* v6: 17 px on a phone */
+  .copy p.body{font-size:17px; max-width:none}
+  .phos{font-size:clamp(34px,9.4vw,44px)}
+}
+
+/* ---------- reduced motion ---------------------------------------------- */
+/* no scrub, no morph, no reveal: the chapters are plain sections beside
+   (under, on a phone) the phone showing the first hand and the first
+   capture's poster; story.js never plays a video and builds no trigger */
+@media (prefers-reduced-motion:reduce){
+  .bar{transition:none}
+  .copy-in{will-change:auto; opacity:1; transform:none}
+  .hand-layer{will-change:auto}
+  .screen{will-change:auto}
+  .fig-flare,.phone .flare{will-change:auto}
+}
