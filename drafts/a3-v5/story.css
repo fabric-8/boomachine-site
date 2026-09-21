@@ -1,0 +1,275 @@
+/* ==========================================================================
+   Boo Machine — the single page below the hero   (v5: smooth)
+
+     .bar        the floating ISLAND: a centred capsule at the top (max 420
+                 x 52 px, 16 px + the safe area from the top): icon, the
+                 name, one button (STORE_URL / STORE_LABEL in index.html).
+                 Slides down once the hero's slider has left the viewport
+                 (story.js), up when it returns. Dark, a 1 px red edge
+                 light, a soft shadow. Opaque (no backdrop-filter): a
+                 blurred backdrop over a playing video is re-blurred every
+                 frame; `.bar.glass` is the measured alternative.
+     .story      ONE pinned stage (GSAP ScrollTrigger, 3 x 100svh of
+                 scroll): one shared phone, pinned centre-right (centre,
+                 under the copy, on a phone), the app's captures crossfaded
+                 on its display (matrix3d, story.js), three creature-hand
+                 layers morphing on the same frame, three copy blocks on the
+                 other side. The room's red light and the film grain
+                 continue from the hero so the page stays one room.
+     .support    one paragraph.   .foot   one line.
+
+   Hero z-order is untouched (index.html). The bar sits at 50, above all of
+   it; the story is its own isolated stacking context so its grain blends
+   with the scenes only.
+   ========================================================================== */
+
+/* ---------- the floating island ---------------------------------------- */
+.bar{
+  position:fixed; z-index:50;
+  top:calc(16px + env(safe-area-inset-top, 0px)); left:50%;
+  width:min(420px, 100vw - 32px); height:52px;
+  padding:0 8px 0 10px; border-radius:26px;
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  background:linear-gradient(rgba(22,14,13,.98), rgba(9,6,6,.98));
+  border:1px solid rgba(255,38,0,.34);
+  box-shadow:
+    inset 0 1px 0 rgba(255,140,110,.12),
+    0 0 0 1px rgba(0,0,0,.65),
+    0 0 18px rgba(255,38,0,.10),
+    0 14px 34px rgba(0,0,0,.6);
+  transform:translate(-50%, calc(-100% - 20px - env(safe-area-inset-top, 0px)));
+  visibility:hidden;
+  transition:transform .42s cubic-bezier(.2,.7,.2,1), visibility 0s linear .42s;
+  will-change:transform;
+}
+.bar.is-on{transform:translate(-50%, 0); visibility:visible; transition:transform .42s cubic-bezier(.2,.7,.2,1), visibility 0s}
+/* the measured alternative: dark glass. Off by default (story.css header). */
+.bar.glass{background:rgba(12,8,8,.78); -webkit-backdrop-filter:blur(14px) saturate(1.2); backdrop-filter:blur(14px) saturate(1.2)}
+.bar-brand{
+  display:flex; align-items:center; gap:10px; text-decoration:none; min-width:0;
+  color:var(--paper); font-size:13px; letter-spacing:1.4px; text-transform:uppercase; white-space:nowrap;
+}
+.bar-brand img{width:28px; height:28px; border-radius:8px; box-shadow:0 0 0 1px rgba(255,255,255,.06), 0 2px 8px rgba(0,0,0,.6)}
+.bar-cta{
+  display:inline-flex; align-items:center; height:36px; padding:0 15px; border-radius:18px;
+  text-decoration:none; white-space:nowrap;
+  font-size:12px; letter-spacing:1.6px; text-transform:uppercase; color:#FFE9DF;
+  background:linear-gradient(#3A1410,#220A08);
+  border:1px solid rgba(255,38,0,.45);
+  box-shadow:inset 0 1px 0 rgba(255,168,128,.18), 0 0 14px rgba(255,38,0,.18), 0 4px 12px rgba(0,0,0,.6);
+  transition:box-shadow .25s ease, background .25s ease, border-color .25s ease;
+}
+.bar-cta:hover{background:linear-gradient(#4A1A14,#2A0C0A); border-color:rgba(255,64,20,.7); box-shadow:inset 0 1px 0 rgba(255,168,128,.22), 0 0 22px rgba(255,38,0,.32), 0 4px 12px rgba(0,0,0,.6)}
+.bar-cta:focus-visible{outline:2px solid #C4643C; outline-offset:3px}
+@media (max-width:520px){
+  .bar{width:calc(100vw - 24px); top:calc(12px + env(safe-area-inset-top, 0px))}
+  .bar-brand{font-size:12px; letter-spacing:1.2px}
+  .bar-cta{height:34px; padding:0 13px; font-size:11px; letter-spacing:1.3px}
+}
+
+/* ---------- the story: one pinned stage ------------------------------ */
+/* everything under the hero: one isolated group so the grain blends with
+   the story, the support and the footer and nothing else; overflow:clip so
+   the sticky grain's box cannot hang out of the bottom. z-index 1: the
+   hero (z 2) paints over the story's top, so the hand's dissolving arm can
+   overhang the boundary (index.html, .hero). */
+.below{position:relative; z-index:1; isolation:isolate; overflow:clip; background:#000}
+.story{
+  position:relative;
+  color:var(--row);
+  /* the room continues: the hero's foot carries the upper half of this
+     same ellipse (index.html .hero background), so the pool is one shape
+     across the boundary; the stage's own pool (.stage-wrap::before) sits
+     on the phone's side further down */
+  background:
+    radial-gradient(70% 38% at 50% 0%, rgba(96,10,8,.34), rgba(96,10,8,.10) 55%, rgba(0,0,0,0) 100%),
+    #000;
+}
+/* the film the whole page is shot on — the hero's grain tile (assets/grain.png,
+   a normal-blend tile: white / black specks with the noise in their alpha, so
+   no blend mode is needed on a viewport-sized layer), pinned to the viewport
+   while the story scrolls under it (sticky, one viewport tall; margin-bottom
+   takes its box back out of the flow). It is one composited layer 256 px
+   larger than the viewport and the 12 fps step moves the LAYER (transform):
+   nothing is repainted, ever. */
+.page-grain{
+  position:sticky; top:0; height:100svh; margin-bottom:-100svh; z-index:5; pointer-events:none;
+  overflow:hidden;
+}
+.page-grain::before{
+  content:""; position:absolute; left:0; top:0; width:calc(100% + 256px); height:calc(100% + 256px);
+  background-image:url("assets/grain.png"); background-size:256px 256px; background-repeat:repeat;
+  opacity:var(--grain-op, .035);
+  will-change:transform;
+  animation:grainShift .75s steps(1,end) infinite;   /* fx.css keyframes */
+}
+.hero:not([data-fx~="grain"]) ~ .below .page-grain{display:none}
+
+/* the stage: one viewport, pinned by story.js for 300svh of scroll */
+.stage-wrap{
+  position:relative; z-index:1;
+  height:100svh; min-height:560px;
+  overflow:hidden;
+}
+/* the bulb's pool on the stage: on the phone's side */
+.stage-wrap::before{
+  content:""; position:absolute; inset:0; pointer-events:none; z-index:0;
+  /* the ellipse ends inside the stage (ry 40 % at y 40 %): it must not be
+     cut by the stage's top edge, which is the hero boundary while the two
+     scroll past each other (measured: a 4-10 level step on the right) */
+  background:radial-gradient(46% 40% at var(--pool-x,70%) 42%, rgba(96,10,8,.30), rgba(96,10,8,.08) 52%, rgba(0,0,0,0) 78%);
+}
+/* the morph's flare: the bulb stutters when the hand changes (story.js) */
+.stage-flare{
+  position:absolute; inset:0; pointer-events:none; z-index:0; opacity:0;
+  background:radial-gradient(56% 44% at var(--pool-x,70%) 44%, rgba(230,0,4,.30), rgba(150,10,8,.10) 48%, rgba(0,0,0,0) 74%);
+  mix-blend-mode:screen;
+}
+.stage-in{
+  position:relative; z-index:1;
+  width:min(1280px,100%); margin:0 auto; height:100%;
+  padding:2svh var(--gut);
+  /* the phone's column IS the frame's width (--frame-h tall, --frame-k =
+     w/h; see .phone-fig), capped at 56 % of the row so the copy keeps room */
+  --frame-h:100svh; --frame-k:0.8000;
+  display:grid; grid-template-columns:minmax(0,1fr) min(calc(var(--frame-h) * var(--frame-k)), 56%); align-items:center;
+  column-gap:clamp(24px,4vw,64px);
+}
+
+/* the copy: three blocks on the same spot, one on */
+.copies{position:relative; align-self:stretch; min-height:0}
+.copy{
+  position:absolute; left:0; right:0; top:0; bottom:0;
+  display:flex; flex-direction:column; justify-content:center;
+  max-width:520px; opacity:0; pointer-events:none;
+}
+.copy.is-on{opacity:1; pointer-events:auto}
+.copy p.lede{margin:0; font-size:clamp(16px,1.3vw,19px); line-height:1.55; color:#B9B2AB; text-wrap:pretty; max-width:44ch}
+
+/* the phone: one frame; the display, the plate and the hands stacked in it.
+   v5: BIG. The frame is --frame-h tall (.stage-in; its width follows from
+   the frame's aspect --frame-k = w/h); with phones2/ the display is 71 % of
+   the frame, so the frame is 96svh for a ~68svh display. work/swap-phones3.sh
+   sets --frame-h to 88svh with the tighter phones3 frame (display ~78svh). */
+.phone-fig{
+  margin:0; position:relative;
+  width:100%;
+  justify-self:center;
+  will-change:transform,opacity;
+}
+.phone{position:relative; width:100%; aspect-ratio:var(--frame-ar, 1400/1750)}
+.phone > *{position:absolute; left:0; top:0; width:100%; height:100%}
+.hands{pointer-events:none}
+/* the three photographs are separate composited layers (opacity is what the
+   morph's DOM path drives); nothing else is ever transformed or filtered */
+.hand-layer{position:absolute; left:0; top:0; width:100%; height:100%; opacity:0; will-change:opacity; object-fit:fill}
+.hand-layer.is-on{opacity:1}
+.hands .morph{position:absolute; left:0; top:0; width:100%; height:100%; display:none; pointer-events:none}
+.plate{pointer-events:none}
+/* the flare on the phone itself: a hot rim of red light from above */
+.phone .flare{
+  inset:-12%; width:auto; height:auto; opacity:0; pointer-events:none;
+  background:radial-gradient(50% 44% at 50% 30%, rgba(255,38,0,.32), rgba(230,0,4,.10) 52%, rgba(0,0,0,0) 78%);
+  mix-blend-mode:screen;
+}
+/* LAYER ORDER.
+   data-phones="1" (the v3 stand-in: each hand image still carries its own
+   dark phone): hands under, the mapped display over them, no plate.
+   data-phones="2" (phones2/: phone-plate.webp with the display cut out,
+   hand-<hand>.webp with the phone removed but the claws over it kept):
+   display -> plate -> hands, so claws that overlap the phone really do. */
+.phone[data-phones="1"] .hands{z-index:1}
+.phone[data-phones="1"] .plate{display:none}
+.phone[data-phones="1"] .display{z-index:3}
+.phone[data-phones="1"] .flare{z-index:4}
+.phone[data-phones="2"] .display,.phone[data-phones="3"] .display{z-index:1}
+.phone[data-phones="2"] .plate,.phone[data-phones="3"] .plate{z-index:2}
+.phone[data-phones="2"] .hands,.phone[data-phones="3"] .hands{z-index:3}
+.phone[data-phones="2"] .flare,.phone[data-phones="3"] .flare{z-index:4}
+
+/* the display layer: the whole phone box; masked to the display's own shape
+   (alpha = visible) when the page is served over http — Chromium refuses a
+   mask image over file://, so story.js adds .has-mask only then, and the
+   wrapper's own radius carries the corners regardless */
+.display{pointer-events:none; overflow:hidden}
+.display.has-mask{-webkit-mask-image:var(--screen-mask); mask-image:var(--screen-mask); -webkit-mask-size:100% 100%; mask-size:100% 100%; -webkit-mask-repeat:no-repeat; mask-repeat:no-repeat}
+/* the videos' wrapper: the video's own pixel size, mapped onto the display
+   quad by story.js (matrix3d, transform-origin 0 0) */
+.screen{
+  position:absolute; left:0; top:0; width:906px; height:1970px;
+  transform-origin:0 0; will-change:transform;
+  overflow:hidden; border-radius:138px;
+  background:#07070A;
+  backface-visibility:hidden;
+}
+.screen video{position:absolute; inset:0; display:block; width:100%; height:100%; object-fit:cover; background:#07070A; opacity:0}
+.screen video.is-on{opacity:1}
+/* the reflection sheet (604 x 1312, alpha peak .32) over the videos in the
+   same mapped wrapper */
+.screen .glass{position:absolute; inset:0; width:100%; height:100%; pointer-events:none; mix-blend-mode:screen; opacity:.45}
+/* the flares are opacity-only: composited, never repainted */
+.stage-flare,.phone .flare{will-change:opacity}
+
+/* ---------- support + footer -------------------------------------------- */
+.support{
+  position:relative; z-index:1;
+  padding:clamp(56px,10svh,120px) var(--gut) clamp(48px,8svh,96px);
+  text-align:center; color:#B9B2AB;
+  background:linear-gradient(to bottom, rgba(0,0,0,0), #000 40%);
+}
+.support h2{margin:0 0 14px; font-family:"Barlow",system-ui,sans-serif; font-weight:500; font-size:clamp(22px,2.4vw,30px); letter-spacing:.01em; color:var(--paper)}
+.support p{margin:0 auto; max-width:46ch; font-size:16px; line-height:1.6; text-wrap:pretty}
+.support a{color:var(--paper); text-decoration:underline; text-decoration-color:rgba(255,38,0,.5); text-underline-offset:4px}
+.support a:hover{text-decoration-color:rgba(255,38,0,.9)}
+
+/* v3: one line. The original .foot rules (index.html) still apply; these
+   narrow them to the single centred line. */
+.foot{justify-content:center; text-align:center; gap:6px 10px; border-top-color:#15140F}
+.foot nav{gap:10px; align-items:baseline}
+.foot .sep{color:#4A4540}
+@media (max-width:520px){
+  /* two lines on a phone: the name, then the two links */
+  .foot{flex-direction:column; align-items:center; gap:8px}
+  .foot .sep-who{display:none}
+}
+
+/* ---------- phones ------------------------------------------------------- */
+@media (max-width:860px){
+  .stage-in{
+    grid-template-columns:minmax(0,1fr); grid-template-rows:auto minmax(0,1fr);
+    row-gap:clamp(10px,2svh,22px); align-items:start;
+    padding:calc(64px + 2svh + env(safe-area-inset-top, 0px)) 12px 2svh;
+  }
+  /* the copy on top, in a box that does not move when the block changes
+     (the tallest block is 141 px at 375 wide, measured) */
+  .copies{height:clamp(150px,20svh,200px); align-self:auto; padding-inline:max(0px, calc(var(--gut) - 12px))}
+  .copy{max-width:none; justify-content:flex-start}
+  .copy p.lede{max-width:none}
+  /* the phone under it: the full width minus 24 px, capped by what is left
+     of the viewport */
+  .phone-fig{
+    align-self:center; justify-self:center;
+    width:min(100%, calc((100svh - 64px - 2svh - 2svh - clamp(150px,20svh,200px) - clamp(10px,2svh,22px) - env(safe-area-inset-top, 0px)) * var(--frame-k)));
+  }
+  .stage-wrap::before,.stage-flare{--pool-x:50%}
+  .phos{font-size:clamp(34px,9.4vw,44px)}
+}
+
+/* ---------- reduced motion ---------------------------------------------- */
+/* no pin, no scrub, no morph: the stage is a plain section, the three copy
+   blocks stacked beside (under, on a phone) the phone showing the first
+   hand and the first capture's poster; story.js never plays a video */
+@media (prefers-reduced-motion:reduce){
+  .bar{transition:none}
+  .page-grain::before{animation:none}
+  .stage-wrap{height:auto; min-height:0; overflow:visible}
+  .stage-in{height:auto; align-items:start; padding-top:calc(56px + 6svh); padding-bottom:8svh}
+  .copies{align-self:auto; height:auto; display:flex; flex-direction:column; gap:40px; min-height:0}
+  .copy{position:static; opacity:1; pointer-events:auto; transform:none}
+  .phone-fig{will-change:auto}
+  .hand-layer{will-change:auto}
+  .screen{will-change:auto}
+  @media (max-width:860px){
+    .copies{height:auto}
+  }
+}

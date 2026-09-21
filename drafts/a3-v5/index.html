@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex,nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boo Machine — a cursed disc player for your iPhone</title>
+<meta name="description" content="Boo Machine is a Halloween soundboard for iPhone, built as a cursed disc player. Tap a creepy sound, loop the room, change the disc. iPhone beta open on TestFlight.">
+<meta name="theme-color" content="#000000">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Boo Machine — a cursed disc player for your iPhone">
+<meta property="og:description" content="A cursed disc player for your iPhone. Beta open on TestFlight.">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/icon.webp" type="image/webp">
+<link rel="preload" href="fonts/Jacquard12-Regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/title-sign.webp" as="image">
+<link rel="preload" href="assets/unit-vampire-starter.webp" as="image">
+<style>
+@font-face{font-family:"Jacquard12";src:url("fonts/Jacquard12-Regular.woff2") format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Barlow";src:url("fonts/Barlow-Medium.woff2") format("woff2");font-weight:500;font-display:swap}
+
+:root{
+  --ink:#000; --case:#292724; --well:#1E1E1E; --key:#282828; --key-down:#1C1C1C;
+  --paper:#EEE8DF; --row:#C4BFBA; --muted:#A19A94; --bronze:#B39A78;
+  --amber:#FFB347; --amber-dim:#C87F1E; --red:#F90000;
+  --gut:clamp(16px,4vw,48px);
+
+  /* disc radius on screen — everything in the rig is derived from this */
+  --Tr:min(34vw,21.5svh);
+  /* where the disc centre is pinned, measured from the top of the hero.
+     v4: a LENGTH, not a percentage of the plane: the planes now reach
+     16svh below the hero (so the arm can dissolve across the boundary
+     instead of at it) and a percentage would have moved the disc with them. */
+  --hero-h:max(100svh, 560px);
+  --disc-y:calc(var(--hero-h) * .43);
+  --tilt-x:0deg; --tilt-y:0deg;
+  /* how hard the reflection is screened onto the photograph
+     (v2i: .45 -> .52, +15 %, so the iris and the specular keep up with the
+     stronger sign reflection and the disc still reads metallic) */
+  --light-op:.52;
+}
+
+@property --dy{syntax:"<number>";inherits:false;initial-value:0}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+html{-webkit-text-size-adjust:100%}
+body{
+  background:var(--ink); color:var(--row);
+  font-family:"Barlow",system-ui,sans-serif; font-weight:500; font-size:16px; line-height:1.5;
+  min-height:100svh; display:flex; flex-direction:column; overflow-x:hidden;
+}
+img{display:block;max-width:100%}
+a{color:inherit}
+::selection{background:var(--amber);color:#160D02}
+:focus-visible{outline:2px solid var(--bronze);outline-offset:4px}
+
+/* ============ hero ============ */
+.hero{
+  /* v3: the hero is ONE viewport (the story scrolls in under it); v2m let
+     it fill the page minus the footer, which is the same height on a page
+     with nothing else. */
+  position:relative; flex:0 0 auto; height:100svh; min-height:560px;
+  display:block;
+  /* v4: clipped sideways only. Vertically the hero is open, and it paints
+     ABOVE .below (z 2 vs 1), so the planes (16svh taller than the hero) can
+     carry the hand's dissolving arm across the boundary into the story. */
+  overflow:clip visible; z-index:2;
+  --rl-k:1;                         /* the bulb's scroll factor (story.js, title.css) */
+  /* the room the machine sits in: one cold pool of light, nothing else */
+  background:
+    /* v4: the failing bulb's pool at the hero's foot — it is the SAME
+       ellipse the story's top starts with (story.css .story), mirrored on
+       the boundary, so the two sections share one pool of light and the
+       edge between them is not a line. The slide zone's black gradient
+       covers it at rest and leaves with the zone on scroll. */
+    radial-gradient(70% 38% at 50% 100%, rgba(96,10,8,.34), rgba(96,10,8,.10) 55%, rgba(0,0,0,0) 100%),
+    radial-gradient(120% 70% at 50% 44%, #15120E 0%, #0A0908 38%, #000 72%);
+}
+
+/* ---- masthead ---- */
+.masthead{
+  position:absolute; left:0; right:0; top:0;
+  padding:clamp(18px,4.2svh,52px) var(--gut) 0;
+  text-align:center; pointer-events:none;
+}
+/* ---- the title and the room light live in title.css (drop-in) ----
+   V2's .title / .title::after / .title .on / @keyframes power were removed
+   from this inline block; title.css redefines all four. Size, position and the
+   overlap with the disc are unchanged from v2b — only the z-order moved. ---- */
+/* v2f: the strapline ("A cursed disc player for your iPhone.") is GONE — the
+   client cut it. Its rule went with it; the space it held is handed back to
+   the control by the taller `bottom` on .unlock-zone below, so the slide sits
+   where it did (a few px higher), not 35 px lower. */
+@keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.note{
+  margin:0; font-size:11px; letter-spacing:.7px; color:#8E8882;
+  text-shadow:0 0 12px #000,0 0 24px rgba(0,0,0,.9);
+  opacity:0; animation:fadein .8s ease 1.05s both;
+}
+
+/* ---- stage: the unit (hand + disc, one photograph) and its reflection ---- */
+.stage{
+  position:absolute; inset:0;
+  cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent;
+}
+.plane{
+  position:absolute; left:0; right:0; top:0; bottom:-16svh;
+  perspective:1400px; perspective-origin:50% var(--disc-y);
+  pointer-events:none;              /* v4: the stage's own box is the click target */
+  /* v4: story.js scrubs a translate + scale onto the plane itself (the
+     wrapper of the rig); the rig's own rotate stays untouched */
+  will-change:transform;
+}
+.plane.veil{
+  /* no ghosting: the unit runs at full strength everywhere it matters. All that
+     is left is a dissolve at the very bottom so the arm does not collide with
+     the control. */
+  --veil:linear-gradient(to bottom,#000 0 calc(100% - 26svh),rgba(0,0,0,.5) calc(100% - 12svh),transparent 100%);
+  -webkit-mask-image:var(--veil); mask-image:var(--veil);
+}
+.rig{
+  position:absolute; left:50%; top:var(--disc-y); width:0; height:0;
+  transform-style:preserve-3d;
+  transform:rotateY(var(--tilt-x)) rotateX(var(--tilt-y));
+  transition:transform .6s cubic-bezier(.16,.64,.32,1);
+}
+
+/* Per-hand placement, derived from a3/mattes/disc-<name>.json so the
+   photographed disc lands on exactly the same screen point for all three hands:
+     width = --Tr / (r% / 100)            height = width * 1750/1400
+     left  = -cx% * width                 top    = -cy% * height
+   By construction the disc centre of the unit image sits on the rig origin and
+   its radius is exactly --Tr. Unchanged from v2b: the unit files use the same
+   1400x1750 frame and the same disc circle as the mattes. */
+/* v2f: --dy is a per-hand vertical nudge, in units of --Tr (the disc radius),
+   POSITIVE = up. It is folded into `top` in this one rule, which every plane
+   shares (.unit, .lbox, .sbox all carry the same .l-* class), so a hand and
+   its light box and its spill box cannot come apart. The reflection and the
+   spill correct for it — see fx.js drawRefl() and .sbox .d-spill in fx.css. */
+.l-vampire{--dy:.02;width:calc(var(--Tr)*3.53995);left:calc(var(--Tr)*-1.70045);top:calc(var(--Tr)*-1.62479 - var(--Tr)*var(--dy))}
+.l-wolf   {--dy:0;width:calc(var(--Tr)*3.31422);left:calc(var(--Tr)*-1.55536);top:calc(var(--Tr)*-1.54724 - var(--Tr)*var(--dy))}
+.l-witch  {--dy:-.10;width:calc(var(--Tr)*3.85022);left:calc(var(--Tr)*-1.24751);top:calc(var(--Tr)*-2.29596 - var(--Tr)*var(--dy))}
+/* >>> witch-frame >>> */
+/* units-e: the witch is photographed in a WIDER frame than the other two
+     (1820 x 1750), so her three planes carry their own aspect. Written by
+     work/swap-e.sh — do not hand-edit. */
+.unit.l-witch,.lbox.l-witch,.sbox.l-witch{aspect-ratio:1820/1750}
+/* <<< witch-frame <<< */
+/* ...and the disc centre inside that box, as a fraction of the box, so the
+   reflection AND the amber spill can be positioned in the UNIT's coordinate
+   frame (= disc_pct). Both planes use the same three boxes. */
+.p-light .l-vampire,.p-spill .l-vampire{--fx:48.036%;--fy:36.719%}
+.p-light .l-wolf   ,.p-spill .l-wolf   {--fx:46.930%;--fy:37.348%}
+.p-light .l-witch  ,.p-spill .l-witch  {--fx:32.401%;--fy:62.017%}
+
+/* ---- the unit plane: 9 photographs, one visible ----
+   hand x art. All nine stay in the DOM and stay loaded so window.booUnit.set()
+   can switch art independently of the hand later; only the first is preloaded. */
+.unit{
+  position:absolute; max-width:none; height:auto; aspect-ratio:1400/1750;
+  opacity:0; transition:opacity 1.05s ease; pointer-events:none;
+}
+.unit.is-on{opacity:1}
+
+/* ---- the light plane: the reflection, in the unit's frame ----
+   One .lbox per hand, sized and placed exactly like that hand's unit, carrying
+   that hand's face mask (white = disc face visible, black over fingers and
+   outside the disc) at mask-size 100% 100% — so the mask needs no arithmetic
+   and cannot drift from the photograph. Inside it, the 2x--Tr reflection is
+   centred on the photographed disc centre (--fx/--fy).
+   The whole plane is screened onto the page, so the layers inside can stay
+   exactly as disc.css paints them (black = off) and nothing can darken. */
+.lbox{
+  position:absolute; aspect-ratio:1400/1750;
+  opacity:0; transition:opacity 1.05s ease; pointer-events:none;
+  /* the face mask below must not reach the page: this group is closed */
+  isolation:isolate;
+}
+.lbox.is-on{opacity:1}
+.lbox.l-vampire{--face:url("assets/face-vampire.png")}
+.lbox.l-wolf   {--face:url("assets/face-wolf.png")}
+.lbox.l-witch  {--face:url("assets/face-witch.png")}
+.lbox .disc-light{
+  left:calc(var(--fx) - var(--Tr));
+  top:calc(var(--fy) - var(--Tr));
+}
+/* The face mask, applied by MULTIPLYING it into the light instead of with
+   mask-image. Same result — white keeps the light, black kills it, grey
+   feathers it — because the plane is screened onto the page and black is
+   screen's no-op, which is the convention disc.css is written in.
+   Why not mask-image: Chromium refuses to load a mask image over file://
+   (each file is its own opaque origin, and a mask may not be cross-origin),
+   so `mask-image:url(face-*.png)` silently masks the layer away to NOTHING
+   when index.html is opened from disk — which is how this draft is reviewed.
+   Verified: over http the mask-image version works, from disk it does not.
+   Multiply has no such rule and behaves identically in both. */
+.lbox .d-face{
+  position:absolute; inset:0; pointer-events:none;
+  background-image:var(--face);
+  background-size:100% 100%; background-repeat:no-repeat;
+  mix-blend-mode:multiply;
+}
+
+/* ---- slide to unlock ----
+   v2f: the control itself (track, knob, label, the furnace behind it) lives in
+   slide.css and slide.js. What stays here is only the ZONE it sits in. */
+.unlock-zone{
+  /* v2f: was clamp(14px,3.4svh,40px). The zone is anchored to the BOTTOM, so
+     dropping the strapline from the top of the column does not move the
+     control at all — measured, 719.4 px both before and after at 1440x900.
+     What it does leave is 35 px of reclaimed air above it, and this small
+     lift (about 7 px at 1440x900, 6 px at 375) spends a little of it so the
+     control sits where it did, a touch higher, with the rest going to the
+     hand. */
+  position:absolute; left:0; right:0; bottom:clamp(18px,4.2svh,46px);
+  padding-inline:var(--gut);
+  display:flex; flex-direction:column; align-items:center; gap:clamp(10px,1.6svh,16px);
+}
+.unlock-zone.is-gone{visibility:hidden}
+.unlock-zone::before{
+  content:""; position:absolute; z-index:-1; left:0; right:0; bottom:-40px;
+  top:clamp(-70px,-7svh,-40px);
+  background:linear-gradient(to top,#000 26%,rgba(0,0,0,.86) 56%,rgba(0,0,0,0) 100%);
+  pointer-events:none;
+}
+
+/* ============ footer ============ */
+.foot{
+  flex:0 0 auto; position:relative; z-index:4;
+  display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between;
+  gap:6px 26px; padding:clamp(14px,2.2svh,20px) var(--gut);
+  border-top:1px solid #15140F; background:#000;
+  font-size:11px; letter-spacing:1.6px; text-transform:uppercase; color:#838078;
+}
+.foot a{color:#B3ACA5;text-decoration:none;transition:color .25s}
+.foot span a{text-decoration:underline;text-decoration-color:rgba(179,172,165,.45);text-underline-offset:3px}
+.foot a:hover{color:var(--paper)}
+.foot nav{display:flex;gap:20px}
+.foot .made{flex:1 1 320px;text-align:center;letter-spacing:1.2px;text-transform:none;font-size:11px;color:#7E7872}
+
+@media (max-width:860px){
+  .foot{justify-content:center;text-align:center;gap:8px 18px}
+  .foot .made{order:3;flex:1 1 100%}
+}
+@media (max-width:520px){
+  :root{--Tr:min(40vw,22svh);--disc-y:calc(var(--hero-h) * .33)}
+  /* v2f: the phone is NOT the desktop rig scaled down — --Tr is 150 px against
+     a 57 px letter band there. v2i: the Pirata sign's letters sit lower than
+     Jacquard's, so the nudge that kept the disc under a third of a column
+     (+.06) now hid 70 %; at 0 the disc takes 28 % of the worst column and the
+     vampire's nail still touches the 'a' (measured, qa/v2i/cover.py). */
+  .l-vampire{--dy:0}
+  .l-wolf   {--dy:0}
+  .l-witch  {--dy:-.06}
+  .plane.veil{--veil:linear-gradient(to bottom,
+    #000 0 calc(100% - 30svh), rgba(0,0,0,.5) calc(100% - 14svh), transparent 100%)}
+  .foot{font-size:10px;letter-spacing:1.2px}
+  .foot nav{gap:16px}
+}
+/* short-and-wide: keep the disc from crowding the title */
+@media (max-height:760px) and (min-width:861px){
+  :root{--Tr:min(30vw,20svh)}
+  /* v2f: the disc shrinks here but --disc-y stays at 43 % of a SHORTER hero,
+     so the disc is already closer to the (unchanged, 178 px) title than it is
+     at 1440x900. v2i: with the Pirata sign (letters 171 px tall, bottom at
+     y 199 here) every hand has to drop BELOW its rest to hold the third:
+     -.10 puts the worst column at 36 %, -.12 for the witch at 33 %, and all
+     three still overlap the letters (the vampire's nail by ~34 px). There is
+     ~100 px of air between the lowest disc and the control here. */
+  .l-vampire{--dy:-.10}
+  .l-wolf   {--dy:-.10}
+  .l-witch  {--dy:-.12}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .title .on,.note{animation:none;opacity:1}
+  .rig,.unit,.lbox,.sbox{transition:none}
+}
+</style>
+<link rel="stylesheet" href="disc.css">
+<link rel="stylesheet" href="title.css">
+<link rel="stylesheet" href="fx.css">
+<link rel="stylesheet" href="slide.css">
+<link rel="stylesheet" href="story.css">
+<link rel="stylesheet" href="heading.css">
+<style>
+/* ============ z-order, in one place ============
+   Nothing between .hero and these elements creates a stacking context, so all
+   of them sit in ONE context and these numbers are the whole story. Loaded
+   after title.css on purpose: it ships .rl-halo at 1 and .rl-wash at 4.
+
+     1  .rl-halo      the red bulb glowing in the air
+     2  .title        THE TITLE IS BEHIND THE HANDS (client's call; the witch's
+                      arm covering much of it is accepted)
+     3  .p-unit       the photograph: hand + disc, one image
+     4  .p-spill      v2d: the sign's amber, masked to the hand's silhouette
+     5  .p-light      the reflection, screened onto the photograph
+     6  .rl-wash      the red bulb's rim light, over everything on the stage
+     7  .fx-motes     v2d: dust drifting in the red light
+     8  .fx-grain     v2d: the film the whole thing is shot on
+     9  .unlock-zone  the slide control
+   (4 and 7-8 are declared in fx.css; the numbers live here.)              */
+.p-unit{z-index:3}
+/* v5: the hero scrub moves the title and the slide zone (translate) and the
+   bulb's opacity (--rl-k, and its own flicker): all four are their own
+   composited layers, so a scroll changes no pixels on the main thread. */
+.title,.unlock-zone{will-change:transform}
+.rl-halo,.rl-wash{will-change:opacity}
+.p-light{
+  z-index:5;
+  /* screen: the reflection may only ADD light. It has to blend with the unit
+     plane below it, which lives in a different .plane, so the blend goes on the
+     PLANE — .lbox/.rig are already isolated by their mask and their transform. */
+  mix-blend-mode:screen;
+  opacity:var(--light-op);
+}
+.rl-wash{z-index:6}
+.unlock-zone{z-index:9}
+</style>
+</head>
+<body>
+
+<!-- v5: the floating ISLAND (story.css .bar): a centred capsule. story.js
+     slides it down once the hero's slider has scrolled off the top and up
+     when the slider is back. Its button and the slider's href both come
+     from STORE_URL / STORE_LABEL below. -->
+<div class="bar" id="bar" aria-hidden="true">
+  <a class="bar-brand" href="#hero"><img src="assets/icon.webp" alt="" width="28" height="28" decoding="async"><span>Boo Machine</span></a>
+  <a class="bar-cta" id="barCta" href="https://testflight.apple.com/join/jr1YqwtJ">Join the beta</a>
+</div>
+
+<!-- data-fx: the v2d atmosphere switches plus v2f's `hell`, all on. Drop a
+     token to compare; ?fx=none / ?fx=refl / ?fx=-hell does the same from the
+     URL. With `hell` off the slide is a plain dark track that still drags,
+     still completes and still goes to TestFlight. -->
+<main class="hero" id="hero" data-fx="refl grain motes spill plate topglow buzz hell">
+
+  <!-- v2e-b: the sign is a PHOTOGRAPH (assets/title-sign.webp). v2i: it is
+       the PIRATA ONE sign from signs/pirata (a red tube sign generated from a
+       white-on-black render of the word in Pirata One, matted off black). The <h1> still carries the text at exactly
+       the same size and place; it just paints nothing, so the box, the disc
+       overlap and the hands-in-front z-order are unchanged. -->
+  <div class="masthead">
+    <h1 class="title" aria-label="Boo Machine"><span class="plate" aria-hidden="true"></span><img class="signimg" src="assets/title-sign.webp" alt="" aria-hidden="true" width="1927" height="791" fetchpriority="high" decoding="async"><span class="on">Boo Machine</span></h1>
+  </div>
+
+  <div class="stage" id="stage" role="button" tabindex="0" aria-label="Change the disc">
+
+    <!-- the unit plane: hand and disc are ONE photograph, 3 hands x 3 arts -->
+    <div class="plane veil p-unit"><div class="rig">
+      <img class="unit l-vampire is-on" data-hand="0" data-art="0" src="assets/unit-vampire-starter.webp"   alt="A vampire's pale clawed hand holding a disc" width="1400" height="1750" fetchpriority="high">
+      <img class="unit l-vampire"       data-hand="0" data-art="1" src="assets/unit-vampire-creatures.webp" alt="A vampire's pale clawed hand holding a disc" width="1400" height="1750" loading="lazy" aria-hidden="true">
+      <img class="unit l-vampire"       data-hand="0" data-art="2" src="assets/unit-vampire-coven.webp"     alt="A vampire's pale clawed hand holding a disc" width="1400" height="1750" loading="lazy" aria-hidden="true">
+
+      <img class="unit l-wolf" data-hand="1" data-art="0" src="assets/unit-wolf-starter.webp"   alt="A werewolf's clawed paw holding a disc" width="1400" height="1750" loading="lazy" aria-hidden="true">
+      <img class="unit l-wolf" data-hand="1" data-art="1" src="assets/unit-wolf-creatures.webp" alt="A werewolf's clawed paw holding a disc" width="1400" height="1750" loading="lazy" aria-hidden="true">
+      <img class="unit l-wolf" data-hand="1" data-art="2" src="assets/unit-wolf-coven.webp"     alt="A werewolf's clawed paw holding a disc" width="1400" height="1750" loading="lazy" aria-hidden="true">
+
+      <img class="unit l-witch" data-hand="2" data-art="0" src="assets/unit-witch-starter.webp"   alt="A witch-creature's hand pinching a disc between two fingers" width="1820" height="1750" loading="lazy" aria-hidden="true">
+      <img class="unit l-witch" data-hand="2" data-art="1" src="assets/unit-witch-creatures.webp" alt="A witch-creature's hand pinching a disc between two fingers" width="1820" height="1750" loading="lazy" aria-hidden="true">
+      <img class="unit l-witch" data-hand="2" data-art="2" src="assets/unit-witch-coven.webp"     alt="A witch-creature's hand pinching a disc between two fingers" width="1820" height="1750" loading="lazy" aria-hidden="true">
+    </div></div>
+
+    <!-- the spill plane (v2d): the title is a lamp. One isolated box per hand
+         holding an opaque black field + a soft amber gradient that starts at
+         the title's own bounding box and stops at the disc centre, with that
+         hand's silhouette multiplied over it. Screened onto the page, so only
+         the amber that lands on the photographed hand survives. -->
+    <div class="plane veil p-spill" aria-hidden="true"><div class="rig">
+      <div class="sbox l-vampire is-on" data-hand="0"><div class="d-spill"></div><div class="d-hand"></div></div>
+      <div class="sbox l-wolf"          data-hand="1"><div class="d-spill"></div><div class="d-hand"></div></div>
+      <div class="sbox l-witch"         data-hand="2"><div class="d-spill"></div><div class="d-hand"></div></div>
+    </div></div>
+
+    <!-- the light plane: one masked box per hand, same tilt rig as the unit -->
+    <div class="plane p-light" aria-hidden="true"><div class="rig">
+      <div class="lbox l-vampire is-on" data-hand="0">
+        <div class="disc-light"><div class="d-iris"></div><div class="d-iris2"></div><div class="d-spec"></div><canvas class="d-refl" width="2" height="2"></canvas></div>
+        <div class="d-face"></div>
+      </div>
+      <div class="lbox l-wolf" data-hand="1">
+        <div class="disc-light"><div class="d-iris"></div><div class="d-iris2"></div><div class="d-spec"></div><canvas class="d-refl" width="2" height="2"></canvas></div>
+        <div class="d-face"></div>
+      </div>
+      <div class="lbox l-witch" data-hand="2">
+        <div class="disc-light"><div class="d-iris"></div><div class="d-iris2"></div><div class="d-spec"></div><canvas class="d-refl" width="2" height="2"></canvas></div>
+        <div class="d-face"></div>
+      </div>
+    </div></div>
+
+  </div>
+
+  <!-- room light: a failing red bulb over the machine.
+       .rl-halo (z1) is the lowest thing on the stage — BEHIND the title (z2);
+       .rl-wash (z5) sits above the unit (z3) and its reflection (z4) so the
+       grip and the disc rim pick up a red rim from above. Both screen-blend.
+       The position of this block in the DOM is load-bearing. -->
+  <div class="roomlight" aria-hidden="true">
+    <span class="rl-halo"></span>
+    <span class="rl-wash"></span>
+  </div>
+
+  <!-- v2d: the air (dust in the red light) and the film it is shot on.
+       Both are pure atmosphere: aria-hidden, pointer-events:none, and they sit
+       under .unlock-zone so nothing touches the control's legibility. -->
+  <canvas class="fx-motes" aria-hidden="true" width="2" height="2"></canvas>
+  <div class="fx-grain" aria-hidden="true"></div>
+
+  <p id="discNow" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap">Haunted house</p>
+
+  <!-- v2m: v2l's light (the space the knob has uncovered is a cavity
+       flooded with red-hot light from a source behind the knob, drawn on
+       the canvas below, which IS the track's box, clipped to its inner
+       rounded rect) with the COMPLETION rebuilt after the note "there's a
+       white flash when I reach the end": no flare element, no white-out.
+       Held past the threshold the control ARMS — the light's clocks run ~2x,
+       the core rises ~25 %, the knob's rim brightens (--ka), the room light
+       goes to 1.9; released while armed, the knob eases to the end, the
+       light holds, and the page goes to TestFlight after 650 ms. A plain
+       click or tap (on the knob or the track) slides it through on its own
+       (~700 ms) and then does the same. The <a> never navigates on its own
+       click. `?slide=0.4` parks the knob at 40 %; `?slide=armed` parks it
+       armed at 85 %; `?slide=done` shows the held completion without
+       navigating; `?nonav=1` makes the href #gone for tests;
+       booSlide.click() / .go() / .arm() drive the flow. -->
+  <div class="unlock-zone">
+    <div class="unlock-wrap" id="unlockWrap">
+      <div class="unlock" id="unlock">
+        <canvas class="hell-flame" aria-hidden="true" width="2" height="2"></canvas>
+        <span class="flame-clip" aria-hidden="true"><span class="flame-glow"></span></span><!-- the idle state, left cap -->
+        <span class="unlock-label" id="unlockLabel">slide to join the beta</span>
+        <a class="knob" id="knob" href="https://testflight.apple.com/join/jr1YqwtJ" draggable="false"
+           aria-label="Slide to join the iPhone beta on TestFlight">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <g class="g">
+              <circle cx="8" cy="12" r="3.4"/>
+              <path d="M11.4 12H21"/>
+              <path d="M17.6 12v3.4"/>
+              <path d="M20.4 12v2.4"/>
+            </g>
+          </svg>
+        </a>
+      </div>
+    </div>
+    <p class="note">Free on TestFlight · App Store coming soon</p>
+  </div>
+
+</main>
+
+<!-- ============ the story: one pinned stage ============
+     v5. ONE phone for the whole story. story.js pins .stage-wrap for 300svh
+     of scroll (GSAP ScrollTrigger) and drives ONE scroll-scrubbed timeline:
+     the stage progress p is the only clock. The creature hand MORPHS to
+     the next over p .30-.40 and .63-.73 (a WebGL noise-displacement between
+     the two photographs reading t = the position in the window; a plain
+     crossfade with the same t without WebGL), the capture on the display
+     crossfades over the middle of the window, the red flare peaks
+     mid-window, the copy block fades up on the other side. At any p there
+     is exactly one defined picture, so scrolling back and forth cannot
+     leave a morph half-done. Only the clip of the current state plays;
+     the others are display:none until just before their crossfade.
+
+     .phone holds, in the same 1400 x 1750 frame:
+       .hands     three hand layers (data-hand), one .is-on; data-quad = the
+                  display quad in THAT image's own px (story.js fits each
+                  layer onto the shared quad); the .morph canvas over them
+       .plate     the shared phone (phones2/phone-plate.webp: display cut
+                  out) — hidden while data-phones="1" (the v3 stand-in:
+                  each hand image still carries its own phone)
+       .display   the mapped display: three <video>s (data-clip) + glass,
+                  in .screen, mapped onto data-quad (the SHARED quad, image
+                  px, TL TR BR BL) by story.js; data-mask = its alpha
+       .flare     the red rim light that stutters on a morph
+     work/swap-phones2.sh flips this to data-phones="2" with the real files
+     (layer order in story.css). -->
+<div class="below">
+<div class="page-grain" aria-hidden="true"></div>
+<section class="story" id="story" aria-label="What Boo Machine does">
+  <div class="stage-wrap" id="storyStage">
+    <div class="stage-flare" aria-hidden="true"></div>
+    <div class="stage-in">
+
+      <div class="copies" id="copies">
+        <div class="copy is-on" data-i="0">
+          <h2 class="phos is-img" data-fit="-7.734,-133.908,114.969,364.943" data-ink="2405,174" data-font="244"><span class="txt">One key, one creepy sound.</span><span class="bl" aria-hidden="true"></span><img class="headimg" src="assets/heading-1.webp" alt="" aria-hidden="true" width="2765" height="635" decoding="async"></h2>
+          <p class="lede">Wind, then Whisper. Six sounds free on the Haunted house disc, and every key is a scene.</p>
+        </div>
+        <div class="copy" data-i="1" aria-hidden="true">
+          <h2 class="phos is-img" data-fit="-5.763,-74.713,110.853,246.552" data-ink="1336,174" data-font="244"><span class="txt">Loop the room.</span><span class="bl" aria-hidden="true"></span><img class="headimg" src="assets/heading-2.webp" alt="" aria-hidden="true" width="1481" height="429" decoding="async"></h2>
+          <p class="lede">Hit Repeat, layer Wind, Whisper and Knock, and let the house breathe on its own.</p>
+        </div>
+        <div class="copy" data-i="2" aria-hidden="true">
+          <h2 class="phos is-img" data-fit="-9.900,-129.885,119.369,343.679" data-ink="1394,174" data-font="244"><span class="txt">Change the disc.</span><span class="bl" aria-hidden="true"></span><img class="headimg" src="assets/heading-3.webp" alt="" aria-hidden="true" width="1664" height="598" decoding="async"></h2>
+          <p class="lede">Eject, pick Creature feature from the collection, and the whole player turns. Then: Werewolf.</p>
+        </div>
+      </div>
+
+      <figure class="phone-fig" id="phoneFig">
+        <div class="phone" id="phone" data-phones="3" data-quad="547,332 1309,332 1309,1988 547,1988" data-mask="phones3/screen.png">
+          <div class="hands" id="hands">
+            <img class="hand-layer is-on" data-hand="vampire" data-quad="547,332 1309,332 1309,1988 547,1988" src="phones3/hand-vampire.webp" width="1856" height="2320" alt="A vampire's pale clawed hand holding an iPhone" decoding="async">
+            <img class="hand-layer" data-hand="wolf" data-quad="547,332 1309,332 1309,1988 547,1988" src="phones3/hand-wolf.webp" width="1856" height="2320" alt="A werewolf's clawed paw holding an iPhone" decoding="async" fetchpriority="low" aria-hidden="true">
+            <img class="hand-layer" data-hand="witch" data-quad="547,332 1309,332 1309,1988 547,1988" src="phones3/hand-witch.webp" width="1856" height="2320" alt="A witch-creature's hand holding an iPhone from behind" decoding="async" fetchpriority="low" aria-hidden="true">
+            <canvas class="morph" aria-hidden="true" width="2" height="2"></canvas>
+          </div>
+          <img class="plate" src="phones3/phone-plate.webp" width="1856" height="2320" alt="" aria-hidden="true" decoding="async">
+          <div class="display"><div class="screen">
+            <video class="clip is-on" data-clip="tap" muted loop playsinline preload="metadata" width="906" height="1970" poster="captures/tap-poster.webp" aria-label="The Boo Machine player on Haunted house: Wind is tapped, then Whisper; each key lights and the display shows the sound's name">
+              <source src="captures/tap.webm" type="video/webm">
+              <source src="captures/tap.mp4" type="video/mp4">
+            </video>
+            <video class="clip" data-clip="loop" muted loop playsinline preload="none" width="906" height="1970" poster="captures/loop-poster.webp" aria-label="Repeat is switched on, then Wind, Whisper and Knock are layered and loop on their own" aria-hidden="true">
+              <source src="captures/loop.webm" type="video/webm">
+              <source src="captures/loop.mp4" type="video/mp4">
+            </video>
+            <video class="clip" data-clip="disc" muted loop playsinline preload="none" width="906" height="1970" poster="captures/disc-poster.webp" aria-label="Eject opens the tray, the collection shows three discs, Creature feature loads, Werewolf plays" aria-hidden="true">
+              <source src="captures/disc.webm" type="video/webm">
+              <source src="captures/disc.mp4" type="video/mp4">
+            </video>
+            <img class="glass" src="phones/glass.png" alt="" aria-hidden="true" width="604" height="1312" decoding="async">
+          </div></div>
+          <div class="flare" aria-hidden="true"></div>
+        </div>
+      </figure>
+
+    </div>
+  </div>
+</section>
+
+<section class="support" id="support">
+  <h2>Support</h2>
+  <p>Questions, bugs, requests: <a href="mailto:hello@fabric8.de">hello@fabric8.de</a>. Beta feedback is welcome straight from TestFlight, too.</p>
+</section>
+
+<footer class="foot">
+  <span class="who">© 2026 Fabricio Rosa Marques</span>
+  <span class="sep sep-who" aria-hidden="true">·</span>
+  <nav aria-label="Footer"><a href="legal.html">Legal</a><span class="sep" aria-hidden="true">·</span><a href="press/boo-machine-press-kit.zip" download>Press kit (ZIP)</a></nav>
+</footer>
+</div>
+
+<script>
+/* ==== the store link, in ONE place ====================================
+   At launch flip these two to the App Store: the floating bar's button and
+   the slider's href both read them (the bar's label too). The slider's own
+   label / note text is in the markup above. */
+var STORE_URL = "https://testflight.apple.com/join/jr1YqwtJ";
+var STORE_LABEL = "Join the beta";
+(function(){
+  var cta=document.getElementById("barCta"), knob=document.getElementById("knob");
+  if(cta){ cta.href=STORE_URL; cta.textContent=STORE_LABEL; }
+  if(knob) knob.setAttribute("href",STORE_URL);   /* slide.js may override it with #gone under ?nonav=1 */
+})();
+</script>
+<script src="disc.js"></script>
+<script>
+(function(){
+  "use strict";
+  var HANDS=["vampire","wolf","witch"];
+  var ARTS=["starter","creatures","coven"];
+  var NAMES=["Haunted house","Creature feature","The coven"];
+  var reduce=window.matchMedia("(prefers-reduced-motion: reduce)");
+  var root=document.documentElement;
+  var stage=document.getElementById("stage");
+  var live=document.getElementById("discNow");
+  var units=[].slice.call(document.querySelectorAll(".p-unit .unit"));
+  var lboxes=[].slice.call(document.querySelectorAll(".p-light .lbox"));
+  var sboxes=[].slice.call(document.querySelectorAll(".p-spill .sbox"));
+  var hand=0, art=0, timer=null;
+
+  /* On this page the hand index and the art index are the same thing: the disc
+     changes with the grip that holds it. They are kept as two numbers anyway so
+     a later art picker can move one without the other — window.booUnit.set(). */
+  function paint(){
+    units.forEach(function(el){
+      var on=(+el.dataset.hand===hand && +el.dataset.art===art);
+      el.classList.toggle("is-on", on);
+      /* opacity:0 does not remove a node from the a11y tree, and nine alt
+         strings in a row is noise: only the visible unit is exposed. */
+      if(on) el.removeAttribute("aria-hidden"); else el.setAttribute("aria-hidden","true");
+    });
+    lboxes.forEach(function(el){ el.classList.toggle("is-on", +el.dataset.hand===hand); });
+    sboxes.forEach(function(el){ el.classList.toggle("is-on", +el.dataset.hand===hand); });
+    live.textContent=NAMES[art];
+  }
+  function idx(v,list,fallback){
+    if(typeof v==="string"){ var i=list.indexOf(v); return i<0?fallback:i; }
+    if(v===null||v===undefined||v!==v) return fallback;
+    return ((+v|0)%3+3)%3;
+  }
+  function setUnit(h,a){ hand=idx(h,HANDS,hand); art=idx(a,ARTS,art); paint(); }
+  function show(i){ setUnit(i,i); }              /* the page's own cycle */
+
+  /* QA hook: hold(true) stops the 7 s cycle so a screenshot cannot land on the
+     wrong unit. ?hold=1 does the same from the URL. Default behaviour unchanged. */
+  var held=false;
+  window.booUnit={
+    set:setUnit,
+    get hand(){return hand;}, get art(){return art;},
+    get handName(){return HANDS[hand];}, get artName(){return ARTS[art];},
+    hands:HANDS, arts:ARTS,
+    hold:function(v){ held=(v!==false); restart(); return held; }
+  };
+
+  function restart(){
+    if(timer){clearInterval(timer);timer=null;}
+    if(!reduce.matches && !held) timer=setInterval(function(){show(hand+1);},7000);
+  }
+  function advance(){show(hand+1);restart();}
+  stage.addEventListener("click",advance);
+  stage.addEventListener("keydown",function(e){
+    if(e.key==="Enter"||e.key===" "){e.preventDefault();advance();}
+  });
+
+  /* ---- tilt and the reflection's light angle ---- */
+  var tx=0,ty=0,cx=0,cy=0,lastMove=-1e9,holdUntil=-1e9,raf=null;
+  function set(){
+    /* the page tilts both rigs; nothing inside the light element is transformed
+       by the page, only by disc.css */
+    /* v3: pointer parallax x1.6 — 4deg -> 6.4deg of tilt at the stage's
+       edge (the light's slide is scaled the same way in disc.css / fx.css) */
+    root.style.setProperty("--tilt-x",(cx*6.4).toFixed(2)+"deg");
+    root.style.setProperty("--tilt-y",(-cy*6.4).toFixed(2)+"deg");
+    /* third arg true: this loop already smooths, disc.js must not ease again */
+    if(window.Disc) window.Disc.setPointer(cx,cy,true);
+  }
+  function frame(ts){
+    if(ts>holdUntil && ts-lastMove>2200){ /* nobody is pointing: a slow idle sway */
+      var t=ts/1000;
+      /* v3: the idle sway at x2 the amplitude (0.55/0.42 -> 1.1/0.84) and a
+         touch faster (0.42/0.27 -> 0.5/0.32 rad/s). The tilt takes the full
+         1.1 (7 deg); the light clamps at 1 in disc.js. */
+      tx=Math.sin(t*0.5)*1.1; ty=Math.sin(t*0.32+1.1)*0.84;
+    }
+    cx+=(tx-cx)*0.075; cy+=(ty-cy)*0.075;
+    set();
+    raf=requestAnimationFrame(frame);
+  }
+  function clamp1(v){ v=+v; if(v!==v) return 0; return v<-1?-1:v>1?1:v; }
+  /* QA hook: park the pointer at (x,y) and keep the idle sway off it for 5s,
+     so a screenshot taken a second later is reproducible. */
+  function setPointer(x,y){
+    tx=clamp1(x); ty=clamp1(y);
+    lastMove=performance.now();
+    holdUntil=lastMove+5000;
+    return [tx,ty];
+  }
+  window.__setPointer=setPointer;
+  window.__tiltRunning=function(){ return !!raf; };   /* QA: the loop is off while the hero is off screen */
+  function onMove(e){
+    var r=stage.getBoundingClientRect();
+    tx=Math.max(-1,Math.min(1,(e.clientX-(r.left+r.width/2))/(r.width/2)));
+    ty=Math.max(-1,Math.min(1,(e.clientY-(r.top+r.height/2))/(r.height/2)));
+    lastMove=performance.now();
+  }
+  if(!reduce.matches){
+    window.addEventListener("pointermove",onMove,{passive:true});
+    raf=requestAnimationFrame(frame);
+    /* v3: the page continues below the hero; scrolled out of view the tilt
+       loop stops (the sway reads the clock, so it resumes where it would be) */
+    if("IntersectionObserver" in window){
+      new IntersectionObserver(function(es){
+        var on=es[es.length-1].isIntersecting;
+        if(on&&!raf) raf=requestAnimationFrame(frame);
+        else if(!on&&raf){cancelAnimationFrame(raf);raf=null;}
+      },{threshold:0}).observe(document.getElementById("hero"));
+    }
+  }
+  /* ?px=&py= — same thing from the URL, for reproducible screenshots */
+  try{
+    var qs=new URLSearchParams(window.location.search);
+    if(qs.has("px")||qs.has("py")) setPointer(qs.get("px")||0, qs.get("py")||0);
+    if(qs.get("hold")==="1") held=true;
+  }catch(err){}
+
+  /* ---- slide to unlock: moved to slide.js (v2f) ---- */
+
+  show(0); restart();
+  reduce.addEventListener("change",function(){ restart(); });
+})();
+</script>
+<script src="title.js"></script>
+<script src="fx.js"></script>
+<script src="slide.js"></script>
+<script src="vendor/gsap.min.js"></script>
+<script src="vendor/ScrollTrigger.min.js"></script>
+<script src="heading.js"></script>
+<script src="story.js"></script>
+</body>
+</html>
