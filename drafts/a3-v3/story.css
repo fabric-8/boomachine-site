@@ -1,0 +1,206 @@
+/* ==========================================================================
+   Boo Machine — the single page below the hero   (v3)
+
+     .bar        the floating bar: icon + name, one button (STORE_URL /
+                 STORE_LABEL in index.html). Slides down once the hero's
+                 slider has left the viewport (story.js), 56 px + the safe
+                 area, dark with a red edge light.
+     .story      three scenes, each a creature hand holding a dark iPhone
+                 with a muted looping capture of the app mapped onto its
+                 display (matrix3d, story.js), copy on the other side.
+                 ~100svh each on desktop, natural height on a phone (copy
+                 above the hand). The room's red light and the film grain
+                 continue from the hero so the page stays one room.
+     .support    one paragraph.   .foot   one line.
+
+   Hero z-order is untouched (index.html). The bar sits at 50, above all of
+   it; the story is its own isolated stacking context so its grain blends
+   with the scenes only.
+   ========================================================================== */
+
+/* ---------- the floating bar ------------------------------------------- */
+.bar{
+  position:fixed; left:0; right:0; top:0; z-index:50;
+  --bar-h:56px;
+  height:calc(var(--bar-h) + env(safe-area-inset-top, 0px));
+  padding:env(safe-area-inset-top, 0px) max(var(--gut), env(safe-area-inset-left, 0px)) 0 max(var(--gut), env(safe-area-inset-right, 0px));
+  display:flex; align-items:center; justify-content:space-between; gap:16px;
+  background:rgba(8,6,6,.86);
+  -webkit-backdrop-filter:blur(14px) saturate(1.2); backdrop-filter:blur(14px) saturate(1.2);
+  border-bottom:1px solid rgba(255,38,0,.16);
+  box-shadow:0 1px 0 rgba(255,60,26,.06), 0 10px 30px rgba(0,0,0,.55);
+  transform:translateY(-100%); visibility:hidden;
+  transition:transform .38s cubic-bezier(.2,.7,.2,1), visibility 0s linear .38s;
+}
+.bar.is-on{transform:none; visibility:visible; transition:transform .38s cubic-bezier(.2,.7,.2,1), visibility 0s}
+.bar-brand{
+  display:flex; align-items:center; gap:10px; text-decoration:none;
+  color:var(--paper); font-size:14px; letter-spacing:1.4px; text-transform:uppercase;
+}
+.bar-brand img{width:28px; height:28px; border-radius:7px; box-shadow:0 0 0 1px rgba(255,255,255,.06), 0 2px 8px rgba(0,0,0,.6)}
+.bar-cta{
+  display:inline-flex; align-items:center; height:36px; padding:0 16px; border-radius:18px;
+  text-decoration:none; white-space:nowrap;
+  font-size:12px; letter-spacing:1.6px; text-transform:uppercase; color:#FFE9DF;
+  background:linear-gradient(#3A1410,#220A08);
+  border:1px solid rgba(255,38,0,.45);
+  box-shadow:inset 0 1px 0 rgba(255,168,128,.18), 0 0 14px rgba(255,38,0,.18), 0 4px 12px rgba(0,0,0,.6);
+  transition:box-shadow .25s ease, background .25s ease, border-color .25s ease;
+}
+.bar-cta:hover{background:linear-gradient(#4A1A14,#2A0C0A); border-color:rgba(255,64,20,.7); box-shadow:inset 0 1px 0 rgba(255,168,128,.22), 0 0 22px rgba(255,38,0,.32), 0 4px 12px rgba(0,0,0,.6)}
+.bar-cta:focus-visible{outline:2px solid #C4643C; outline-offset:3px}
+@media (max-width:520px){
+  .bar-brand span{font-size:13px; letter-spacing:1.2px}
+  .bar-cta{height:34px; padding:0 13px; font-size:11px; letter-spacing:1.3px}
+}
+
+/* ---------- the story ---------------------------------------------------- */
+/* everything under the hero: one isolated group so the grain blends with
+   the story, the support and the footer and nothing else; overflow:clip so
+   the sticky grain's box cannot hang out of the bottom (sticky keeps the
+   margin box inside the container, not the border box, and overflow:clip —
+   unlike hidden — does not turn this into a scroll container) */
+.below{position:relative; isolation:isolate; overflow:clip; background:#000}
+.story{
+  position:relative;
+  color:var(--row);
+  /* the room continues: the failing red bulb's pool, fading down the page */
+  background:
+    radial-gradient(70% 34% at 50% 0%, rgba(96,10,8,.42), rgba(96,10,8,.10) 55%, rgba(0,0,0,0) 100%),
+    #000;
+}
+/* the film the whole page is shot on — the hero's grain tile, pinned to the
+   viewport while the story scrolls under it (sticky, so it is only ever one
+   viewport tall; margin-bottom takes its box back out of the flow) */
+.page-grain{
+  position:sticky; top:0; height:100svh; margin-bottom:-100svh; z-index:5; pointer-events:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='g' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='2' stitchTiles='stitch' seed='7'/><feColorMatrix type='saturate' values='0'/></filter><rect width='180' height='180' filter='url(%23g)'/></svg>");
+  background-size:180px 180px; background-repeat:repeat;
+  mix-blend-mode:var(--grain-blend, hard-light);
+  opacity:var(--grain-op, .055);
+  animation:grainStep .75s steps(1,end) infinite;   /* fx.css keyframes */
+}
+.hero:not([data-fx~="grain"]) ~ .below .page-grain{display:none}
+
+.scene{
+  position:relative; z-index:1;
+  min-height:100svh;
+  display:flex; align-items:center;
+  padding:calc(56px + 4svh) var(--gut) 6svh;
+}
+/* the bulb's light on each scene: a soft pool from above, on the hand's side */
+.scene::before{
+  content:""; position:absolute; inset:0; pointer-events:none; z-index:0;
+  background:radial-gradient(46% 58% at var(--pool-x,30%) 18%, rgba(96,10,8,.30), rgba(96,10,8,.08) 52%, rgba(0,0,0,0) 78%);
+}
+.scene.hand-right::before{--pool-x:70%}
+.scene-in{
+  position:relative; z-index:1;
+  width:min(1180px,100%); margin:0 auto;
+  display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:center;
+  column-gap:clamp(24px,5vw,80px);
+}
+.scene.hand-right .hand{order:2}
+.scene.hand-right .copy{order:1; justify-self:end}
+
+/* the hand: slides in ~40 px from its side and rides a slight parallax */
+.hand{
+  margin:0; position:relative;
+  /* portrait, 4:5, capped by the section's height so it never overflows it */
+  width:min(100%, calc((100svh - 10svh - 56px) * 0.8));
+  justify-self:center;
+  opacity:0; transform:translateX(-40px);
+  transition:opacity .9s ease, transform 1.1s cubic-bezier(.16,.64,.32,1);
+}
+.scene.hand-right .hand{transform:translateX(40px)}
+.scene.is-in .hand{opacity:1; transform:none}
+.hand-par{transform:translate3d(0,var(--sy,0px),0); will-change:transform}
+
+/* the phone: the photograph, the display mapped onto it, the glass over that */
+.phone{position:relative; width:100%}
+.phone-img{width:100%; height:auto; display:block}
+/* the display layer: the whole phone box; masked to the display's own shape
+   (screen-<hand>.png, alpha = visible) when the page is served over http —
+   Chromium refuses a mask image over file://, so story.js adds .has-mask
+   only then, and the wrapper's own radius carries the corners regardless */
+.display{position:absolute; inset:0; pointer-events:none; overflow:hidden}
+.display.has-mask{-webkit-mask-image:var(--screen-mask); mask-image:var(--screen-mask); -webkit-mask-size:100% 100%; mask-size:100% 100%; -webkit-mask-repeat:no-repeat; mask-repeat:no-repeat}
+/* the video's wrapper: the video's own pixel size, mapped onto the display
+   quad by story.js (matrix3d, transform-origin 0 0) */
+.screen{
+  position:absolute; left:0; top:0; width:604px; height:1312px;
+  transform-origin:0 0; will-change:transform;
+  /* the display's corners: 87 px in the 1400-frame (phones/README) = 92 px
+     in the 604-wide video's own px (the quads are ~574 wide); the http mask
+     (87 px, 1 px feather) clips the final edge on top of this */
+  overflow:hidden; border-radius:92px;
+  background:#07070A;
+  backface-visibility:hidden;
+}
+.screen video{display:block; width:100%; height:100%; object-fit:cover; background:#07070A}
+/* the reflection sheet (604 x 1312, alpha peak .32, mean .10) over the video
+   in the same mapped wrapper; the sheet's author sized it for opacity .4-.6 */
+.screen .glass{position:absolute; inset:0; width:100%; height:100%; pointer-events:none; mix-blend-mode:screen; opacity:.45}
+
+/* the copy */
+.copy{
+  position:relative; max-width:520px;
+  opacity:0; transform:translateY(18px);
+  transition:opacity .9s ease .15s, transform 1s cubic-bezier(.16,.64,.32,1) .15s;
+}
+.scene.is-in .copy{opacity:1; transform:none}
+.eyebrow{
+  margin:0 0 14px; font-size:11px; letter-spacing:3.2px; text-transform:uppercase;
+  color:#C4643C;
+}
+.eyebrow::after{content:""; display:inline-block; vertical-align:middle; width:28px; height:1px; margin-left:12px; background:rgba(255,38,0,.45)}
+.copy h2{
+  margin:0 0 16px; font-family:"Barlow",system-ui,sans-serif; font-weight:500;
+  font-size:clamp(30px,3.6vw,50px); line-height:1.06; letter-spacing:-.005em; color:var(--paper);
+  text-shadow:0 0 30px rgba(0,0,0,.6);
+  text-wrap:balance;
+}
+.copy p.lede{margin:0; font-size:clamp(16px,1.3vw,19px); line-height:1.55; color:#B9B2AB; text-wrap:pretty}
+
+/* ---------- support + footer -------------------------------------------- */
+.support{
+  position:relative; z-index:1;
+  padding:clamp(56px,10svh,120px) var(--gut) clamp(48px,8svh,96px);
+  text-align:center; color:#B9B2AB;
+  background:linear-gradient(to bottom, rgba(0,0,0,0), #000 40%);
+}
+.support h2{margin:0 0 14px; font-family:"Barlow",system-ui,sans-serif; font-weight:500; font-size:clamp(22px,2.4vw,30px); letter-spacing:.01em; color:var(--paper)}
+.support p{margin:0 auto; max-width:46ch; font-size:16px; line-height:1.6; text-wrap:pretty}
+.support a{color:var(--paper); text-decoration:underline; text-decoration-color:rgba(255,38,0,.5); text-underline-offset:4px}
+.support a:hover{text-decoration-color:rgba(255,38,0,.9)}
+
+/* v3: one line. The original .foot rules (index.html) still apply; these
+   narrow them to the single centred line. */
+.foot{justify-content:center; text-align:center; gap:6px 10px; border-top-color:#15140F}
+.foot nav{gap:10px; align-items:baseline}
+.foot .sep{color:#4A4540}
+@media (max-width:520px){
+  /* two lines on a phone: the name, then the two links */
+  .foot{flex-direction:column; align-items:center; gap:8px}
+  .foot .sep-who{display:none}
+}
+
+/* ---------- phones ------------------------------------------------------- */
+@media (max-width:860px){
+  .scene{min-height:0; padding:calc(56px + 6svh) var(--gut) 8svh; align-items:start}
+  .scene-in{grid-template-columns:minmax(0,1fr); row-gap:26px}
+  .scene .copy, .scene.hand-right .copy{order:1; max-width:none}
+  .scene .hand, .scene.hand-right .hand{order:2; width:min(100%,420px); justify-self:center}
+  .scene::before{--pool-x:50%}
+  .copy h2{font-size:clamp(30px,8.6vw,40px)}
+}
+
+/* ---------- reduced motion ---------------------------------------------- */
+@media (prefers-reduced-motion:reduce){
+  .bar{transition:none}
+  .page-grain{animation:none}
+  .hand,.copy{transition:none; opacity:1; transform:none}
+  .scene.hand-right .hand{transform:none}
+  .hand-par{transform:none; will-change:auto}
+  .screen{will-change:auto}
+}
