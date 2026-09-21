@@ -1,0 +1,95 @@
+/* ==========================================================================
+   Boo Machine — the story's headings in red phosphor   (v4)
+
+   Jacquard 12 set as a lit red tube, the a3/v2e-a title treatment scaled
+   down to a heading: a pink-white core running into saturated red
+   (background-clip:text on a per-letter ::before), a hairline red glass
+   edge (::after, text-stroke), the blooms as an em-based text-shadow stack,
+   the same three non-rhythmic flicker tracks as the sign (title.css owns
+   @property --tf-a/b/c and @keyframes tfA/tfB/tfC; each heading starts them
+   at its own offset so the three never dip together), the strong dip and
+   the single dead letter fired by heading.js.
+
+   Markup: <h2 class="phos">Loop the room.</h2> — heading.js splits it into
+   <span class="ch" data-c="L">L</span>… and moves the text to aria-label.
+   ========================================================================== */
+.phos{
+  font-family:"Jacquard12",serif; font-weight:400;
+  font-size:clamp(40px,5.2vw,72px); line-height:.92; letter-spacing:.008em;
+  margin:0 0 18px; color:transparent;
+  position:relative; display:block; isolation:isolate;
+  text-wrap:balance;
+  --lit:calc(var(--tf-a) * var(--tf-b) * var(--tf-c) * var(--tf-s, 1));
+  filter:brightness(calc(.64 + .36 * var(--lit))) saturate(calc(.92 + .08 * var(--lit)));
+  opacity:calc(.70 + .30 * var(--lit));
+  animation:tfA 11.3s linear infinite, tfB 17.9s linear infinite, tfC 29.3s linear infinite;
+}
+.phos[data-i="1"]{animation-delay:-4.1s,-7.3s,-13.7s}
+.phos[data-i="2"]{animation-delay:-8.9s,-12.1s,-22.9s}
+.phos .sp{display:inline-block;white-space:pre}
+.phos .w{display:inline-block;white-space:nowrap}
+
+/* 1. the blooms (under the core: painted from the glyph silhouette) */
+.phos .ch{
+  position:relative; display:inline-block; color:transparent;
+  text-shadow:
+    0 0 .014em rgba(249,0,0,.95),
+    0 0 .030em rgba(249,0,0,.60),
+    0 -.010em .050em rgba(255,128,104,.48),
+    0 -.020em .150em rgba(255,58,36,.32),
+    0 0 .440em rgba(249,0,0,.17),
+    0 0 1.05em rgba(236,14,8,.09),
+    0 2px 6px rgba(0,0,0,.72),
+    0 0 3px rgba(0,0,0,.85);
+  transition:opacity .09s linear, filter .09s linear;
+}
+/* 2. the hot core */
+.phos .ch::before{
+  content:attr(data-c);
+  position:absolute; left:0; top:0; z-index:1; pointer-events:none;
+  color:transparent;
+  background-image:linear-gradient(to bottom,
+      #FFE0DA 0%, #FFD0C6 22%, #FF9A86 36%, #FF5A40 50%, #FF3B2A 72%, #F02010 100%);
+  -webkit-background-clip:text; background-clip:text;
+  text-shadow:none;              /* inherited from .ch otherwise, and painted OVER the clipped core */
+}
+/* 3. the glass edge */
+.phos .ch::after{
+  content:attr(data-c);
+  position:absolute; left:0; top:0; z-index:2; pointer-events:none;
+  color:transparent;
+  -webkit-text-stroke:.006em #F90000; text-shadow:none;
+}
+/* one letter browns out: dark cherry, never off */
+.phos .ch.is-dim::before{background-image:linear-gradient(to bottom,#8E1A16,#3E0406)}
+.phos .ch.is-dim::after{-webkit-text-stroke-color:#6B0F0A}
+.phos .ch.is-dim{text-shadow:0 0 .014em rgba(126,16,12,.92), 0 0 .07em rgba(142,26,22,.36), 0 2px 6px rgba(0,0,0,.72)}
+/* the strong dip: colour first, then a little brightness */
+.phos.is-flick{--tf-s:.30}
+.phos.is-flick .ch::before{background-image:linear-gradient(to bottom,#8E1A16,#3E0406)}
+.phos.is-flick .ch::after{-webkit-text-stroke-color:#6B0F0A}
+.phos.is-flick .ch{
+  text-shadow:
+    0 0 .014em rgba(126,16,12,.92),
+    0 -.02em .060em rgba(158,30,24,.42),
+    0 0 .300em rgba(120,12,10,.18),
+    0 2px 6px rgba(0,0,0,.72),
+    0 0 3px rgba(0,0,0,.85);
+}
+/* the room's bulb flares (title.js puts .rl-flare on <html>): a shade hotter */
+html.rl-flare .phos{--tf-s:.92}
+html.rl-flare .phos .ch::before{
+  background-image:linear-gradient(to bottom,#FFE3DC 0%,#FFB2A0 14%,#FF6A4E 32%,#FF4A32 66%,#FA2A16 100%);
+}
+/* scanlines, fine */
+.phos::after{
+  content:""; position:absolute; inset:-4% -2%; pointer-events:none; z-index:4;
+  background:repeating-linear-gradient(to bottom,rgba(0,0,0,.28) 0 1px,rgba(0,0,0,0) 1px 3px);
+  mix-blend-mode:multiply; opacity:.38;
+}
+
+@media (prefers-reduced-motion:reduce){
+  .phos{animation:none; --tf-s:1; filter:none; opacity:1}
+  .phos .ch{transition:none}
+  html.rl-flare .phos{--tf-s:1}
+}
