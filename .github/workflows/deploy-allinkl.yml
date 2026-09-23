@@ -1,0 +1,71 @@
+# Deploys the public site (repo root, without drafts/) to boomachine.app on ALL-INKL.
+# Runs only when started by hand: Actions tab → "Deploy to boomachine.app" → Run workflow,
+# or `gh workflow run deploy-allinkl.yml -R fabric-8/boomachine-site`.
+#
+# The FTP user behind the secrets is locked to /boomachine.app/ on the web space,
+# so this job cannot touch any other site in the account.
+name: Deploy to boomachine.app
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only list what would change, upload nothing"
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-allinkl
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: boomachine.app
+      url: https://boomachine.app/
+    env:
+      FTP_HOST: ${{ vars.ALLINKL_FTP_HOST }}
+      FTP_USER: ${{ secrets.ALLINKL_FTP_USER }}
+      FTP_PASSWORD: ${{ secrets.ALLINKL_FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stage public files
+        run: |
+          mkdir -p _deploy
+          rsync -a \
+            --exclude '.git*' --exclude '.github/' --exclude '_deploy/' \
+            --exclude 'drafts/' --exclude 'README.md' --exclude '.nojekyll' \
+            ./ _deploy/
+          echo "Files to publish:"; (cd _deploy && find . -type f | sort)
+
+      - name: Install lftp
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+
+      - name: Sync to ALL-INKL over FTPS
+        run: |
+          test -n "$FTP_HOST" && test -n "$FTP_USER" && test -n "$FTP_PASSWORD" \
+            || { echo "::error::ALLINKL_FTP_HOST variable or FTP secrets missing"; exit 1; }
+          DRY=""
+          if [ "${{ inputs.dry_run }}" = "true" ]; then DRY="--dry-run"; fi
+          lftp -e "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate true;
+            set net:max-retries 3;
+            mirror --reverse --delete --verbose --parallel=4 $DRY _deploy/ ./;
+            bye
+          " -u "$FTP_USER","$FTP_PASSWORD" "$FTP_HOST"
+
+      - name: Check the live site
+        if: ${{ !inputs.dry_run }}
+        run: |
+          for url in http://boomachine.app/ http://boomachine.app/support.html http://boomachine.app/privacy.html; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$url")
+            echo "$code $url"
+            [ "$code" = "200" ] || exit 1
+          done
