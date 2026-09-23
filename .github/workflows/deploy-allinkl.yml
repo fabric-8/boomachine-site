@@ -13,6 +13,10 @@ on:
         description: "Only list what would change, upload nothing"
         type: boolean
         default: false
+      debug:
+        description: "Verbose FTP log (lftp debug; passwords stay masked)"
+        type: boolean
+        default: false
 
 concurrency:
   group: deploy-allinkl
@@ -52,7 +56,10 @@ jobs:
             || { echo "::error::ALLINKL_FTP_HOST variable or FTP secrets missing"; exit 1; }
           DRY=""
           if [ "${{ inputs.dry_run }}" = "true" ]; then DRY="--dry-run"; fi
+          DEBUG=""
+          if [ "${{ inputs.debug }}" = "true" ]; then DEBUG="debug 5;"; fi
           lftp -e "
+            $DEBUG
             set ftp:ssl-force true;
             set ftp:ssl-protect-data true;
             set ssl:verify-certificate true;
