@@ -4,9 +4,6 @@
 #
 # The FTP user behind the secrets is locked to /boomachine.app/ on the web space,
 # so this job cannot touch any other site in the account.
-#
-# The press kit ZIP (80+ MB) is not in git. It is uploaded once, straight to
-# /boomachine.app/press/ over FTPS, and the mirror below leaves press/*.zip alone.
 name: Deploy to boomachine.app
 
 on:
@@ -40,14 +37,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Large files (*.zip, see .gitattributes) are in Git LFS. Cache the LFS objects
+      # so only a changed file costs LFS bandwidth, not every deploy.
+      - name: List LFS objects for the cache key
+        run: git lfs ls-files --long | cut -d ' ' -f1 | sort > .lfs-ids
+
+      - name: Restore LFS cache
+        uses: actions/cache@v4
+        with:
+          path: .git/lfs/objects
+          key: lfs-${{ hashFiles('.lfs-ids') }}
+          restore-keys: lfs-
+
+      - name: Pull LFS files
+        run: git lfs pull && git lfs ls-files
+
       - name: Stage public files
         run: |
           mkdir -p _deploy
           rsync -a \
             --exclude '.git*' --exclude '.github/' --exclude '_deploy/' \
-            --exclude 'drafts/' --exclude 'README.md' --exclude '.nojekyll' \
+            --exclude 'drafts/' --exclude 'README.md' --exclude '.nojekyll' --exclude '.lfs-ids' \
             ./ _deploy/
-          echo "Files to publish:"; (cd _deploy && find . -type f | sort)
+          pointers=$(find _deploy -type f -size -1k -exec grep -l 'git-lfs.github.com/spec' {} + || true)
+          if [ -n "$pointers" ]; then echo "::error::LFS pointer instead of file: $pointers"; exit 1; fi
+          echo "Files to publish:"; (cd _deploy && find . -type f -exec ls -l {} + | awk '{print $5, $9}' | sort -k2)
 
       - name: Install lftp
         run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
@@ -61,7 +75,7 @@ jobs:
           if [ "${{ inputs.check_only }}" = "true" ]; then
             ACTION="echo Login OK. Server folder above, nothing uploaded."
           else
-            ACTION="mirror --reverse --delete --verbose --parallel=4 --exclude-glob press/*.zip _deploy/ ./"
+            ACTION="mirror --reverse --delete --verbose --parallel=4 _deploy/ ./"
           fi
           DEBUG=""
           if [ "${{ inputs.debug }}" = "true" ]; then DEBUG="debug 5;"; fi

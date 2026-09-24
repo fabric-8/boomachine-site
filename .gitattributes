@@ -1,0 +1,4 @@
+# Large binary downloads live in Git LFS so ordinary pushes stay small.
+# Committing a matching file needs no extra step; git-lfs handles it.
+# The deploy workflow pulls LFS files (cached between runs) before uploading.
+*.zip filter=lfs diff=lfs merge=lfs -text
