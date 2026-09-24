@@ -4,6 +4,9 @@
 #
 # The FTP user behind the secrets is locked to /boomachine.app/ on the web space,
 # so this job cannot touch any other site in the account.
+#
+# The press kit ZIP (80+ MB) is not in git. It is uploaded once, straight to
+# /boomachine.app/press/ over FTPS, and the mirror below leaves press/*.zip alone.
 name: Deploy to boomachine.app
 
 on:
@@ -58,7 +61,7 @@ jobs:
           if [ "${{ inputs.check_only }}" = "true" ]; then
             ACTION="echo Login OK. Server folder above, nothing uploaded."
           else
-            ACTION="mirror --reverse --delete --verbose --parallel=4 _deploy/ ./"
+            ACTION="mirror --reverse --delete --verbose --parallel=4 --exclude-glob press/*.zip _deploy/ ./"
           fi
           DEBUG=""
           if [ "${{ inputs.debug }}" = "true" ]; then DEBUG="debug 5;"; fi
@@ -69,8 +72,8 @@ jobs:
       - name: Check the live site
         if: ${{ !inputs.check_only }}
         run: |
-          for url in http://boomachine.app/ http://boomachine.app/support.html http://boomachine.app/privacy.html; do
-            code=$(curl -s -o /dev/null -w '%{http_code}' "$url")
+          for url in https://boomachine.app/ https://boomachine.app/legal.html https://boomachine.app/support.html https://boomachine.app/privacy.html https://boomachine.app/press/boo-machine-press-kit.zip; do
+            code=$(curl -s -o /dev/null -r 0-0 -w '%{http_code}' "$url")
             echo "$code $url"
-            [ "$code" = "200" ] || exit 1
+            case "$code" in 200|206) ;; *) exit 1 ;; esac
           done
