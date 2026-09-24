@@ -196,6 +196,10 @@
 /* v6: MORE body text, bigger: 18 px, 1.6, the paper tone, ~46ch */
 .copy p.body{margin:0; font-size:18px; line-height:1.6; color:var(--paper); text-wrap:pretty; max-width:46ch}
 .copy p.body + p.body{margin-top:1em}
+/* v10: the copy as verse (Fab: "creepy Lovecraftian rhymes"): one line per
+   span, a hanging indent where a long line has to wrap */
+.copy p.body.verse{max-width:none; text-wrap:wrap}
+.copy p.body.verse .vl{display:block; padding-left:1.2em; text-indent:-1.2em}
 
 /* the phone: sticky, vertically centred in the viewport for the whole story.
    The figure is one viewport tall (a flex box that centres the phone) so the
