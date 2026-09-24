@@ -44,6 +44,13 @@
                  reduced motion (a click jumps to the end, one static frame,
                  the same delay).
 
+   v10 perf (2026-09-25, "the slider stutters a bit", on phones too): the
+   look is unchanged; what changed is when and where the work happens —
+   pointer moves are applied once per frame, --rl-d lives on .roomlight,
+   the knob's width is cached, the canvas is capped at 2x, the light stops
+   off screen, the reduced-motion frame is built once. Measurements, the
+   harness and before/after screenshots: site-work/qa/slider-perf-2026-09-25.
+
    QA hooks: ?slide=0.4|hover|armed|done, ?nonav=1 (the href becomes #gone,
    so a completed run sets location.hash instead of leaving the page),
    window.booSlide.set(p) / .done() / .arm(on) / .click() / .go() / .sweep(on,
@@ -61,7 +68,13 @@
   var root = doc.documentElement;
   var label = track.querySelector(".unlock-label");
   var reduce = global.matchMedia("(prefers-reduced-motion: reduce)");
-  var DPR = Math.min(global.devicePixelRatio || 1, 3);
+  /* v10 perf: the fill's backing store is capped at 2x, not 3x. On a 3x
+     phone that is 2.25x fewer pixels to clear, fill, blend and composite
+     every frame (1023x168 -> 682x112 at 375 px), and the light is a soft
+     haze with no hard edge of its own: the knob covers the erased edge and
+     the rails cover the clip, so the upscale is not visible (compared at
+     ?slide=0.4 / armed / done, qa/slider-perf-2026-09-25). */
+  var DPR = Math.min(global.devicePixelRatio || 1, 2);
 
   var dragging = false, startX = 0, downX = 0, x = 0, max = 0, moved = 0;
   var frozen = false;                 /* ?slide=… : ignore pointer + hover   */
@@ -86,7 +99,13 @@
   var auto = false, autoRaf = 0;      /* the click's auto-slide is running   */
   var goTimer = 0;
 
-  function measure() { max = track.clientWidth - knob.offsetWidth - 10; }
+  /* v10 perf: the knob's width is read here, with the track's, and cached
+     (kw). publish() used to read knob.offsetWidth right after place() had
+     written the knob's transform: a forced style recalc on every
+     pointermove and every auto-slide frame. It only changes with the
+     viewport (the 520 px breakpoint), and resize calls measure(). */
+  var kw = 0;
+  function measure() { kw = knob.offsetWidth; max = track.clientWidth - kw - 10; }
   measure();
   global.addEventListener("resize", function () { measure(); publish(x); });
 
@@ -94,7 +113,7 @@
   function publish(v) {
     var p = max > 0 ? Math.max(0, Math.min(1, v / max)) : 0;
     progress = p;
-    var rev = v + knob.offsetWidth + 5;
+    var rev = v + kw + 5;
     wrap.style.setProperty("--rev", rev.toFixed(1) + "px");
     wrap.style.setProperty("--revp", p.toFixed(4));
     wrap.classList.toggle("is-open", p > 0.004);
@@ -104,7 +123,15 @@
   /* --rl-d, the room's light: 1 -> 1.7 with the travel (v2i), and on to 1.9
      as the control arms (armK, eased in the frame loop). Published only
      when it moves by more than 0.5 % */
-  var rlLast = -1, rlHost = doc.querySelector(".hero") || root;
+  /* v10 perf: on .roomlight, not .hero. --rl-d is a registered, inherited
+     property (title.css), so writing it on .hero restyled the WHOLE hero
+     subtree (~120 elements) on every frame of a drag — and the page's own
+     window pointermove (index.html's tilt, which reads the stage's rect)
+     then paid for that recalc synchronously: ~15 ms per move on a
+     4x-throttled phone (trace, qa/slider-perf-2026-09-25). The only readers
+     are .rl-halo and .rl-wash, the two children of .roomlight, and they
+     inherit it from there exactly as they did from .hero. */
+  var rlLast = -1, rlHost = doc.querySelector(".hero .roomlight") || doc.querySelector(".hero") || root;
   function setRoomLight() {
     var base = 1 + 0.7 * progress * rlDamp;     /* rlDamp: the intro's rewind lifts it less */
     var v = base + (1.9 - base) * armK;
@@ -112,7 +139,7 @@
     rlLast = v;
     /* v8 perf: on .hero, not <html> — only the bulb's two layers (inside the
        hero) read it, and a root custom property restyles the whole page
-       on every frame of a drag */
+       on every frame of a drag (v10: now on .roomlight, above) */
     rlHost.style.setProperty("--rl-d", v.toFixed(3));
   }
   function unpublish() {                      /* hand it back to the CSS     */
@@ -291,15 +318,35 @@
     knob.setPointerCapture(e.pointerId);
     kxDirty = true; ignite();
   });
+  /* v10 perf: a pointermove only RECORDS the position; the DOM is written
+     once per frame, at the top of the light's frame() (so the knob and the
+     fire under it still move in the same frame), or by applyMove's own rAF
+     when no light loop runs (reduced motion, ?fx=-hell). Writing in the
+     handler dirtied the style mid-input, and the page's window-level
+     pointermove (index.html's tilt reads the stage's rect) then forced
+     that recalc synchronously on every event; a phone can also deliver
+     more than one move per frame. */
+  var movePending = false, moveRaf = 0;
+  function applyMove() {
+    moveRaf = 0;
+    if (!movePending) return;
+    movePending = false;
+    if (!dragging) return;                      /* cancelled / released meanwhile */
+    place(x);
+    setArmed(x > max * THRESH);
+  }
   knob.addEventListener("pointermove", function (e) {
     if (!dragging) return;
     moved = Math.max(moved, Math.abs(e.clientX - downX));
-    x = Math.max(0, Math.min(max, e.clientX - startX)); place(x);
-    setArmed(x > max * THRESH);
+    x = Math.max(0, Math.min(max, e.clientX - startX));
+    movePending = true;
+    if (!moveRaf) moveRaf = global.requestAnimationFrame(applyMove);
     if (moved > 4) e.preventDefault();
   });
   knob.addEventListener("pointerup", function (e) {
-    if (!dragging) return; dragging = false;
+    if (!dragging) return;
+    applyMove();                                /* v10 perf: the last move lands before the release reads `armed` */
+    dragging = false;
     upAt = now();
     /* the flow runs synchronously from here: release() -> go() -> the timer */
     if (moved > 6) { e.preventDefault(); release(); }
@@ -310,7 +357,7 @@
     }
   });
   knob.addEventListener("pointercancel", function () {
-    if (dragging) { dragging = false; setArmed(false); x = 0; release(); }
+    if (dragging) { movePending = false; dragging = false; setArmed(false); x = 0; release(); }
   });
   /* the <a> never navigates on its own click: navigation happens only at the
      end of the flow (go, after the delay). A click that did not come through
@@ -359,6 +406,7 @@
   var ctx = cv ? cv.getContext("2d") : null;
 
   var hovering = false, hasFocus = false, qaAwake = false, qaDrag = false;
+  var onScreen = true;                                   /* v10 perf: the track is in view (IntersectionObserver, below) */
   var amp = 0;
   var raf = 0, last = 0, lastKx = null, vel = 0;
   /* v2m: armK 0..1 — the armed state, eased over ~300 ms (armL is the linear
@@ -543,6 +591,7 @@
     if (dt <= 0) return;
 
     var t0 = performance.now();
+    if (movePending) applyMove();                 /* v10 perf: this frame's drag position, before it is drawn */
     var k = knobX();
     var kx = k.x;                                   /* the knob's LEFT edge  */
     if (lastKx === null) lastKx = kx;
@@ -609,7 +658,7 @@
   }
 
   function ignite() {
-    if (!ctx || reduce.matches || !hellOn()) return;
+    if (!ctx || reduce.matches || !hellOn() || !onScreen) return;
     if (!CW) sizeFlame();
     if (dragging && amp < 0.5) amp = 0.5;
     if (!raf) { last = 0; lastKx = null; raf = global.requestAnimationFrame(frame); }
@@ -766,6 +815,8 @@
         }
       }
       mc.putImageData(id, 0, 0);
+      metalSeeded = false;
+      return id;
     }
     function reset() { dust.length = 0; dustAcc = 0; nT = -1; hzCols = 0; }
     function busy() { return dust.length > 0; }
@@ -868,8 +919,28 @@
     }
     /* reduced motion: everything re-drawn from the seeded `rnd`, at t = 4,
        no integration (dt 0), the bloom at rest */
+    /* v10 perf: everything seeded here is the same on every call — the same
+       seed, t = 4, the same geometry — so it is built ONCE per size and
+       kept (statC): the clocks, the brushed metal's pixels and the haze
+       field. Rebuilding them on every published knob position (a full
+       device-resolution metal texture plus the whole field) cost 12–45 ms
+       per pointermove on a 4x-throttled phone under reduced motion. What
+       comes back from the cache is the same data, so the frame is the same. */
+    var statC = null, metalSeeded = false;
     function staticFrame(S) {
-      makeClocks(S.t); makeMetal(); stepHaze(S.t, 0, FW); hzCols = FW; nT = S.t; dust.length = 0;
+      var c = statC, k;
+      if (c && c.fw === FW && c.fh === FH && c.tw === TW && c.th === TH && c.mw === mW && c.mh === mH) {
+        clk = {}; for (k in c.clk) clk[k] = c.clk[k];
+        if (!metalSeeded) { metal.getContext("2d").putImageData(c.metal, 0, 0); metalSeeded = true; }
+        HZ.set(c.hz); BZ.set(c.bz);
+      } else {
+        makeClocks(S.t);
+        var clk0 = {}; for (k in clk) clk0[k] = clk[k];
+        var mid = makeMetal(); metalSeeded = true;
+        stepHaze(S.t, 0, FW);
+        statC = { fw: FW, fh: FH, tw: TW, th: TH, mw: mW, mh: mH, clk: clk0, metal: mid, hz: HZ.slice(), bz: BZ.slice() };
+      }
+      hzCols = FW; nT = S.t; dust.length = 0;
       clk.bloomT0 = -1; stepClocks(S);
     }
 
@@ -1008,6 +1079,17 @@
   doc.addEventListener("visibilitychange", function () {
     if (doc.hidden) stop(); else if (awake()) ignite();
   });
+  /* v10 perf: scrolled out of view, the light's loop stops as it does in a
+     hidden tab, and it strikes again (~80–150 ms) when the control comes
+     back. The loop only runs while something keeps the control awake — but
+     a knob that keeps the focus after a tap, or the held completion, would
+     otherwise draw the fire every frame under the story. */
+  if ("IntersectionObserver" in global) {
+    new IntersectionObserver(function (es) {
+      onScreen = es[es.length - 1].isIntersecting;
+      if (!onScreen) stop(); else if (awake()) ignite();
+    }).observe(track);
+  }
   reduce.addEventListener("change", function () { if (reduce.matches) { stop(); drawStatic(); } });
 
   function forceTo(p) {

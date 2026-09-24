@@ -133,21 +133,58 @@
 }
 .story-haze::before,.story-haze::after{content:""; position:absolute; top:0; bottom:0; left:var(--hz-l,-45%); right:var(--hz-r,-25%); pointer-events:none}
 .story-haze::before{
-  background:conic-gradient(from var(--hz-from,190deg) at var(--hz-ax,86%) var(--hz-ay,-12%),
+  /* v10: the gaussian runs out to 2.5 half-widths (the .084 and .012 stops
+     are new), so the shaft's edges fade instead of ending on a line */
+  background:conic-gradient(from var(--hz-from,187.5deg) at var(--hz-ax,86%) var(--hz-ay,-12%),
     rgba(var(--hz-c),0) 0deg,
-    rgba(var(--hz-c),calc(var(--hz-a) * .33)) var(--hz-h),
-    rgba(var(--hz-c),calc(var(--hz-a) * .76)) calc(var(--hz-h) * 1.5),
-    rgba(var(--hz-c),var(--hz-a)) calc(var(--hz-h) * 2),
-    rgba(var(--hz-c),calc(var(--hz-a) * .76)) calc(var(--hz-h) * 2.5),
-    rgba(var(--hz-c),calc(var(--hz-a) * .33)) calc(var(--hz-h) * 3),
-    rgba(var(--hz-c),0) calc(var(--hz-h) * 4));
-  -webkit-mask-image:linear-gradient(to bottom, transparent var(--hz-fy0,6%), #000 calc(var(--hz-fy0,6%) + 18%), #000 calc(var(--hz-fy1,98%) - 30%), transparent var(--hz-fy1,98%));
-  mask-image:linear-gradient(to bottom, transparent var(--hz-fy0,6%), #000 calc(var(--hz-fy0,6%) + 18%), #000 calc(var(--hz-fy1,98%) - 30%), transparent var(--hz-fy1,98%));
+    rgba(var(--hz-c),calc(var(--hz-a) * .012)) calc(var(--hz-h) * .5),
+    rgba(var(--hz-c),calc(var(--hz-a) * .084)) var(--hz-h),
+    rgba(var(--hz-c),calc(var(--hz-a) * .33)) calc(var(--hz-h) * 1.5),
+    rgba(var(--hz-c),calc(var(--hz-a) * .76)) calc(var(--hz-h) * 2),
+    rgba(var(--hz-c),var(--hz-a)) calc(var(--hz-h) * 2.5),
+    rgba(var(--hz-c),calc(var(--hz-a) * .76)) calc(var(--hz-h) * 3),
+    rgba(var(--hz-c),calc(var(--hz-a) * .33)) calc(var(--hz-h) * 3.5),
+    rgba(var(--hz-c),calc(var(--hz-a) * .084)) calc(var(--hz-h) * 4),
+    rgba(var(--hz-c),calc(var(--hz-a) * .012)) calc(var(--hz-h) * 4.5),
+    rgba(var(--hz-c),0) calc(var(--hz-h) * 5));
+}
+/* v10: the vertical fade, eased (a smoothstep in stops, dust.js hazeAt):
+   the light no longer starts or stops along a visible line */
+.story-haze::before,.story-haze .hz-rays{
+  --hz-fade:linear-gradient(to bottom,
+    transparent var(--hz-fy0,6%),
+    rgba(0,0,0,.10) calc(var(--hz-fy0,6%) + 5%),
+    rgba(0,0,0,.50) calc(var(--hz-fy0,6%) + 11%),
+    rgba(0,0,0,.90) calc(var(--hz-fy0,6%) + 17%),
+    #000 calc(var(--hz-fy0,6%) + 22%),
+    #000 calc(var(--hz-fy1,98%) - 34%),
+    rgba(0,0,0,.90) calc(var(--hz-fy1,98%) - 26%),
+    rgba(0,0,0,.50) calc(var(--hz-fy1,98%) - 17%),
+    rgba(0,0,0,.10) calc(var(--hz-fy1,98%) - 8%),
+    transparent var(--hz-fy1,98%));
+  -webkit-mask-image:var(--hz-fade); mask-image:var(--hz-fade);
 }
 .story-haze::after{
+  /* v10: eased falloff (more stops), no ring where it ends */
   background:radial-gradient(var(--hz-rx,62%) var(--hz-ry,36%) at var(--hz-px,40%) var(--hz-py,54%),
-    rgba(128,20,10,var(--hz-pa)), rgba(128,20,10,calc(var(--hz-pa) * .36)) 50%, rgba(128,20,10,0) 100%);
+    rgba(128,20,10,var(--hz-pa)), rgba(128,20,10,calc(var(--hz-pa) * .62)) 30%,
+    rgba(128,20,10,calc(var(--hz-pa) * .30)) 55%, rgba(128,20,10,calc(var(--hz-pa) * .09)) 78%, rgba(128,20,10,0) 100%);
 }
+/* v10: the rays (dust.js writes their conic gradients) and THE LIGHT MOVES
+   (Fab: "softer, maybe a bit animated"): the shaft and the rays sway about
+   the bulb, out of step, and the pool breathes. Transform and opacity only,
+   each on its own layer: the compositor runs all three, nothing repaints. */
+.story-haze .hz-rays{position:absolute; top:0; bottom:0; left:var(--hz-l,-45%); right:var(--hz-r,-25%); pointer-events:none}
+.story-haze::before,.story-haze .hz-rays{transform-origin:var(--hz-ax,86%) var(--hz-ay,-12%)}
+@media (prefers-reduced-motion:no-preference){
+  .story-haze::before{animation:hzSway 17s ease-in-out infinite alternate; will-change:transform}
+  .story-haze .hz-rays{animation:hzRays 11s ease-in-out -4s infinite alternate, hzBreath 7.3s ease-in-out -2s infinite alternate; will-change:transform,opacity}
+  .story-haze::after{animation:hzBreath 9.1s ease-in-out infinite alternate; will-change:opacity}
+  .story-haze.is-offstage::before,.story-haze.is-offstage::after,.story-haze.is-offstage .hz-rays{animation-play-state:paused}
+}
+@keyframes hzSway{from{transform:rotate(-1.4deg)}to{transform:rotate(1.2deg)}}
+@keyframes hzRays{from{transform:rotate(1.8deg)}to{transform:rotate(-2.2deg)}}
+@keyframes hzBreath{from{opacity:.72}to{opacity:1}}
 .hero:not([data-fx~="motes"]) ~ .below .story-haze{display:none}
 .chapter{position:relative}   /* v9: paints after (over) the haze */
 .chapter{
@@ -233,17 +270,78 @@
 /* the flares are opacity-only: composited, never repainted */
 .fig-flare,.phone .flare{will-change:opacity}
 
+/* ---------- v10: smooth wheel scrolling (smooth.js, Lenis's own rules) --- */
+html.lenis, html.lenis body{height:auto}
+.lenis.lenis-smooth{scroll-behavior:auto !important}
+.lenis.lenis-stopped{overflow:hidden}
+
 /* ---------- support + footer -------------------------------------------- */
+/* v10: the support section as three keys of the machine. A red pool under
+   it (the bulb's light reaching the floor), a CSS phosphor heading, and
+   three keycaps from the player (--key / --key-down, the case bevel), each
+   with its lamp: dark cherry at rest, lit on hover / focus with the app's
+   hot core and spill, and the cap sinks 2 px when pressed. */
 .support{
   position:relative; z-index:1;
-  padding:clamp(56px,10svh,120px) var(--gut) clamp(48px,8svh,96px);
+  padding:clamp(72px,14svh,160px) var(--gut) clamp(56px,10svh,112px);
   text-align:center; color:#B9B2AB;
-  background:linear-gradient(to bottom, rgba(0,0,0,0), #000 40%);
+  background:
+    radial-gradient(60% 46% at 50% 62%, rgba(110,12,8,.26), rgba(96,10,8,.08) 55%, rgba(0,0,0,0) 100%),
+    linear-gradient(to bottom, rgba(0,0,0,0), #000 40%);
 }
-.support h2{margin:0 0 14px; font-family:"Barlow",system-ui,sans-serif; font-weight:500; font-size:clamp(22px,2.4vw,30px); letter-spacing:.01em; color:var(--paper)}
-.support p{margin:0 auto; max-width:46ch; font-size:16px; line-height:1.6; text-wrap:pretty}
-.support a{color:var(--paper); text-decoration:underline; text-decoration-color:rgba(255,38,0,.5); text-underline-offset:4px}
-.support a:hover{text-decoration-color:rgba(255,38,0,.9)}
+.support .phos{margin:0 auto 18px; display:inline-block; font-size:clamp(46px,6vw,84px); letter-spacing:.01em}
+.support-lede{margin:0 auto; max-width:40ch; font-size:18px; line-height:1.6; color:var(--paper); text-wrap:pretty}
+.skeys{
+  display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:clamp(12px,1.6vw,20px);
+  width:min(880px,100%); margin:clamp(36px,6svh,56px) auto 0; padding:14px;
+  /* the well the keys sit in (the player's panel) */
+  border-radius:22px;
+  background:linear-gradient(#171514,#0E0D0C);
+  box-shadow:inset 0 2px 6px rgba(0,0,0,.8), inset 0 -1px 0 rgba(255,236,224,.05), 0 0 0 1px rgba(0,0,0,.7), 0 24px 60px rgba(0,0,0,.55);
+}
+.skey{
+  position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:6px;
+  min-height:150px; padding:18px 18px 20px; border-radius:14px;
+  text-align:left; text-decoration:none; color:var(--paper);
+  background:
+    radial-gradient(120% 90% at 30% 0%, rgba(255,255,255,.045), rgba(255,255,255,0) 60%),
+    linear-gradient(var(--key), var(--key-down));
+  box-shadow:
+    inset 0 1px 0 rgba(255,244,236,.09), inset 0 -2px 0 rgba(0,0,0,.45),
+    0 1px 0 rgba(0,0,0,.9), 0 6px 14px rgba(0,0,0,.6);
+  transition:transform .12s ease, box-shadow .2s ease, background .2s ease;
+}
+.skey .num{font-size:30px; line-height:1; color:#D9D2CA; letter-spacing:.02em; padding-bottom:22px}
+.skey .k-t{font-size:13px; letter-spacing:1.8px; text-transform:uppercase; color:var(--paper)}
+.skey .k-s{font-size:14px; line-height:1.45; color:#9C958F; text-wrap:pretty; overflow-wrap:anywhere}
+/* the lamp: a lens in a bezel at the cap's top right */
+.skey .lamp{
+  position:absolute; top:16px; right:16px; width:22px; height:8px; border-radius:4px;
+  background:linear-gradient(#3A0806,#210302);
+  box-shadow:inset 0 1px 1px rgba(0,0,0,.8), 0 0 0 1px rgba(0,0,0,.6), 0 1px 0 rgba(255,236,224,.06);
+  transition:background .12s linear, box-shadow .2s ease;
+}
+.skey:hover .lamp,.skey:focus-visible .lamp{
+  background:radial-gradient(60% 80% at 50% 45%, #FFE3DC, #FF5A40 45%, #E00A04 100%);
+  box-shadow:inset 0 0 1px rgba(255,255,255,.6), 0 0 0 1px rgba(40,0,0,.6), 0 0 8px rgba(255,40,10,.85), 0 0 22px rgba(230,0,4,.55), 0 0 48px rgba(230,0,4,.28);
+}
+.skey:hover,.skey:focus-visible{
+  background:
+    radial-gradient(80% 60% at 88% 0%, rgba(255,40,10,.16), rgba(255,40,10,0) 70%),
+    radial-gradient(120% 90% at 30% 0%, rgba(255,255,255,.05), rgba(255,255,255,0) 60%),
+    linear-gradient(#2C2A29, var(--key-down));
+}
+.skey:hover .k-s,.skey:focus-visible .k-s{color:#C9C1B9}
+.skey:active{transform:translateY(2px); box-shadow:inset 0 1px 0 rgba(255,244,236,.06), inset 0 -1px 0 rgba(0,0,0,.4), 0 0 0 rgba(0,0,0,.9), 0 2px 6px rgba(0,0,0,.6)}
+.skey:focus-visible{outline:2px solid #C4643C; outline-offset:3px}
+@media (max-width:640px){
+  .support .phos{font-size:clamp(44px,13vw,60px)}
+  .support-lede{font-size:17px}
+  .skeys{grid-template-columns:1fr; padding:10px; border-radius:20px}
+  .skey{min-height:0; display:grid; grid-template-columns:auto 1fr; grid-template-rows:auto auto; column-gap:16px; row-gap:4px; padding:16px 48px 16px 18px}
+  .skey .num{grid-row:1 / span 2; align-self:center; margin:0; padding:0; font-size:28px}
+}
+@media (prefers-reduced-motion:reduce){ .skey,.skey .lamp{transition:none} }
 
 /* v3: one line. The original .foot rules (index.html) still apply; these
    narrow them to the single centred line. v6: room for the island. */

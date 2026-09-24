@@ -77,8 +77,13 @@
   /* the thresholds: chapter k's copy block's top crossing THR of the viewport
      going down makes hand k the target; crossing THR + HYS going up makes it
      k - 1 (on a phone the copy is read UNDER the sticky phone, so it has to
-     arrive lower: THR_M) */
-  var THR_D = 60, THR_M = 78, HYS = 8;
+     arrive lower: THR_M).
+     v10: EARLIER (Fab: "the hands start to morph a bit too late — as soon
+     as the text comes in"). v9 waited for the copy to reach 60 % (78 % on a
+     phone), i.e. until it was half-way up the screen and already read. Now
+     the morph fires as the copy enters, together with its reveal (88 %):
+     84 % on a desktop, 90 % on a phone (just above the island). */
+  var THR_D = 84, THR_M = 90, HYS = 8;
   var DUR = 0.9, EASE = "power2.inOut";
   var chapters = [].slice.call(doc.querySelectorAll("#chapters .chapter"));
   /* .copy is what the triggers MEASURE (never transformed); .copy-in inside

@@ -100,17 +100,34 @@
   var KIND = ["a", "b", "a", "b", "a", "c", "b", "a", "b", "a"];
   var JITTER = [0, 10, -8, 34, -6, 12, -10, 8, -4, 6];   /* ms; the gap is a pause */
 
+  /* v10: SOFT SEAMS (Fab: "the lights are cut off so hard, vertically, per
+     letter"). A lit letter's glow reaches well past its gap, and the hard
+     window edge sliced that glow into a vertical line until the next letter
+     struck. Each window now reaches FEATHER % past both of its cuts and fades
+     out across that reach with a linear mask; the neighbour fades in across
+     the same span, so the two masks add up to exactly 1 everywhere. The
+     windows are added, not stacked: .ig is an isolated group and every window
+     is `mix-blend-mode: plus-lighter` inside it (intro.css), so two lit
+     neighbours sum to the image itself, pixel for pixel — the hand-off to the
+     base stays invisible, which is what the hard edges were there for. */
+  var FEATHER = 3.2;   /* % of the image's width, each side of a cut (~60 px at 1927) */
+
   function buildOverlay() {
     var src = sign.currentSrc || sign.src;
     var box = doc.createElement("span");
     box.className = "ig";
     box.setAttribute("aria-hidden", "true");
     for (var i = 0; i < CUTS.length - 1; i++) {
-      var l = CUTS[i], w = CUTS[i + 1] - l;
+      var fl = i > 0 ? FEATHER : 0, fr = i < CUTS.length - 2 ? FEATHER : 0;
+      var l = CUTS[i] - fl, w = CUTS[i + 1] + fr - l;
       var win = doc.createElement("span");
       win.className = "ig-l ig-" + KIND[i];
       win.style.left = l.toFixed(3) + "%";
       win.style.width = w.toFixed(3) + "%";
+      /* 0 -> 1 across [cut - F, cut + F] on each inner side */
+      var a = (2 * fl / w * 100).toFixed(3), b = (100 - 2 * fr / w * 100).toFixed(3);
+      var m = "linear-gradient(to right, transparent 0%, #000 " + a + "%, #000 " + b + "%, transparent 100%)";
+      win.style.webkitMaskImage = m; win.style.maskImage = m;
       win.style.animationDelay = Math.round((T.letters + i * T.stagger + JITTER[i]) * K) + "ms";
       var im = doc.createElement("img");
       im.alt = ""; im.decoding = "sync"; im.src = src;

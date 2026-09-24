@@ -107,10 +107,17 @@
      reader is in the hero; they resume where they stopped */
   var story = document.getElementById("story");
   if (story && "IntersectionObserver" in window) {
-    new IntersectionObserver(function (es) {
-      var off = !es[es.length - 1].isIntersecting;
-      heads.forEach(function (h) { h.classList.toggle("is-offstage", off); });
-    }, { threshold: 0, rootMargin: "-2px 0px -2px 0px" }).observe(story);   /* edge contact at the fold is not "on screen" (dust.js) */
+    /* v10: per section — the support heading (a CSS sign, not a render)
+       pauses with its own section, not with the story's */
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) {
+        var off = !e.isIntersecting;
+        heads.forEach(function (h) { if ((h.closest("#support") || story) === e.target) h.classList.toggle("is-offstage", off); });
+      });
+    }, { threshold: 0, rootMargin: "-2px 0px -2px 0px" });   /* edge contact at the fold is not "on screen" (dust.js) */
+    io.observe(story);
+    var sup = document.getElementById("support");
+    if (sup && sup.querySelector(".phos")) io.observe(sup);
   }
   reduce.addEventListener("change", function () { stop(); if (!reduce.matches) start(); });
 })();

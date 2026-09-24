@@ -190,7 +190,16 @@
     rgba(255,120,60,0) 36%, rgba(255,176,116,.95) 48%, rgba(255,120,60,0) 60%);
   background-size:260% 100%; background-repeat:no-repeat;
   -webkit-background-clip:text; background-clip:text;
-  animation:shimmer 3.6s linear infinite;
+  /* v10 perf: the shimmer animation is OFF. The text is painted in its
+     opaque `color` ON TOP of the text-clipped gradient, so the sliding
+     ember has never been visible (qa/slider-perf-2026-09-25: the label
+     screenshotted at background-position 190 %, 50 % and -90 % is the same
+     image; it only shows with color:transparent). But a background-position
+     animation repaints the label on the main thread every frame, idle or
+     not, for as long as the hero is on screen. To bring the ember back,
+     give the label -webkit-text-fill-color:transparent AND this animation —
+     a visible change, so it is the client's call. The keyframes stay. */
+  animation:none;
   transition:opacity .3s ease;
   /* v2h: the label sits ABOVE the fire (z2 over the canvas at z1) and must
      still read where the inferno has reached it at low progress — a tight

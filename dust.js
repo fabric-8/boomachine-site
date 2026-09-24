@@ -73,17 +73,41 @@
      box, the canvas maps into it. */
   var HAZE_D = { l: -0.45, r: 1.25, ax: 0.80, ay: -0.14, dir: 218, half: 9, fy0: 0.04, fy1: 1.00, px: 0.47, py: 0.52, rx: 0.40, ry: 0.40, k: 0.8, a: 0.19 };
   var HAZE_M = { l: -0.25, r: 1.25, ax: 0.70, ay: 0.34, dir: 206, half: 11, fy0: 0.48, fy1: 1.00, px: 0.46, py: 0.80, rx: 0.52, ry: 0.26, k: 0.8, a: 0.24 };
+  /* v10: MORE RAYS (Fab: "I like the light-ray effect in the sections —
+     maybe a few more rays"). Narrow shafts fanned around the main one from
+     the same source, as if the bulb's light fell through a slatted shutter:
+     o = the ray's angle off `dir`, h its half-width (deg), a its peak
+     against the main shaft's. They are one extra layer (.hz-rays, a stack
+     of conic gradients written here) that sways slowly about the source
+     (story.css), and the beam motes are lit by them too (hazeAt). */
+  var RAYS_D = [{ o: -25, h: 2.2, a: .34 }, { o: -15, h: 1.3, a: .62 }, { o: -8, h: .9, a: .78 },
+                { o: 5, h: 1.2, a: .66 }, { o: 12, h: 2.0, a: .46 }, { o: 20, h: 1.0, a: .40 }, { o: 29, h: 1.8, a: .26 }];
+  var RAYS_M = [{ o: -20, h: 2.0, a: .36 }, { o: -11, h: 1.2, a: .66 }, { o: 7, h: 1.4, a: .6 }, { o: 16, h: 1.1, a: .44 }, { o: 25, h: 2.0, a: .28 }];
   var phoneMq = global.matchMedia("(max-width: 860px)");
-  var HZ = HAZE_D;
+  var HZ = HAZE_D, RAYS = RAYS_D;
   var hazeEl = doc.createElement("div");
   hazeEl.className = "story-haze"; hazeEl.setAttribute("aria-hidden", "true");
+  var raysEl = doc.createElement("span");
+  raysEl.className = "hz-rays";
+  hazeEl.appendChild(raysEl);
   chapters.insertBefore(hazeEl, cv);
+  /* the soft profile of one shaft, the same gaussian hazeAt uses:
+     exp(-1.1 a^2) at a = 0, .5, 1, 1.5, 2, 2.5 half-widths */
+  var PROF = [[0, 1], [.5, .76], [1, .33], [1.5, .084], [2, .012], [2.5, 0]];
+  function conic(from, h, alpha) {
+    var c = "rgba(var(--hz-c),", st = [], i;
+    for (i = PROF.length - 1; i > 0; i--) st.push(c + (alpha * PROF[i][1]).toFixed(4) + ") " + ((2.5 - PROF[i][0]) * h).toFixed(2) + "deg");
+    for (i = 0; i < PROF.length; i++) st.push(c + (alpha * PROF[i][1]).toFixed(4) + ") " + ((2.5 + PROF[i][0]) * h).toFixed(2) + "deg");
+    return "conic-gradient(from " + from.toFixed(2) + "deg at var(--hz-ax) var(--hz-ay), " + st.join(", ") + ")";
+  }
   function hazeVars() {
     HZ = phoneMq.matches ? HAZE_M : HAZE_D;
+    RAYS = phoneMq.matches ? RAYS_M : RAYS_D;
+    raysEl.style.backgroundImage = RAYS.map(function (r) { return conic(HZ.dir + r.o - 2.5 * r.h, r.h, HZ.a * r.a); }).join(", ");
     var s = hazeEl.style;
     s.setProperty("--hz-l", (HZ.l * 100).toFixed(1) + "%"); s.setProperty("--hz-r", ((1 - HZ.r) * 100).toFixed(1) + "%");
     s.setProperty("--hz-ax", (HZ.ax * 100).toFixed(1) + "%"); s.setProperty("--hz-ay", (HZ.ay * 100).toFixed(1) + "%");
-    s.setProperty("--hz-from", (HZ.dir - HZ.half * 2) + "deg"); s.setProperty("--hz-h", HZ.half + "deg"); s.setProperty("--hz-a", String(HZ.a));
+    s.setProperty("--hz-from", (HZ.dir - HZ.half * 2.5) + "deg"); s.setProperty("--hz-h", HZ.half + "deg"); s.setProperty("--hz-a", String(HZ.a));
     s.setProperty("--hz-fy0", (HZ.fy0 * 100).toFixed(1) + "%"); s.setProperty("--hz-fy1", (HZ.fy1 * 100).toFixed(1) + "%");
     s.setProperty("--hz-px", (HZ.px * 100).toFixed(1) + "%"); s.setProperty("--hz-py", (HZ.py * 100).toFixed(1) + "%");
     s.setProperty("--hz-rx", (HZ.rx * 100).toFixed(1) + "%"); s.setProperty("--hz-ry", (HZ.ry * 100).toFixed(1) + "%");
@@ -142,7 +166,12 @@
     var th = Math.atan2(dx, -dy) * 57.29578; if (th < 0) th += 360;
     var a = (th - HZ.dir) / HZ.half;
     var shaft = Math.exp(-a * a * 1.1);
-    var f = v < HZ.fy0 ? 0 : v > HZ.fy1 ? 0 : Math.min(1, (v - HZ.fy0) / 0.18) * Math.min(1, (HZ.fy1 - v) / 0.3);
+    /* v10: the rays, added (their alphas are fractions of the shaft's) */
+    for (var i = 0; i < RAYS.length; i++) { var ar = (th - HZ.dir - RAYS[i].o) / RAYS[i].h; if (ar > -3 && ar < 3) shaft += RAYS[i].a * Math.exp(-ar * ar * 1.1); }
+    if (shaft > 1) shaft = 1;
+    /* v10: the vertical fade is eased (story.css), a smoothstep here */
+    var f0 = Math.max(0, Math.min(1, (v - HZ.fy0) / 0.22)), f1 = Math.max(0, Math.min(1, (HZ.fy1 - v) / 0.34));
+    var f = f0 * f0 * (3 - 2 * f0) * f1 * f1 * (3 - 2 * f1);
     shaft *= f;
     var px = (u - HZ.px) / HZ.rx, py = (v - HZ.py) / HZ.ry;
     var d = Math.sqrt(px * px + py * py);
@@ -272,6 +301,7 @@
   if ("IntersectionObserver" in global) {
     new IntersectionObserver(function (es) {
       seen = es[es.length - 1].isIntersecting;
+      hazeEl.classList.toggle("is-offstage", !seen);   /* v10: the light's sway pauses too */
       if (seen) start(); else stop();
     }, { threshold: 0, rootMargin: "-2px 0px -2px 0px" }).observe(chapters);   /* the story starts AT the fold: edge contact is not "on screen" */
   } else seen = true;

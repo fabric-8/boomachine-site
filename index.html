@@ -109,8 +109,9 @@ a{color:inherit}
        so the two halves are one function of the page's y and the seam
        between the two elements is not a line at any scroll position
        (measured: qa/v6/seam.txt). The cold pool ends in solid black 50 px
-       above the foot. The slide zone's black gradient covers the pool at
-       rest, with a SOFT foot (below), and leaves with the zone on scroll. */
+       above the foot. v10: the slide zone only shades an ellipse behind the
+       control now (below), so the pool shows at rest and runs on into the
+       story without a black band. */
     radial-gradient(var(--pool-rx) var(--pool-ry) at 50% 100%, var(--pool-0), var(--pool-1) 55%, rgba(0,0,0,0) 100%),
     radial-gradient(120% 70% at 50% 44%, #15120E 0%, #0A0908 38%, #000 72%);
 }
@@ -276,9 +277,17 @@ a{color:inherit}
      visible, and paints above the story) and fades out over that reach, so
      at rest it covers the pool at the seam and, rising with the zone, it
      slides off it without an edge. */
-  content:""; position:absolute; z-index:-1; left:0; right:0; bottom:calc(-16svh - 40px);
-  top:clamp(-70px,-7svh,-40px);
-  background:linear-gradient(to top,rgba(0,0,0,0) 0,#000 16svh,#000 calc(16svh + 50px),rgba(0,0,0,.86) calc(16svh + 106px),rgba(0,0,0,0) 100%);
+  /* v10: NO MORE FLAT BLACK (Fab: "the flat black area between the hero and
+     the phone, and a piece of the vampire hand shows below it with the
+     parallax"). The full-width black band rose with the zone (1.42x the
+     page) faster than the hand (1.36x), so its lower edge uncovered a strip
+     of the arm, and it read as a slab over the room's pool. It is now a soft
+     elliptical shade just behind the control — enough for the label on the
+     arm and the pool — with no edge anywhere; the arm dissolves by its own
+     veil and the pool runs on into the story. */
+  content:""; position:absolute; z-index:-1; left:50%; width:min(820px, 100vw + 120px); translate:-50% 0;
+  top:clamp(-110px,-12svh,-60px); bottom:clamp(-110px,-12svh,-60px);
+  background:radial-gradient(closest-side, rgba(0,0,0,.80), rgba(0,0,0,.66) 38%, rgba(0,0,0,.34) 66%, rgba(0,0,0,.10) 86%, rgba(0,0,0,0));
   pointer-events:none;
 }
 
@@ -641,9 +650,32 @@ a{color:inherit}
   </div>
 </section>
 
-<section class="support" id="support">
-  <h2>Support</h2>
-  <p>Questions, bugs, requests: <a href="mailto:support@boomachine.app">support@boomachine.app</a>. Beta feedback is welcome straight from TestFlight, too.</p>
+<!-- v10: support as three keys of the machine (Fab: "make the support
+     section a bit more interesting, it looks quite dull"). The heading is a
+     CSS phosphor sign (heading.css, split and flickered by heading.js; no
+     capital N: Jacquard's reads as "Il"); each
+     key is a keycap from the player with its lamp, which lights on hover
+     and focus. story.css ".support". -->
+<section class="support" id="support" aria-labelledby="support-h">
+  <h2 class="phos" id="support-h">Lost in the dark?</h2>
+  <p class="support-lede">Questions, bugs, a sound you wish the machine had: write to us, and a person answers.</p>
+  <div class="skeys">
+    <a class="skey" href="mailto:support@boomachine.app">
+      <span class="lamp" aria-hidden="true"></span><span class="num" aria-hidden="true">1</span>
+      <span class="k-t">Write to us</span>
+      <span class="k-s">support@boomachine.app</span>
+    </a>
+    <a class="skey" href="https://testflight.apple.com/join/jr1YqwtJ">
+      <span class="lamp" aria-hidden="true"></span><span class="num" aria-hidden="true">2</span>
+      <span class="k-t">Beta feedback</span>
+      <span class="k-s">Take a screenshot in the beta and send it from TestFlight.</span>
+    </a>
+    <a class="skey" href="press/boo-machine-press-kit.zip" download>
+      <span class="lamp" aria-hidden="true"></span><span class="num" aria-hidden="true">3</span>
+      <span class="k-t">Press kit</span>
+      <span class="k-s">Screenshots, key art and clips. ZIP, 94&nbsp;MB.</span>
+    </a>
+  </div>
 </section>
 
 <footer class="foot">
@@ -898,5 +930,7 @@ var STORE_LABEL = "Join the beta";
 <script src="heading.js"></script>
 <script src="story.js"></script>
 <script src="dust.js"></script>
+<script src="vendor/lenis.min.js"></script><!-- v10: smooth wheel scrolling -->
+<script src="smooth.js"></script>
 </body>
 </html>
