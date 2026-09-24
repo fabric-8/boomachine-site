@@ -100,5 +100,17 @@
   }
   window.booHeads = { heads: heads, flicker: function (i) { flick(heads[i | 0]); }, dim: function (i) { dim(heads[i | 0]); }, hold: hold, stop: stop, start: start, place: placeAll };
   later(1600, start);
+
+  /* v8 perf: the three signs' flicker tracks (heading.css tfA-C, registered
+     custom properties -> main-thread animations restyling each heading every
+     frame) pause while the story is off screen, i.e. the whole time the
+     reader is in the hero; they resume where they stopped */
+  var story = document.getElementById("story");
+  if (story && "IntersectionObserver" in window) {
+    new IntersectionObserver(function (es) {
+      var off = !es[es.length - 1].isIntersecting;
+      heads.forEach(function (h) { h.classList.toggle("is-offstage", off); });
+    }, { threshold: 0, rootMargin: "-2px 0px -2px 0px" }).observe(story);   /* edge contact at the fold is not "on screen" (dust.js) */
+  }
   reduce.addEventListener("change", function () { stop(); if (!reduce.matches) start(); });
 })();

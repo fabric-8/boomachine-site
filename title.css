@@ -202,7 +202,9 @@ html .title.is-flick .signimg{filter:brightness(.34) saturate(2.6) contrast(1.06
      so the bulb keeps failing while the room gets brighter. */
   /* v4: --rl-k is the SCROLL (story.js): the bulb leans up a little as the
      hero starts to leave, then hands the room over to the story's pool */
-  opacity:calc(.43 * var(--rl-a) * var(--rl-b) * var(--rl-c) * var(--rl-s, 1) * var(--rl-d, 1) * var(--rl-k, 1));
+  /* a3-v8: --rl-i is the ENTRANCE (intro.css): the bulb comes up .08 -> 1
+     with the sign on the first load, and is 1 otherwise */
+  opacity:calc(.43 * var(--rl-a) * var(--rl-b) * var(--rl-c) * var(--rl-s, 1) * var(--rl-d, 1) * var(--rl-k, 1) * var(--rl-i, 1));
   animation:rlA 13.1s ease-in-out infinite, rlB 19.7s ease-in-out infinite, rlC 31.3s linear infinite;
 }
 .rl-wash{
@@ -216,7 +218,7 @@ html .title.is-flick .signimg{filter:brightness(.34) saturate(2.6) contrast(1.06
   --rl-cut:linear-gradient(to bottom,
     rgba(0,0,0,.30) 0, rgba(0,0,0,.72) 8%, #000 17% 40%, rgba(0,0,0,.34) 64%, transparent 84%);
   -webkit-mask-image:var(--rl-cut); mask-image:var(--rl-cut);
-  opacity:calc(.48 * var(--rl-a) * var(--rl-c) * var(--rl-s, 1) * var(--rl-d, 1) * var(--rl-k, 1));
+  opacity:calc(.48 * var(--rl-a) * var(--rl-c) * var(--rl-s, 1) * var(--rl-d, 1) * var(--rl-k, 1) * var(--rl-i, 1));
   animation:rlA 13.1s ease-in-out infinite, rlC 31.3s linear infinite;
 }
 @keyframes rlA{0%{--rl-a:1}29%{--rl-a:.82}54%{--rl-a:1.12}78%{--rl-a:.9}100%{--rl-a:1}}
@@ -241,3 +243,14 @@ html.rl-flare .rl-halo,html.rl-flare .rl-wash{--rl-s:2.05}
   .rl-wash{opacity:calc(.48 * var(--rl-d, 1))}
   html.rl-flare .title .signimg{filter:none}
 }
+
+/* v8 perf: off screen (fx.js puts .is-offstage on the hero from its
+   IntersectionObserver) the endless tracks hold where they are: the sign's
+   tfA-C and the bulb's rlA-C animate registered custom properties, which
+   Chromium runs on the main thread, restyling the subtree every frame even
+   when nothing of it can be seen; the label's shimmer repaints the track.
+   They resume from the same point, so nothing jumps when the hero returns. */
+.hero.is-offstage .title,
+.hero.is-offstage .rl-halo,
+.hero.is-offstage .rl-wash,
+.hero.is-offstage .unlock-label{animation-play-state:paused}

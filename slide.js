@@ -104,18 +104,21 @@
   /* --rl-d, the room's light: 1 -> 1.7 with the travel (v2i), and on to 1.9
      as the control arms (armK, eased in the frame loop). Published only
      when it moves by more than 0.5 % */
-  var rlLast = -1;
+  var rlLast = -1, rlHost = doc.querySelector(".hero") || root;
   function setRoomLight() {
-    var base = 1 + 0.7 * progress;
+    var base = 1 + 0.7 * progress * rlDamp;     /* rlDamp: the intro's rewind lifts it less */
     var v = base + (1.9 - base) * armK;
     if (Math.abs(v - rlLast) < 0.005) return;
     rlLast = v;
-    root.style.setProperty("--rl-d", v.toFixed(3));
+    /* v8 perf: on .hero, not <html> — only the bulb's two layers (inside the
+       hero) read it, and a root custom property restyles the whole page
+       on every frame of a drag */
+    rlHost.style.setProperty("--rl-d", v.toFixed(3));
   }
   function unpublish() {                      /* hand it back to the CSS     */
     wrap.style.removeProperty("--rev");
     wrap.style.removeProperty("--revp");
-    root.style.removeProperty("--rl-d"); rlLast = -1;
+    rlHost.style.removeProperty("--rl-d"); rlLast = -1;
     progress = 0;
     wrap.classList.remove("is-open");
     if (reduce.matches) drawStatic();
@@ -209,6 +212,60 @@
   function stopAuto() {
     if (autoRaf) { global.cancelAnimationFrame(autoRaf); autoRaf = 0; }
     auto = false;
+  }
+
+  /* ---------- the intro: the gesture played backwards (intro.js) --------
+     a3-v8: on the first load the control arrives COMPLETED — the knob parked
+     at the far end, the slot full of fire, the label gone — and the knob then
+     glides home on the click's own curve (sine in-out) run backwards: the
+     fire retreats with it (the fill follows the knob as in a drag), the label
+     is uncovered behind it (a clip at the knob's right edge). Frozen the whole
+     time, so no drag, click or key can complete it; never armed; the room
+     light follows at 40 % of a drag's lift. It hands back through rest(),
+     like any release: the knob exactly where the CSS puts it, the light
+     cooling for ~600 ms. rewind({hold, dur, done}) parks at once and starts
+     the glide `hold` ms later; rewind(false) aborts to rest. */
+  var rewinding = false, rewRaf = 0, rewTimer = 0, rewDone = null, rlDamp = 1;
+  function rewindEnd() {
+    if (rewRaf) { global.cancelAnimationFrame(rewRaf); rewRaf = 0; }
+    if (rewTimer) { global.clearTimeout(rewTimer); rewTimer = 0; }
+    if (!rewinding) return;
+    rewinding = false; frozen = false; rlDamp = 1;
+    knob.classList.remove("dragging"); wrap.classList.remove("is-drag");
+    if (label) label.style.clipPath = "";
+    rest();
+    var cb = rewDone; rewDone = null;
+    if (cb) cb();
+  }
+  function rewind(opts) {
+    if (opts === false) { rewindEnd(); return; }
+    opts = opts || {};
+    if (rewinding || frozen || going || auto || dragging || reduce.matches) { if (opts.done) opts.done(); return; }
+    measure();
+    if (!(max > 0)) { if (opts.done) opts.done(); return; }
+    rewinding = true; frozen = true; rlDamp = 0.4; rewDone = opts.done || null;
+    knob.classList.add("dragging"); wrap.classList.add("is-drag");   /* no CSS easing: this loop drives it */
+    var kw = knob.offsetWidth, dur = Math.max(1, opts.dur || 860);
+    function at(v) {
+      x = v; place(v);
+      /* place() fades the label with the travel; here it is uncovered instead */
+      if (label) {
+        label.style.opacity = "1";
+        label.style.clipPath = "inset(0 0 0 " + Math.max(0, 5 + kw + v - 8).toFixed(1) + "px)";
+      }
+    }
+    at(max);
+    rewTimer = global.setTimeout(function () {
+      rewTimer = 0;
+      var t0 = 0;
+      (function step(ts) {
+        rewRaf = global.requestAnimationFrame(step);
+        if (!t0) { t0 = ts; return; }
+        var u = Math.min(1, (ts - t0) / dur);
+        at(max * (0.5 + 0.5 * Math.cos(Math.PI * u)));
+        if (u >= 1) rewindEnd();
+      })(0);
+    }, Math.max(0, opts.hold || 0));
   }
 
   /* ---------- the drag ---------------------------------------------------- */
@@ -455,7 +512,7 @@
   /* --- the knob's left edge, in canvas px (v2h's cache, unchanged) ------ */
   var kxCache = null, kxDirty = true, knobMoving = false;
   function knobX() {
-    if (kxCache && (dragging || qaDrag || auto) && knob.classList.contains("dragging")) {
+    if (kxCache && (dragging || qaDrag || auto || rewinding) && knob.classList.contains("dragging")) {
       kxCache.x = kxCache.base + x; kxDirty = false;
       return kxCache;
     }
@@ -1008,6 +1065,8 @@
     },
     /* QA: the flow's timing, ms — pointerup / Enter -> go() -> navigation */
     get timing() { return { upToGo: goAt && upAt ? +(goAt - upAt).toFixed(1) : null, goToNav: navAt && goAt ? +(navAt - goAt).toFixed(1) : null, upToNav: navAt && upAt ? +(navAt - upAt).toFixed(1) : null }; },
+    rewind: rewind,                                       /* a3-v8: the intro (intro.js) */
+    get rewinding() { return rewinding; },
     get progress() { return progress; },
     get max() { return max; },
     get armed() { return armed; },

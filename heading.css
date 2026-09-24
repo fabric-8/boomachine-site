@@ -130,3 +130,6 @@ html.rl-flare .phos.is-img .headimg{opacity:1}
 @media (prefers-reduced-motion:reduce){
   .phos.is-img .headimg{opacity:1; will-change:auto}
 }
+
+/* v8 perf: paused while the story is off screen (heading.js) */
+.phos.is-offstage{animation-play-state:paused}

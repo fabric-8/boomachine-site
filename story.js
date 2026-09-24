@@ -177,6 +177,12 @@
   var display = phoneEl.querySelector(".display");
   if (global.location.protocol !== "file:" && display && phoneEl.getAttribute("data-mask")) {
     display.style.setProperty("--screen-mask", 'url("' + phoneEl.getAttribute("data-mask") + '")');
+    /* v8 perf: the same url as the mask itself, not only through the var():
+       a var() url is re-resolved on every style recalc of .display and the
+       layer is repainted each time (trace: once per frame whenever anything
+       on <html> changed). The inline longhands win over the .has-mask rule,
+       which keeps the size / repeat. */
+    display.style.webkitMaskImage = display.style.maskImage = 'url("' + phoneEl.getAttribute("data-mask") + '")';
     display.classList.add("has-mask");
   }
 
@@ -306,31 +312,54 @@
   }
 
   /* ---------- the WebGL morph --------------------------------------------- */
-  var GL = null;
+  /* v8 perf: the warm-up is STAGED. It was one task — context, shader
+     compile + link, noise, program set-up — 150-190 ms on a desktop CPU and
+     ~720 ms at 4x throttle (measured, LoAF "story.js:warm"), which landed as
+     a visible freeze of the swaying hero ~0.5 s after the entrance. glStage()
+     now does one step per call: (1) the context, (2) compile + link WITHOUT
+     reading the status back (with KHR_parallel_shader_compile the driver
+     compiles off the thread), (3) the status, buffers, uniforms, noise.
+     warm() takes one step per idle slot; glInit() — what a morph that starts
+     before the warm-up is done calls — still finishes every step at once, so
+     the morph behaves exactly as before. */
+  var GL = null, glS = null;
   function glInit() {
-    if (GL !== null) return GL;
-    GL = false;
-    if (!morphCv || reduce.matches || qs.get("morph") === "dom") return GL;
-    var gl;
-    try { gl = morphCv.getContext("webgl", { premultipliedAlpha: true, alpha: true, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: false, powerPreference: "low-power" }); } catch (e) { gl = null; }
-    if (!gl) return GL;
-    function sh(type, src) {
-      var s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
-      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { gl.deleteShader(s); return null; }
-      return s;
+    while (!glStage(true)) {}
+    return GL;
+  }
+  function glStage(sync) {
+    if (GL !== null) return true;
+    if (!glS) {
+      if (!morphCv || reduce.matches || qs.get("morph") === "dom") { GL = false; return true; }
+      var gl0;
+      try { gl0 = morphCv.getContext("webgl", { premultipliedAlpha: true, alpha: true, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: false, powerPreference: "low-power" }); } catch (e) { gl0 = null; }
+      if (!gl0) { GL = false; return true; }
+      glS = { gl: gl0, step: 1, par: gl0.getExtension("KHR_parallel_shader_compile") };
+      return false;
     }
-    var vs = sh(gl.VERTEX_SHADER,
-      "attribute vec2 a;varying vec2 v;void main(){v=vec2(a.x*.5+.5,.5-a.y*.5);gl_Position=vec4(a,0.,1.);}");
-    var fs = sh(gl.FRAGMENT_SHADER,
+    var gl = glS.gl;
+    if (glS.step === 1) {
+      var mk = function (type, src) { var o = gl.createShader(type); gl.shaderSource(o, src); gl.compileShader(o); return o; };
+      glS.vs = mk(gl.VERTEX_SHADER,
+        "attribute vec2 a;varying vec2 v;void main(){v=vec2(a.x*.5+.5,.5-a.y*.5);gl_Position=vec4(a,0.,1.);}");
+      glS.fs = mk(gl.FRAGMENT_SHADER,
       "precision mediump float;varying vec2 v;uniform sampler2D uA,uB,uN;uniform vec4 oA,oB;uniform float t,amp,ns;uniform vec2 nsh;" +
       "vec4 smp(sampler2D s,vec4 o,vec2 p){vec2 uv=(p-o.xy)/o.zw;vec2 i=step(vec2(0.),uv)*step(uv,vec2(1.));return texture2D(s,uv)*i.x*i.y;}" +
       "void main(){vec2 n=texture2D(uN,v*ns+nsh).rg*2.-1.;vec2 n2=texture2D(uN,v*ns*2.7+nsh.yx).gb*2.-1.;" +
       "float k=sin(t*3.14159);vec2 d=(n*.78+n2*.22)*amp*k;" +
       "vec4 a=smp(uA,oA,v+d*t);vec4 b=smp(uB,oB,v-d*(1.-t));" +
       "float m=smoothstep(0.,1.,t);gl_FragColor=mix(a,b,m);}");
-    if (!vs || !fs) return GL;
-    var pr = gl.createProgram(); gl.attachShader(pr, vs); gl.attachShader(pr, fs); gl.linkProgram(pr);
-    if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) return GL;
+      glS.pr = gl.createProgram(); gl.attachShader(glS.pr, glS.vs); gl.attachShader(glS.pr, glS.fs); gl.linkProgram(glS.pr);
+      glS.step = 2;
+      return false;
+    }
+    /* step 2: still compiling on the driver's thread -> come back next slot */
+    if (!sync && glS.par && !gl.getProgramParameter(glS.pr, glS.par.COMPLETION_STATUS_KHR)) return false;
+    var pr = glS.pr, vs = glS.vs, fs = glS.fs;
+    glS = null;
+    GL = false;
+    if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS) || !gl.getShaderParameter(fs, gl.COMPILE_STATUS) ||
+        !gl.getProgramParameter(pr, gl.LINK_STATUS)) return true;
     gl.useProgram(pr);
     var buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
@@ -366,7 +395,18 @@
         var el = layers[i];
         if (handTex[i] || pending[i] || !el || !el.complete || !el.naturalWidth) return;
         if (global.createImageBitmap) {
-          pending[i] = global.createImageBitmap(el, { premultiplyAlpha: "premultiply", colorSpaceConversion: "none" })
+          /* v8 perf: from the file's bytes, not from the <img>. Chromium
+             decodes createImageBitmap(<img>) SYNCHRONOUSLY on the main thread
+             (measured 42 ms per 1856 x 2320 photograph on a desktop CPU, three
+             of them in one warm-up task); from a Blob it decodes on a worker
+             (0.1 ms on the main thread). The fetch is served from the cache
+             the <img> filled; over file:// it fails and the old path runs. */
+          var opts = { premultiplyAlpha: "premultiply", colorSpaceConversion: "none" };
+          var src = el.currentSrc || el.src;
+          pending[i] = (global.fetch && global.Blob ? global.fetch(src).then(function (r) { if (!r.ok) throw r.status; return r.blob(); })
+                .then(function (bl) { return global.createImageBitmap(bl, opts); })
+                .catch(function () { return global.createImageBitmap(el, opts); })
+              : global.createImageBitmap(el, opts))
             .then(function (bm) { handTex[i] = tex(0, bm, gl.CLAMP_TO_EDGE, true); bm.close(); pending[i] = null; if (hold !== null) tick(); })
             .catch(function () { pending[i] = null; try { handTex[i] = tex(0, el, gl.CLAMP_TO_EDGE, false); } catch (e) {} });
         } else {
@@ -392,12 +432,22 @@
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       }
     };
-    return GL;
+    return true;
   }
   /* the textures are made ahead of the first morph: after load (idle) and
      again when the stage comes near, one per image as it lands */
+  var warmQ = false;
   function warm() {
-    var g = glInit(); if (!g) return;
+    /* v8 perf: one warm-up step per idle slot (see glStage) */
+    if (GL === null && !glStage(false)) {
+      if (!warmQ) {
+        warmQ = true;
+        var next = function () { warmQ = false; warm(); };
+        if (global.requestIdleCallback) global.requestIdleCallback(next, { timeout: 1000 }); else global.setTimeout(next, 50);
+      }
+      return;
+    }
+    var g = GL; if (!g) return;
     layers.forEach(function (el, i) {
       if (!el) return;
       if (el.complete && el.naturalWidth) g.prepare(i);
@@ -582,8 +632,19 @@
   Promise.all(ready).then(function () {
     mapScreen();
     refreshWhenStill();
-    if (!reduce.matches) { if (global.requestIdleCallback) global.requestIdleCallback(warm, { timeout: 2500 }); else global.setTimeout(warm, 600); }
+    if (!reduce.matches) whenIntroDone(function () { if (global.requestIdleCallback) global.requestIdleCallback(warm, { timeout: 2500 }); else global.setTimeout(warm, 600); });
   });
+  /* a3-v8: the GL warm-up is one long task (190-300 ms on a desktop CPU,
+     ~700 ms at 4x throttle) and its idle timeout used to land it in the
+     middle of the entrance (intro.js), freezing the knob's glide home. It
+     waits for the entrance to finish (the event, or 6 s at most); a scroll
+     to the story still warms early through the pre-trigger above. */
+  function whenIntroDone(fn) {
+    if (!doc.documentElement.classList.contains("intro")) { fn(); return; }
+    var t = global.setTimeout(go, 6000);
+    function go() { global.clearTimeout(t); doc.removeEventListener("boointro:done", go); fn(); }
+    doc.addEventListener("boointro:done", go);
+  }
 
   global.booStory = {
     set: function (i) {

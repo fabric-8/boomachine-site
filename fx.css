@@ -186,6 +186,13 @@ html.t-flick .d-refl{opacity:calc(var(--refl-op) * .22)}
   background-size:100% 100%; background-repeat:no-repeat;
   mix-blend-mode:multiply;
 }
+/* v8 perf: named directly, not through var(--hand): a var() url is
+   re-resolved on every style recalc and repaints the layer each time, and
+   .hero carries per-frame custom properties (intro --rl-i, scroll --rl-k,
+   slide --rl-d). Same images, same look; --hand stays declared above. */
+.sbox.l-vampire .d-hand{background-image:url("assets/hand-vampire.png")}
+.sbox.l-wolf    .d-hand{background-image:url("assets/hand-wolf.png")}
+.sbox.l-witch   .d-hand{background-image:url("assets/hand-witch.png")}
 /* the tube browns out -> the hand loses the amber with it */
 html.t-flick .p-spill{opacity:calc(var(--spill-op) * .2)}
 /* the red bulb flares -> the amber leans warm, like the title does */

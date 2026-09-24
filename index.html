@@ -13,8 +13,32 @@
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="assets/icon.webp" type="image/webp">
 <link rel="preload" href="fonts/Jacquard12-Regular.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="assets/title-sign.webp" as="image">
+<!-- v8 perf: the sign has a 1200 px copy for phones (-sm): at 375 px it is
+     painted ~1007 device px wide, so the 1927 px original was decoded at 3.7x
+     the pixels it needs. The preload carries the same srcset/sizes as the
+     <img>, or the phone would fetch both. sizes = 5.413 x the h1's font clamp
+     (62px, 13.2vw, 178px), rounded up. -->
+<link rel="preload" href="assets/title-sign.webp" as="image" imagesrcset="assets/title-sign-sm.webp 1200w, assets/title-sign.webp 1927w" imagesizes="(max-width:470px) 336px, (max-width:1348px) 72vw, 964px">
 <link rel="preload" href="assets/unit-vampire-starter.webp" as="image">
+<script>
+/* a3-v8: the entrance gate (intro.js / intro.css). html.intro goes on before
+   the first paint unless: reduced motion, ?intro=0, or — without ?intro=1 /
+   ?intro=slow — a back/forward visit, an anchor, or a screenshot QA hook
+   (?hold ?px ?py ?flicker ?slide). If intro.js never runs, the class comes
+   off after 2.6 s and the page is what it was. */
+(function(d){try{
+  var q=new URLSearchParams(location.search),i=q.get("intro");
+  var n=performance.getEntriesByType?performance.getEntriesByType("navigation")[0]:null;
+  if(i==="0"||matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+  if(i!=="1"&&i!=="slow"){
+    if(n&&n.type==="back_forward")return;
+    if(location.hash&&location.hash!=="#hero")return;
+    if(["hold","px","py","flicker","slide"].some(function(k){return q.has(k);}))return;
+  }
+  d.classList.add("intro");if(i==="slow")d.classList.add("intro-slow");
+  window.__introSafe=setTimeout(function(){d.classList.remove("intro","intro-slow");},2600);
+}catch(e){}})(document.documentElement);
+</script>
 <style>
 @font-face{font-family:"Jacquard12";src:url("fonts/Jacquard12-Regular.woff2") format("woff2");font-weight:400;font-display:swap}
 @font-face{font-family:"Barlow";src:url("fonts/Barlow-Medium.woff2") format("woff2");font-weight:500;font-display:swap}
@@ -209,6 +233,16 @@ a{color:inherit}
   background-size:100% 100%; background-repeat:no-repeat;
   mix-blend-mode:multiply;
 }
+/* v8 perf: the same three images, named directly. A url() that arrives
+   through var() is re-resolved on every style recalc of the element, and
+   Chromium then treats it as a NEW image and repaints the layer — so any
+   per-frame custom property above it (the intro's --rl-i and the scroll's
+   --rl-k on .hero, the slide's --rl-d) re-rastered all six face/hand
+   masks every frame (trace: d-face x3 + d-hand x3 painted per frame).
+   --face stays declared above for anything that reads it. */
+.lbox.l-vampire .d-face{background-image:url("assets/face-vampire.png")}
+.lbox.l-wolf    .d-face{background-image:url("assets/face-wolf.png")}
+.lbox.l-witch   .d-face{background-image:url("assets/face-witch.png")}
 
 /* ---- slide to unlock ----
    v2f: the control itself (track, knob, label, the furnace behind it) lives in
@@ -266,11 +300,20 @@ a{color:inherit}
      vampire's nail still touches the 'a' (measured, qa/v2i/cover.py). */
   .l-vampire{--dy:0}
   .l-wolf   {--dy:0}
-  .l-witch  {--dy:-.06}
+  /* v8: the witch reaches in from ABOVE the disc, so at -.06 her fingers
+     covered half the sign on a phone. -.80 drops her ~120 px at 375 px: the
+     nail tips clear the letter band and the disc sits in the free middle of
+     the screen, well above the control (Fab, 2026-09-24). */
+  .l-witch  {--dy:-.80}
   .plane.veil{--veil:linear-gradient(to bottom,
     #000 0 calc(100% - 30svh), rgba(0,0,0,.5) calc(100% - 14svh), transparent 100%)}
   .foot{font-size:10px;letter-spacing:1.2px}
   .foot nav{gap:16px}
+}
+/* v8: tablets in portrait have the phone's problem at a larger size — the
+   witch's fingers over the sign. -.60 clears it at 768 x 1024. */
+@media (min-width:521px) and (max-width:860px){
+  .l-witch  {--dy:-.60}
 }
 /* short-and-wide: keep the disc from crowding the title */
 @media (max-height:760px) and (min-width:861px){
@@ -298,6 +341,7 @@ a{color:inherit}
 <link rel="stylesheet" href="slide.css">
 <link rel="stylesheet" href="story.css">
 <link rel="stylesheet" href="heading.css">
+<link rel="stylesheet" href="intro.css"><!-- a3-v8: the entrance -->
 <style>
 /* ============ z-order, in one place ============
    Nothing between .hero and these elements creates a stacking context, so all
@@ -358,24 +402,32 @@ a{color:inherit}
        the same size and place; it just paints nothing, so the box, the disc
        overlap and the hands-in-front z-order are unchanged. -->
   <div class="masthead">
-    <h1 class="title" aria-label="Boo Machine"><span class="plate" aria-hidden="true"></span><img class="signimg" src="assets/title-sign.webp" alt="" aria-hidden="true" width="1927" height="791" fetchpriority="high" decoding="async"><span class="on">Boo Machine</span></h1>
+    <h1 class="title" aria-label="Boo Machine"><span class="plate" aria-hidden="true"></span><img class="signimg" src="assets/title-sign.webp" srcset="assets/title-sign-sm.webp 1200w, assets/title-sign.webp 1927w" sizes="(max-width:470px) 336px, (max-width:1348px) 72vw, 964px" alt="" aria-hidden="true" width="1927" height="791" fetchpriority="high" decoding="async"><span class="on">Boo Machine</span></h1>
   </div>
 
   <div class="stage" id="stage" role="button" tabindex="0" aria-label="Change the disc">
 
     <!-- the unit plane: hand and disc are ONE photograph, 3 hands x 3 arts -->
+    <!-- v8 perf: the page's own cycle only ever shows hand i with art i (the
+         diagonal: vampire-starter, wolf-creatures, witch-coven). The six other
+         photographs (3.9 MB, a third of the page) were downloaded on every
+         load — lazy does nothing for images inside the first viewport — for
+         window.booUnit.set() alone. They carry data-src now and are fetched
+         the first time set() asks for them (set() waits for the decode before
+         it crossfades). The two diagonal ones the cycle needs later load at
+         low priority, behind the sign and the first hand. -->
     <div class="plane veil p-unit"><div class="rig">
       <img class="unit l-vampire is-on" data-hand="0" data-art="0" src="assets/unit-vampire-starter.webp"   alt="A vampire's pale clawed hand holding a disc" width="1400" height="1750" fetchpriority="high">
-      <img class="unit l-vampire"       data-hand="0" data-art="1" src="assets/unit-vampire-creatures.webp" alt="A vampire's pale clawed hand holding a disc" width="1400" height="1750" loading="lazy" aria-hidden="true">
-      <img class="unit l-vampire"       data-hand="0" data-art="2" src="assets/unit-vampire-coven.webp"     alt="A vampire's pale clawed hand holding a disc" width="1400" height="1750" loading="lazy" aria-hidden="true">
+      <img class="unit l-vampire"       data-hand="0" data-art="1" data-src="assets/unit-vampire-creatures.webp" alt="A vampire's pale clawed hand holding a disc" width="1400" height="1750" loading="lazy" aria-hidden="true">
+      <img class="unit l-vampire"       data-hand="0" data-art="2" data-src="assets/unit-vampire-coven.webp"     alt="A vampire's pale clawed hand holding a disc" width="1400" height="1750" loading="lazy" aria-hidden="true">
 
-      <img class="unit l-wolf" data-hand="1" data-art="0" src="assets/unit-wolf-starter.webp"   alt="A werewolf's clawed paw holding a disc" width="1400" height="1750" loading="lazy" aria-hidden="true">
-      <img class="unit l-wolf" data-hand="1" data-art="1" src="assets/unit-wolf-creatures.webp" alt="A werewolf's clawed paw holding a disc" width="1400" height="1750" loading="lazy" aria-hidden="true">
-      <img class="unit l-wolf" data-hand="1" data-art="2" src="assets/unit-wolf-coven.webp"     alt="A werewolf's clawed paw holding a disc" width="1400" height="1750" loading="lazy" aria-hidden="true">
+      <img class="unit l-wolf" data-hand="1" data-art="0" data-src="assets/unit-wolf-starter.webp"   alt="A werewolf's clawed paw holding a disc" width="1400" height="1750" loading="lazy" aria-hidden="true">
+      <img class="unit l-wolf" data-hand="1" data-art="1" src="assets/unit-wolf-creatures.webp" alt="A werewolf's clawed paw holding a disc" width="1400" height="1750" loading="lazy" fetchpriority="low" aria-hidden="true">
+      <img class="unit l-wolf" data-hand="1" data-art="2" data-src="assets/unit-wolf-coven.webp"     alt="A werewolf's clawed paw holding a disc" width="1400" height="1750" loading="lazy" aria-hidden="true">
 
-      <img class="unit l-witch" data-hand="2" data-art="0" src="assets/unit-witch-starter.webp"   alt="A witch-creature's hand pinching a disc between two fingers" width="1820" height="1750" loading="lazy" aria-hidden="true">
-      <img class="unit l-witch" data-hand="2" data-art="1" src="assets/unit-witch-creatures.webp" alt="A witch-creature's hand pinching a disc between two fingers" width="1820" height="1750" loading="lazy" aria-hidden="true">
-      <img class="unit l-witch" data-hand="2" data-art="2" src="assets/unit-witch-coven.webp"     alt="A witch-creature's hand pinching a disc between two fingers" width="1820" height="1750" loading="lazy" aria-hidden="true">
+      <img class="unit l-witch" data-hand="2" data-art="0" data-src="assets/unit-witch-starter.webp"   alt="A witch-creature's hand pinching a disc between two fingers" width="1820" height="1750" loading="lazy" aria-hidden="true">
+      <img class="unit l-witch" data-hand="2" data-art="1" data-src="assets/unit-witch-creatures.webp" alt="A witch-creature's hand pinching a disc between two fingers" width="1820" height="1750" loading="lazy" aria-hidden="true">
+      <img class="unit l-witch" data-hand="2" data-art="2" src="assets/unit-witch-coven.webp"     alt="A witch-creature's hand pinching a disc between two fingers" width="1820" height="1750" loading="lazy" fetchpriority="low" aria-hidden="true">
     </div></div>
 
     <!-- the spill plane (v2d): the title is a lamp. One isolated box per hand
@@ -496,17 +548,24 @@ a{color:inherit}
 <section class="story" id="story" aria-label="What Boo Machine does">
   <div class="story-in" id="storyIn">
 
+    <!-- v8 perf: the phone's four 1856 x 2320 photographs have 1280 px copies
+         (-md) for phones and tablets, where the phone is painted ~1000 px wide
+         (42svh): half the decode, half the GPU memory, half the WebGL texture;
+         desktops at 900+ px tall still take the originals. The three rendered
+         headings likewise (-md, 61 %): sizes = each image's width as a
+         multiple of the heading's font clamp (heading.css), rounded up.
+         Below the fold, so all of it loads at low priority. -->
     <figure class="phone-fig" id="phoneFig">
       <div class="fig-pool" aria-hidden="true"></div>
       <div class="fig-flare" aria-hidden="true"></div>
       <div class="phone" id="phone" data-phones="3" data-quad="547,332 1309,332 1309,1988 547,1988" data-mask="phones3/screen.png">
         <div class="hands" id="hands">
-          <img class="hand-layer is-on" data-hand="vampire" data-quad="547,332 1309,332 1309,1988 547,1988" src="phones3/hand-vampire.webp" width="1856" height="2320" alt="A vampire's pale clawed hand holding an iPhone" decoding="async">
-          <img class="hand-layer" data-hand="wolf" data-quad="547,332 1309,332 1309,1988 547,1988" src="phones3/hand-wolf.webp" width="1856" height="2320" alt="A werewolf's clawed paw holding an iPhone" decoding="async" fetchpriority="low" aria-hidden="true">
-          <img class="hand-layer" data-hand="witch" data-quad="547,332 1309,332 1309,1988 547,1988" src="phones3/hand-witch.webp" width="1856" height="2320" alt="A witch-creature's hand holding an iPhone from behind" decoding="async" fetchpriority="low" aria-hidden="true">
+          <img class="hand-layer is-on" data-hand="vampire" data-quad="547,332 1309,332 1309,1988 547,1988" src="phones3/hand-vampire.webp" srcset="phones3/hand-vampire-md.webp 1280w, phones3/hand-vampire.webp 1856w" sizes="(max-width:860px) 42vh, min(80vh, 56vw)" width="1856" height="2320" alt="A vampire's pale clawed hand holding an iPhone" decoding="async" fetchpriority="low">
+          <img class="hand-layer" data-hand="wolf" data-quad="547,332 1309,332 1309,1988 547,1988" src="phones3/hand-wolf.webp" srcset="phones3/hand-wolf-md.webp 1280w, phones3/hand-wolf.webp 1856w" sizes="(max-width:860px) 42vh, min(80vh, 56vw)" width="1856" height="2320" alt="A werewolf's clawed paw holding an iPhone" decoding="async" fetchpriority="low" aria-hidden="true">
+          <img class="hand-layer" data-hand="witch" data-quad="547,332 1309,332 1309,1988 547,1988" src="phones3/hand-witch.webp" srcset="phones3/hand-witch-md.webp 1280w, phones3/hand-witch.webp 1856w" sizes="(max-width:860px) 42vh, min(80vh, 56vw)" width="1856" height="2320" alt="A witch-creature's hand holding an iPhone from behind" decoding="async" fetchpriority="low" aria-hidden="true">
           <canvas class="morph" aria-hidden="true" width="2" height="2"></canvas>
         </div>
-        <img class="plate" src="phones3/phone-plate.webp" width="1856" height="2320" alt="" aria-hidden="true" decoding="async">
+        <img class="plate" src="phones3/phone-plate.webp" srcset="phones3/phone-plate-md.webp 1280w, phones3/phone-plate.webp 1856w" sizes="(max-width:860px) 42vh, min(80vh, 56vw)" width="1856" height="2320" alt="" aria-hidden="true" decoding="async" fetchpriority="low">
         <div class="display"><div class="screen">
           <video class="clip is-on" data-clip="tap" muted loop playsinline preload="metadata" width="906" height="1970" poster="captures/tap-poster.webp" aria-label="The Boo Machine player on Haunted house: Wind is tapped, then Whisper; each key lights and the display shows the sound's name">
             <source src="captures/tap.webm" type="video/webm">
@@ -533,19 +592,19 @@ a{color:inherit}
       <canvas class="story-motes" aria-hidden="true" width="2" height="2"></canvas>
       <section class="chapter" data-i="0" id="chapter-1">
         <div class="copy"><div class="copy-in">
-          <h2 class="phos is-img" data-fit="-7.734,-133.908,114.969,364.943" data-ink="2405,174" data-font="244"><span class="txt">One key, one creepy sound.</span><span class="bl" aria-hidden="true"></span><img class="headimg" src="assets/heading-1.webp" alt="" aria-hidden="true" width="2765" height="635" decoding="async"></h2>
+          <h2 class="phos is-img" data-fit="-7.734,-133.908,114.969,364.943" data-ink="2405,174" data-font="244"><span class="txt">One key, one creepy sound.</span><span class="bl" aria-hidden="true"></span><img class="headimg" src="assets/heading-1.webp" srcset="assets/heading-1-md.webp 1700w, assets/heading-1.webp 2765w" sizes="(max-width:406px) 112vw, (max-width:769px) 454px, (max-width:1385px) 59vw, 816px" alt="" aria-hidden="true" width="2765" height="635" decoding="async" fetchpriority="low"></h2>
           <p class="body">Wind, then Whisper. Every key on the Haunted house disc is a scene: a draught under the door, a voice that is not quite there, a knock nobody answers. Six of its twelve sounds are free. Tap one and the room changes.</p>
         </div></div>
       </section>
       <section class="chapter" data-i="1" id="chapter-2">
         <div class="copy"><div class="copy-in">
-          <h2 class="phos is-img" data-fit="-5.763,-74.713,110.853,246.552" data-ink="1336,174" data-font="244"><span class="txt">Loop the room.</span><span class="bl" aria-hidden="true"></span><img class="headimg" src="assets/heading-2.webp" alt="" aria-hidden="true" width="1481" height="429" decoding="async"></h2>
+          <h2 class="phos is-img" data-fit="-5.763,-74.713,110.853,246.552" data-ink="1336,174" data-font="244"><span class="txt">Loop the room.</span><span class="bl" aria-hidden="true"></span><img class="headimg" src="assets/heading-2.webp" srcset="assets/heading-2-md.webp 911w, assets/heading-2.webp 1481w" sizes="(max-width:406px) 60vw, (max-width:769px) 243px, (max-width:1385px) 32vw, 438px" alt="" aria-hidden="true" width="1481" height="429" decoding="async" fetchpriority="low"></h2>
           <p class="body">Hit Repeat and the machine keeps the scene alive. Layer Wind, Whisper and Knock, put the phone down, and let the house breathe on its own for as long as the party lasts. Tap a key again to take it out of the loop.</p>
         </div></div>
       </section>
       <section class="chapter" data-i="2" id="chapter-3">
         <div class="copy"><div class="copy-in">
-          <h2 class="phos is-img" data-fit="-9.900,-129.885,119.369,343.679" data-ink="1394,174" data-font="244"><span class="txt">Change the disc.</span><span class="bl" aria-hidden="true"></span><img class="headimg" src="assets/heading-3.webp" alt="" aria-hidden="true" width="1664" height="598" decoding="async"></h2>
+          <h2 class="phos is-img" data-fit="-9.900,-129.885,119.369,343.679" data-ink="1394,174" data-font="244"><span class="txt">Change the disc.</span><span class="bl" aria-hidden="true"></span><img class="headimg" src="assets/heading-3.webp" srcset="assets/heading-3-md.webp 1023w, assets/heading-3.webp 1664w" sizes="(max-width:406px) 68vw, (max-width:769px) 273px, (max-width:1385px) 36vw, 492px" alt="" aria-hidden="true" width="1664" height="598" decoding="async" fetchpriority="low"></h2>
           <p class="body">Eject, and the collection slides up: Haunted house, Creature feature, The coven. Load a disc and the whole player turns with it, from the artwork behind the glass to the twelve keys. One purchase unlocks every sound on every disc, and future discs too. No ads, no subscription.</p>
         </div></div>
       </section>
@@ -620,8 +679,37 @@ var STORE_LABEL = "Join the beta";
     if(v===null||v===undefined||v!==v) return fallback;
     return ((+v|0)%3+3)%3;
   }
-  function setUnit(h,a){ hand=idx(h,HANDS,hand); art=idx(a,ARTS,art); paint(); }
-  function show(i){ setUnit(i,i); }              /* the page's own cycle */
+  /* v8 perf: six of the nine photographs are not fetched until set() asks for
+     one (markup: data-src). Then it is fetched and DECODED before the switch,
+     so the crossfade starts on a ready picture; a newer set() in the meantime
+     wins. The cycle's own next picture is decoded ahead (predecode), so the
+     7 s swap does not pay a 1400 x 1750 decode in the frame it starts. */
+  function unitAt(h,a){
+    for(var i=0;i<units.length;i++){ if(+units[i].dataset.hand===h && +units[i].dataset.art===a) return units[i]; }
+    return null;
+  }
+  var pend=0;
+  function setUnit(h,a){
+    hand=idx(h,HANDS,hand); art=idx(a,ARTS,art);
+    var el=unitAt(hand,art), my=++pend;
+    if(el && !el.getAttribute("src") && el.dataset.src){
+      el.loading="eager"; el.src=el.dataset.src;
+      var go=function(){ if(my===pend) paint(); };
+      if(el.decode) el.decode().then(go,go);
+      else { el.addEventListener("load",go,{once:true}); el.addEventListener("error",go,{once:true}); }
+      return;
+    }
+    paint();
+  }
+  var preT=0;
+  function predecode(){
+    clearTimeout(preT);
+    var el=unitAt((hand+1)%3,(hand+1)%3);
+    if(!el || !el.decode || !el.getAttribute("src")) return;
+    /* well after the swap (and after the entrance), well before the next */
+    preT=setTimeout(function(){ el.decode().catch(function(){}); },3500);
+  }
+  function show(i){ setUnit(i,i); predecode(); }  /* the page's own cycle */
 
   /* QA hook: hold(true) stops the 7 s cycle so a screenshot cannot land on the
      wrong unit. ?hold=1 does the same from the URL. Default behaviour unchanged. */
@@ -646,13 +734,27 @@ var STORE_LABEL = "Join the beta";
 
   /* ---- tilt and the reflection's light angle ---- */
   var tx=0,ty=0,cx=0,cy=0,lastMove=-1e9,holdUntil=-1e9,raf=null;
+  /* v8 perf: the tilt is written as the three rigs' own inline transform, not
+     as --tilt-x/-y on <html>. A custom property on the root changes the
+     inherited style of EVERY element on the page, 60 times a second: ~220
+     style recalcs per frame (11 ms of a 4x-throttled phone frame, measured),
+     and every element whose background or mask comes from a var() url
+     (.d-face, .d-hand, .display) re-resolved its image and was REPAINTED
+     every frame (trace: 9 layers painted per frame, the GPU re-rastering
+     them). The inline transform is the same value the .rig rule computes
+     from the variables (which stay in :root as the static default), so the
+     transition and the look are identical; only the rigs are restyled. */
+  var rigs=[].slice.call(document.querySelectorAll(".hero .rig")), lastTilt="";
   function set(){
     /* the page tilts both rigs; nothing inside the light element is transformed
        by the page, only by disc.css */
     /* v3: pointer parallax x1.6 — 4deg -> 6.4deg of tilt at the stage's
        edge (the light's slide is scaled the same way in disc.css / fx.css) */
-    root.style.setProperty("--tilt-x",(cx*6.4).toFixed(2)+"deg");
-    root.style.setProperty("--tilt-y",(-cy*6.4).toFixed(2)+"deg");
+    var tilt="rotateY("+(cx*6.4).toFixed(2)+"deg) rotateX("+(-cy*6.4).toFixed(2)+"deg)";
+    if(tilt!==lastTilt){            /* v8 perf: a parked pointer writes nothing */
+      lastTilt=tilt;
+      for(var i=0;i<rigs.length;i++) rigs[i].style.transform=tilt;
+    }
     /* third arg true: this loop already smooths, disc.js must not ease again */
     if(window.Disc) window.Disc.setPointer(cx,cy,true);
   }
@@ -680,13 +782,61 @@ var STORE_LABEL = "Join the beta";
   window.__setPointer=setPointer;
   window.__tiltRunning=function(){ return !!raf; };   /* QA: the loop is off while the hero is off screen */
   function onMove(e){
+    if(gyro && e.pointerType!=="mouse") return;   /* v8: a finger must not fight the gyro */
     var r=stage.getBoundingClientRect();
     tx=Math.max(-1,Math.min(1,(e.clientX-(r.left+r.width/2))/(r.width/2)));
     ty=Math.max(-1,Math.min(1,(e.clientY-(r.top+r.height/2))/(r.height/2)));
     lastMove=performance.now();
   }
+
+  /* ---- v8: the phone's own tilt drives the hands ----
+     deviceorientation feeds the same tx/ty the pointer does, so the rig, the
+     reflection and the light all follow the phone with the loop's own easing.
+     Neutral is however the phone is being held: the first reading is the rest
+     pose, and the rest pose drifts slowly after the hand, so the hands always
+     come back to centre. +-18 deg away from rest is full tilt. iOS only sends
+     the events after a permission prompt, which Safari allows only inside a
+     tap: it is asked on the first tap on the stage (the tap that changes the
+     disc anyway), once. Android sends them without asking. */
+  var gyro=false, g0=null, b0=null, GYRO_RANGE=18, GYRO_DRIFT=.0025;
+  function onTilt(e){
+    if(e.gamma===null||e.beta===null) return;          /* desktops fire empty events */
+    var a=(screen.orientation&&screen.orientation.angle)||window.orientation||0;
+    var gx=e.gamma, gy=e.beta;                           /* portrait */
+    if(a===90){ gx=e.beta; gy=-e.gamma; }                /* landscape, home right */
+    else if(a===-90||a===270){ gx=-e.beta; gy=e.gamma; } /* landscape, home left */
+    if(g0===null){ g0=gx; b0=gy; }
+    g0+=(gx-g0)*GYRO_DRIFT; b0+=(gy-b0)*GYRO_DRIFT;
+    tx=clamp1((gx-g0)/GYRO_RANGE); ty=clamp1((gy-b0)/GYRO_RANGE);
+    gyro=true;
+    lastMove=performance.now();
+  }
+  function startGyro(){
+    if(!("DeviceOrientationEvent" in window)) return;
+    window.addEventListener("deviceorientation",onTilt,{passive:true});
+  }
+  function askGyro(){
+    stage.removeEventListener("click",askGyro);
+    DeviceOrientationEvent.requestPermission().then(function(state){
+      if(state==="granted") startGyro();
+    }).catch(function(){});
+  }
+  window.__gyro=function(){ return {on:gyro, rest:[g0,b0]}; };   /* QA */
+
   if(!reduce.matches){
     window.addEventListener("pointermove",onMove,{passive:true});
+    if("DeviceOrientationEvent" in window){
+      if(typeof DeviceOrientationEvent.requestPermission==="function"){
+        /* Chromium has the same call and grants it without a tap; iOS rejects
+           it outside a gesture (nothing is remembered), so then the first tap
+           on the stage asks — touch devices only, a Mac's Safari has the API too */
+        DeviceOrientationEvent.requestPermission().then(function(state){
+          if(state==="granted") startGyro(); else throw state;
+        }).catch(function(){
+          if(window.matchMedia("(pointer:coarse)").matches) stage.addEventListener("click",askGyro);
+        });
+      } else startGyro();
+    }
     raf=requestAnimationFrame(frame);
     /* v3: the page continues below the hero; scrolled out of view the tilt
        loop stops (the sway reads the clock, so it resumes where it would be) */
@@ -714,6 +864,7 @@ var STORE_LABEL = "Join the beta";
 <script src="title.js"></script>
 <script src="fx.js"></script>
 <script src="slide.js"></script>
+<script src="intro.js"></script><!-- a3-v8: the entrance (after slide.js: it drives booSlide.rewind) -->
 <script src="vendor/gsap.min.js"></script>
 <script src="vendor/ScrollTrigger.min.js"></script>
 <script src="heading.js"></script>

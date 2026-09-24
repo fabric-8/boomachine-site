@@ -38,6 +38,12 @@
      window.booFx can switch it with the rest. */
   var reduce = global.matchMedia("(prefers-reduced-motion: reduce)");
   var DPR = Math.min(global.devicePixelRatio || 1, 3);
+  /* v8 perf: the dust canvas is capped at 2x. It is the whole hero, cleared
+     and redrawn 30 times a second and screened over everything: at 3x on a
+     phone that is 2.7 Mpx per frame (1125 x 2436), at 2x 1.2 Mpx. The motes
+     are soft 24 px radial sprites drawn at 2-11 css px, so a third more
+     device pixels adds no detail to them (dust.js has always used 2). */
+  var MDPR = Math.min(DPR, 2);
 
   /* ---------- the switchboard ------------------------------------------- */
   function list() {
@@ -123,11 +129,20 @@
 
   var signEl = doc.querySelector(".title .signimg");
 
+  var reflKey = "";
   function drawRefl() {
     if (!G || !canvases.length) return;
     var Tr = G.Tr, box = G.sign;
     if (!(Tr > 0) || !box || !(box.w > 0)) return;
     if (!signEl || !signEl.complete || !signEl.naturalWidth) return;
+    /* v8 perf: redraw() runs up to four times during load (script, fonts,
+       the sign's load, window load) and each drawRefl() is three blurred
+       canvases at device resolution (~45 ms, ~170 ms at 4x throttle). Skip
+       it when nothing it depends on has changed. */
+    var key = [Tr, G.cx, G.cy, box.x, box.y, box.w, box.h, DPR, signEl.currentSrc || signEl.src].concat(
+      canvases.map(function (c) { var h = c.closest ? c.closest(".lbox") : null; return h ? getComputedStyle(h).getPropertyValue("--dy") : ""; })).join("|");
+    if (key === reflKey) return;
+    reflKey = key;
 
     /* --- the sign, once, at its on-screen size --- */
     var W = Math.ceil(box.w), H = Math.ceil(box.h);
@@ -275,8 +290,10 @@
   function sizeMotes() {
     if (!mc || !G) return;
     mw = G.hero.width; mh = G.hero.height;
-    mc.width = Math.round(mw * DPR); mc.height = Math.round(mh * DPR);
-    mctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    /* v8 perf: MDPR (above), and no re-allocation when the size is the same */
+    var bw = Math.round(mw * MDPR), bh = Math.round(mh * MDPR);
+    if (mc.width !== bw || mc.height !== bh) { mc.width = bw; mc.height = bh; }
+    mctx.setTransform(MDPR, 0, 0, MDPR, 0, 0);
     halo = haloBox();
     if (!halo) return;
     if (!sprites) sprites = [sprite(255, "58,44"), sprite(255, "128,104")];   /* v2e: dust in RED light */
@@ -371,6 +388,11 @@
   if ("IntersectionObserver" in global) {
     new IntersectionObserver(function (es) {
       heroSeen = es[es.length - 1].isIntersecting;
+      /* v8 perf: title.css pauses the hero's endless CSS animations (the
+         sign's and the bulb's flicker tracks, the label's shimmer) while the
+         hero is off screen — registered-property keyframes run on the main
+         thread and restyle their subtree every frame, seen or not */
+      hero.classList.toggle("is-offstage", !heroSeen);
       if (heroSeen) { if (has("motes")) startMotes(); } else stopMotes();
     }, { threshold: 0 }).observe(hero);
   }
