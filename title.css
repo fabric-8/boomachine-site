@@ -31,13 +31,30 @@
      v2i: the Pirata One sign (signs/pirata/fit.json), baked in by
      signs/apply-sign.sh — do not hand-edit. */
   --sign-l:-5.796%; --sign-t:-71.175%; --sign-w:112.116%; --sign-h:258.365%;  /* signs/pirata fit.json */
+  /* v9: the sign's size. On a phone the sign is sized so its LIT GLYPH RUN
+     (not the h1, not the photo's bloom) spans the viewport minus --gut each
+     side (Fab, 2026-09-24: "as much of the width as possible, a little margin
+     left and right"). The run is 4.47 em: the h1 is 4.830 em wide (the
+     invisible Jacquard setting) and the glyphs fill 8.41 % -> 91.02 % of a
+     photo that is 112.116 % of it (alpha x brightness > .35 on
+     assets/title-sign.webp). Three pieces, continuous at the joins:
+       <= 480 px   full width: (100vw - 2 --gut) / 4.47
+       480-861 px  a gentle ramp, 98.8 px -> 113.7 px
+       >= 861 px   the v8 size, 13.2vw capped at 178 px (unchanged)
+     --title-fs0 is the v8 size; index.html moves the disc down by the growth
+     (--title-fs - --title-fs0), so each hand keeps its relation to the sign. */
+  --title-fs0:clamp(62px,13.2vw,178px);
+  --title-fs:min(178px, max(13.2vw, min((100vw - 2 * var(--gut, 16px)) / 4.47, 3.9vw + 80.1px)));
 }
 
 /* ============ the nameplate ============ */
 .title{
   font-family:"Jacquard12",serif; font-weight:400;
-  font-size:clamp(62px,13.2vw,178px); line-height:.86; letter-spacing:.006em;
-  margin:0; color:transparent;
+  font-size:var(--title-fs); line-height:.86; letter-spacing:.006em;
+  /* v9: on a phone the h1's box (4.83 em) is wider than the masthead's content
+     box (its invisible side bearings sit in the --gut): it must not wrap, and
+     the -1em margins keep it centred as it overflows symmetrically into them */
+  margin:0 -1em; white-space:nowrap; color:transparent;
   position:relative; display:inline-block; z-index:2; isolation:isolate;
 
   --lit:calc(var(--tf-a) * var(--tf-b) * var(--tf-c) * var(--tf-s, 1));

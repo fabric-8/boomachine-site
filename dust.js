@@ -20,7 +20,31 @@
    #chapters) and when the tab is hidden; one still frame under reduced
    motion. ?fx=-motes (the hero's switchboard token) turns it off too.
 
-     window.booDust.running()   .count()   .redraw()   .density(x, y)
+   v9 — THE LIGHT THE TEXT PASSES THROUGH (Fab: "a bit more light
+   atmospheric dust particulate light behind the area where the text
+   scrolls through"). Two additions to the same system, nothing new that
+   runs on its own:
+     .story-haze   a sticky, viewport-tall box made here, BEFORE the canvas
+                   in #chapters (story.css): a static haze of red light — a
+                   soft shaft falling from the bulb's side of the room
+                   (above the phone) plus a low pool where the copy is read.
+                   Pure CSS gradients, painted once, BEHIND the copy (the
+                   chapters are positioned after it); nothing animates it.
+                   Its geometry comes from HAZE below and is written into
+                   the box's custom properties, so the gradient and the
+                   motes' light below are one function.
+     beam motes    a second population on the same canvas, lit by the haze:
+                   seeded by rejection-sampling hazeAt(x, y), alpha x the
+                   light where they drift, slower and finer than the
+                   heading dust. Both populations scale with the canvas
+                   area (a phone keeps ~the 90 motes it had, a desktop
+                   column gets ~150); same sprites, same 30 fps rAF, same
+                   pauses (off screen, hidden tab), one still frame under
+                   reduced motion. The canvas stays at DPR <= 2.
+   The copy keeps its contrast: the haze peaks at ~#2A0704 behind the text
+   (paper #EEE8DF on it: > 13 : 1).
+
+     window.booDust.running()   .count()   .redraw()   .density(x, y)   .haze(x, y)
    ========================================================================= */
 (function (global) {
   "use strict";
@@ -33,6 +57,38 @@
   var reduce = global.matchMedia("(prefers-reduced-motion: reduce)");
   var DPR = Math.min(global.devicePixelRatio || 1, 2);
   var COUNT = 90, STEP = 1000 / 30;
+  /* v9: the counts scale with the canvas area (css px^2 per mote) */
+  var AREA_H = 6000, AREA_B = 4000, MIN_H = 40, MAX_H = 90, MIN_B = 30, MAX_B = 130;
+  var nHead = COUNT, nBeam = 0;
+  /* v9: the haze's geometry, as fractions of the canvas box. The shaft is a
+     cone from (ax, ay) — above the box, on the phone's side — centred on
+     `dir` degrees (clockwise from up: 180 = straight down), `half` degrees
+     to its soft edge; it fades in below the box's top and out towards its
+     foot (fy0..fy1). The pool is an ellipse (px, py, rx, ry) where the copy
+     is read: the column's middle on a desktop, under the phone's foot on a
+     phone. `k` is the pool's light against the shaft's, `a` the shaft's
+     peak alpha in the CSS. The painted box
+     reaches past the column (l .. r, fractions of its width) so the light
+     has no edge at the column's side; ax / px / rx are fractions of THAT
+     box, the canvas maps into it. */
+  var HAZE_D = { l: -0.45, r: 1.25, ax: 0.80, ay: -0.14, dir: 218, half: 9, fy0: 0.04, fy1: 1.00, px: 0.47, py: 0.52, rx: 0.40, ry: 0.40, k: 0.8, a: 0.19 };
+  var HAZE_M = { l: -0.25, r: 1.25, ax: 0.70, ay: 0.34, dir: 206, half: 11, fy0: 0.48, fy1: 1.00, px: 0.46, py: 0.80, rx: 0.52, ry: 0.26, k: 0.8, a: 0.24 };
+  var phoneMq = global.matchMedia("(max-width: 860px)");
+  var HZ = HAZE_D;
+  var hazeEl = doc.createElement("div");
+  hazeEl.className = "story-haze"; hazeEl.setAttribute("aria-hidden", "true");
+  chapters.insertBefore(hazeEl, cv);
+  function hazeVars() {
+    HZ = phoneMq.matches ? HAZE_M : HAZE_D;
+    var s = hazeEl.style;
+    s.setProperty("--hz-l", (HZ.l * 100).toFixed(1) + "%"); s.setProperty("--hz-r", ((1 - HZ.r) * 100).toFixed(1) + "%");
+    s.setProperty("--hz-ax", (HZ.ax * 100).toFixed(1) + "%"); s.setProperty("--hz-ay", (HZ.ay * 100).toFixed(1) + "%");
+    s.setProperty("--hz-from", (HZ.dir - HZ.half * 2) + "deg"); s.setProperty("--hz-h", HZ.half + "deg"); s.setProperty("--hz-a", String(HZ.a));
+    s.setProperty("--hz-fy0", (HZ.fy0 * 100).toFixed(1) + "%"); s.setProperty("--hz-fy1", (HZ.fy1 * 100).toFixed(1) + "%");
+    s.setProperty("--hz-px", (HZ.px * 100).toFixed(1) + "%"); s.setProperty("--hz-py", (HZ.py * 100).toFixed(1) + "%");
+    s.setProperty("--hz-rx", (HZ.rx * 100).toFixed(1) + "%"); s.setProperty("--hz-ry", (HZ.ry * 100).toFixed(1) + "%");
+  }
+  hazeVars();
   var PADX = 40, PADY = 70, TX = 130, TY = 110;   /* the box growth and the gaussian tails, css px */
   var heads = [].slice.call(chapters.querySelectorAll(".phos"));
   var boxes = [];          /* the headings' boxes in canvas px, this frame */
@@ -44,6 +100,11 @@
   function size() {
     var r = cv.getBoundingClientRect();
     W = r.width; H = r.height;
+    hazeVars();
+    /* v9: the populations scale with the area */
+    var area = W * H;
+    nHead = Math.round(Math.max(MIN_H, Math.min(MAX_H, area / AREA_H)));
+    nBeam = Math.round(Math.max(MIN_B, Math.min(MAX_B, area / AREA_B)));
     var w = Math.round(W * DPR), h = Math.round(H * DPR);
     if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -70,6 +131,24 @@
     }
     return best;
   }
+  /* v9: the haze's light at (x, y), canvas px, 0..1 — the same shape the
+     CSS gradient paints (story.css .story-haze): the shaft's angular
+     falloff x its vertical fade, or the pool, whichever is brighter */
+  function hazeAt(x, y) {
+    if (!(W > 0) || !(H > 0)) return 0;
+    var bw = (HZ.r - HZ.l) * W;                          /* the painted box's width */
+    var u = (x / W - HZ.l) / (HZ.r - HZ.l), v = y / H;
+    var dx = (u - HZ.ax) * bw, dy = (v - HZ.ay) * H;
+    var th = Math.atan2(dx, -dy) * 57.29578; if (th < 0) th += 360;
+    var a = (th - HZ.dir) / HZ.half;
+    var shaft = Math.exp(-a * a * 1.1);
+    var f = v < HZ.fy0 ? 0 : v > HZ.fy1 ? 0 : Math.min(1, (v - HZ.fy0) / 0.18) * Math.min(1, (HZ.fy1 - v) / 0.3);
+    shaft *= f;
+    var px = (u - HZ.px) / HZ.rx, py = (v - HZ.py) / HZ.ry;
+    var d = Math.sqrt(px * px + py * py);
+    var pool = d >= 1 ? 0 : (1 - d) * (1 - d) * HZ.k;
+    return shaft > pool ? shaft : pool;
+  }
   /* a heading is a spawn site while any of its dust region is on the canvas */
   function sites() {
     var s = [];
@@ -83,7 +162,27 @@
   }
 
   /* ---------- the motes ----------------------------------------------------- */
+  /* v9: a beam mote — anywhere in the light, sampled by it */
+  function seedBeam(p, first) {
+    var x, y, n = 0;
+    do { x = Math.random() * W; y = Math.random() * H; n++; } while (Math.random() > hazeAt(x, y) && n < 10);
+    p.beam = 1; p.dead = 0;
+    p.x = x; p.y = first ? y : Math.min(y + 16, H + 8);
+    p.s = 0.8 + Math.pow(Math.random(), 2.0) * 2.8;       /* 0.8-3.6 px, skewed fine */
+    p.a = 0.36 + Math.random() * 0.6;
+    p.vx = (Math.random() - 0.5) * 4;                     /* drifting in still air, slower */
+    p.vy = -(0.6 + Math.random() * 2.8);
+    p.w = 0.1 + Math.random() * 0.35; p.ph = Math.random() * 6.283;
+    p.k = Math.random() < 0.45 ? 1 : 0;                   /* more of the hot sprite: lit */
+    p.tk = 0.2 + Math.random() * 0.4; p.tr = 0.3 + Math.random() * 0.8; p.tp = Math.random() * 6.283;
+    p.dim = 0;
+    return p;
+  }
+  /* v9: the light a mote catches: heading dust by the headings' density,
+     beam dust by the haze */
+  function lightOf(p) { return p.beam ? hazeAt(p.x, p.y) : density(p.x, p.y); }
   function seed(p, first) {
+    if (p.beam) return seedBeam(p, first);
     var s = sites();
     if (!s.length) { p.x = -99; p.y = -99; p.dead = 1; return p; }
     var b = s[(Math.random() * s.length) | 0];
@@ -108,7 +207,12 @@
   }
   function fill() {
     if (!sprites && global.booFx && global.booFx.sprites) sprites = global.booFx.sprites();
-    if (motes.length !== COUNT) { motes = []; for (var i = 0; i < COUNT; i++) motes.push(seed({}, true)); }
+    /* v9: nHead heading motes + nBeam beam motes (size() sets both) */
+    if (motes.length !== nHead + nBeam) {
+      motes = [];
+      for (var i = 0; i < nHead; i++) motes.push(seed({}, true));
+      for (var j = 0; j < nBeam; j++) motes.push(seedBeam({}, true));
+    }
   }
   function step(dt, ts) {
     for (var i = 0; i < motes.length; i++) {
@@ -116,7 +220,7 @@
       if (p.dead) { if (Math.random() < 0.2) seed(p, true); continue; }
       p.x += (p.vx + Math.sin(ts / 1000 * p.w + p.ph) * 3) * dt;
       p.y += p.vy * dt;
-      var d = density(p.x, p.y);
+      var d = lightOf(p);
       if (d < 0.03) { p.dim += dt; if (p.dim > 0.8) seed(p, false); }
       else p.dim = 0;
       if (p.y < -20 || p.x < -20 || p.x > W + 20) seed(p, false);
@@ -130,7 +234,7 @@
       var p = motes[i];
       if (p.dead) continue;
       var tw = 1 - p.tk * (0.5 + 0.5 * Math.sin(ts / 1000 * p.tr + p.tp));
-      var a = p.a * density(p.x, p.y) * (0.72 + 0.28 * Math.sin(ts / 1000 * p.w * 3 + p.ph)) * tw;
+      var a = p.a * lightOf(p) * (0.72 + 0.28 * Math.sin(ts / 1000 * p.w * 3 + p.ph)) * tw;
       if (a > 0.004) {
         var d = p.s * 2.7;
         ctx.globalAlpha = a;
@@ -184,7 +288,9 @@
     count: function () { return motes.length; },
     redraw: function () { size(); measure(); fill(); if (reduce.matches) paint(0); },
     density: density,
+    haze: hazeAt,
+    counts: function () { return { head: nHead, beam: nBeam }; },
     boxes: function () { if (dirty) measure(); return boxes; },
-    visible: function () { var n = 0; for (var i = 0; i < motes.length; i++) if (!motes[i].dead && density(motes[i].x, motes[i].y) > 0.03) n++; return n; }
+    visible: function () { var n = 0; for (var i = 0; i < motes.length; i++) if (!motes[i].dead && lightOf(motes[i]) > 0.03) n++; return n; }
   };
 })(window);

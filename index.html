@@ -56,7 +56,12 @@
      16svh below the hero (so the arm can dissolve across the boundary
      instead of at it) and a percentage would have moved the disc with them. */
   --hero-h:max(100svh, 560px);
-  --disc-y:calc(var(--hero-h) * .43);
+  /* v9: + --sign-drop, how much lower the sign's letter band ends than it
+     did in v8 (title.css grew the sign below 861 px; 0 above). The band's
+     foot is 1.088 em below the h1's top, so the disc follows it 1:1 and
+     every hand keeps its v8 relation to the letters. */
+  --sign-drop:calc((var(--title-fs, 0px) - var(--title-fs0, 0px)) * 1.088);
+  --disc-y:calc(var(--hero-h) * .43 + var(--sign-drop));
   /* v6: the bulb's pool on the hero/story seam — one ellipse, painted in two
      halves by .hero and .story with these same radii */
   --pool-rx:70%; --pool-ry:calc(var(--hero-h) * .38);
@@ -113,7 +118,11 @@ a{color:inherit}
 /* ---- masthead ---- */
 .masthead{
   position:absolute; left:0; right:0; top:0;
-  padding:clamp(18px,4.2svh,52px) var(--gut) 0;
+  /* v9: never less than 10 px of air above the lit letters (they start
+     .143 em ABOVE the h1's box): on a short landscape phone the bigger sign
+     sat 2 px from the top edge. Tall screens keep the v8 clamp. */
+  --mast-pt:max(clamp(18px,4.2svh,52px), calc(var(--title-fs, 0px) * .143 + 10px));
+  padding:var(--mast-pt) var(--gut) 0;
   text-align:center; pointer-events:none;
 }
 /* ---- the title and the room light live in title.css (drop-in) ----
@@ -292,7 +301,25 @@ a{color:inherit}
   .foot .made{order:3;flex:1 1 100%}
 }
 @media (max-width:520px){
-  :root{--Tr:min(40vw,22svh);--disc-y:calc(var(--hero-h) * .33)}
+  :root{--Tr:min(40vw,22svh);--disc-y:calc(var(--hero-h) * .33 + var(--sign-drop))}
+  /* v9: the full-width sign on a phone, and a phone's REAL height. The v8
+     values were tuned at 375x812, but Safari's small viewport (what svh is)
+     is ~550-750 px tall on an iPhone, and there the disc and the witch's hand
+     sat right on the letters (they did in v8 too). Two floors keep the whole
+     rig between the sign's letter band and the slide control:
+       --sign-foot  the letter band's foot (masthead padding + 1.088 em)
+       --zone-top   the control's top (its bottom offset + its 89 px)
+     The witch is the tallest rig: nail tips 1.13 --Tr above the disc centre
+     at her -.80, disc edge 1.8 --Tr below it — 2.93 --Tr in all. So --Tr is
+     capped to what fits with 16 px above the control, and the disc is never
+     higher than "her nail tips at the band's foot". At 375x812 both floors
+     are within 2 px of the v8 values, so tall phones do not move. */
+  :root{
+    --sign-foot:calc(max(clamp(18px,4.2svh,52px), calc(var(--title-fs) * .143 + 10px)) + var(--title-fs) * 1.088);
+    --zone-top:calc(var(--hero-h) - clamp(18px,4.2svh,46px) - 89px);
+    --Tr:min(40vw, 22svh, (var(--zone-top) - 16px - var(--sign-foot)) / 2.93);
+    --disc-y:max(calc(var(--hero-h) * .33 + var(--sign-drop)), calc(var(--sign-foot) + var(--Tr) * 1.13));
+  }
   /* v2f: the phone is NOT the desktop rig scaled down — --Tr is 150 px against
      a 57 px letter band there. v2i: the Pirata sign's letters sit lower than
      Jacquard's, so the nudge that kept the disc under a third of a column
@@ -376,6 +403,7 @@ a{color:inherit}
 .rl-wash{z-index:6}
 .unlock-zone{z-index:9}
 </style>
+<script src="analytics.js" defer></script>
 </head>
 <body>
 

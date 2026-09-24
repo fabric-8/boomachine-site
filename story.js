@@ -5,6 +5,10 @@
       viewports: the unit / spill / light planes rise 18svh and grow to
       1.04, the title rises 6svh, the slide zone rises 28svh and scrolls
       away as it is, the bulb (--rl-k) leans up then hands over.
+      v9: stronger, depth-ordered parallax (PAR: sign +2 %, hand +36 % with
+      scale 1.10 and 2 deg, zone +42 %), and the planes + zone (and, on a
+      phone, the chapters' fade under the phone) run as CSS scroll-driven
+      animations where supported, i.e. with the scroll on the compositor.
    2. THE STORY — A STATE MACHINE, NOT A SCRUB. v6 scrubbed the morph over
       40svh of scroll, so a reader parked mid-window sat on a half-morphed
       hand ("weird in-between states"). v7: the scroll only ever picks a
@@ -510,20 +514,72 @@
   function onRefresh() { refreshes++; evalTarget(); tick(); }
 
   function vh(f) { return function () { return -(global.innerHeight * f); }; }
+
+  /* v9: MORE PARALLAX (Fab: "a bit more parallax for the hand"). v4-v8 moved
+     every layer at almost the page's speed (title +6 %, hand +18 %, zone
+     +28 % of a viewport over the 120 % scrub: 1.05x / 1.15x / 1.23x), so
+     nothing read as depth. v9 spreads the layers by their depth in the
+     room: the sign on the wall (behind the hands) almost at the page's
+     speed (+2 %), the hand and its disc — the subject, nearer — rising
+     +36 % (1.3x) while it grows to 1.10 and turns 2 deg, as if it swings
+     past the camera, the slide control in front at +42 %. The three
+     planes (unit / spill / light) share ONE transform: the reflection and
+     the spill are registered to the photograph and must never come apart.
+     The hand LEADS rather than lags: tried at 1440 / 768 / 375 (scratch
+     proto shots), a lagging hand leaves its dissolving sleeve hanging
+     over the story's first chapter (the hero paints above the story).
+     Fractions of the viewport over the whole scrub; y > 0 = up. */
+  var PAR = { py: 0.36, ps: 1.10, pr: 2, ty: 0.02, zy: 0.42 };
+  /* v9: the planes and the zone ride a CSS SCROLL-DRIVEN animation
+     (animation-timeline: scroll(root), story.css) wherever it exists:
+     Chromium runs it on the compositor, Safari 26.4+ too. A scrubbed
+     GSAP transform is written by the main thread AFTER the compositor has
+     already scrolled the page, so during an iOS momentum scroll a layer
+     that moves at 1.3x the page lands a frame late, by a different amount
+     each frame (the "shaking" hand; doubled parallax would double it).
+     The range is ScrollTrigger's own start / end in px (written on each
+     refresh), so both paths cover the same scroll. Elsewhere (Safari < 26,
+     Firefox) the GSAP scrub runs as before, with a short smoothing on
+     touch screens so a late frame eases instead of stepping. The title
+     (+2 %, sub-pixel per frame) and the bulb's --rl-k stay in GSAP: the
+     title's own flicker animations would be replaced by a CSS one.
+     ?sda=0 forces the GSAP path, ?sda=1 the CSS one. */
+  var SDA = qs.has("sda") ? qs.get("sda") !== "0" :
+    !!(global.CSS && CSS.supports && CSS.supports("animation-timeline: scroll()") && CSS.supports("animation-range: 0px 1px"));
+  var coarse = global.matchMedia("(pointer: coarse)");
+  /* the scroll range of a CSS scroll-driven animation, in px from the top,
+     as custom properties on the element itself (never on <html>: a root
+     property restyles the page) */
+  function setRange(el, st) {
+    if (!el || !st) return;
+    el.style.setProperty("--v9-r0", Math.round(st.start) + "px");
+    el.style.setProperty("--v9-r1", Math.round(Math.max(st.end, st.start + 1)) + "px");
+  }
   function buildScroll() {
     if (!ST || heroST) return;
     /* the hero: the planes rise and grow, the title and the zone rise; the
-       zone keeps its opacity (v6) */
+       zone keeps its opacity (v6). v9: PAR (above), CSS-driven when SDA */
+    var planes = hero.querySelectorAll(".plane.p-unit, .plane.p-spill, .plane.p-light");
     htl = gsap.timeline({
       defaults: { ease: "none" },
-      scrollTrigger: { trigger: hero, start: "top top", end: "+=120%", scrub: true, invalidateOnRefresh: true }
+      scrollTrigger: { trigger: hero, start: "top top", end: "+=120%", scrub: SDA || !coarse.matches ? true : 0.25, invalidateOnRefresh: true,
+                       onRefresh: function (self) { if (SDA) setRange(hero, self); } }
     });
-    htl.to(hero.querySelectorAll(".plane.p-unit, .plane.p-spill, .plane.p-light"), { y: vh(0.18), scale: 1.04, transformOrigin: "50% 40%", duration: 1 }, 0)
-      .to(hero.querySelector(".title"), { y: vh(0.06), duration: 1 }, 0)
-      .to(zone, { y: vh(0.28), duration: 1 }, 0)
+    if (SDA) {
+      hero.style.setProperty("--v9-py", (-PAR.py * 100) + "svh");
+      hero.style.setProperty("--v9-ps", String(PAR.ps));
+      hero.style.setProperty("--v9-pr", PAR.pr + "deg");
+      hero.style.setProperty("--v9-zy", (-PAR.zy * 100) + "svh");
+      hero.classList.add("v9-par");
+    } else {
+      htl.to(planes, { y: vh(PAR.py), scale: PAR.ps, rotation: PAR.pr, transformOrigin: "50% 40%", duration: 1 }, 0)
+        .to(zone, { y: vh(PAR.zy), duration: 1 }, 0);
+    }
+    htl.to(hero.querySelector(".title"), { y: vh(PAR.ty), duration: 1 }, 0)
       .to(hero, { "--rl-k": 1.25, duration: 0.4 }, 0)
       .to(hero, { "--rl-k": 0.55, duration: 0.6 }, 0.4);
     heroST = htl.scrollTrigger;
+    if (SDA) setRange(hero, heroST);
 
     /* the two threshold bands: chapter k+1's copy block, its top from
        THR + HYS to THR of the viewport (8 % tall). The trigger is the COPY
@@ -560,12 +616,26 @@
          elements, so the two opacities never write over each other */
       fades = copies.map(function (c, k) {
         if (!c) return null;
+        var from = function () { return "top " + Math.round(figFoot() + 28) + "px"; };
+        var to = function () { return "top " + Math.round(figFoot() - 36) + "px"; };
+        /* v9: on a phone the whole story is read under the sticky phone, and
+           this scrub wrote an opacity on the main thread every frame of it
+           (a style recalc + a layer commit per frame, the whole way down).
+           With scroll-driven animations the fade is CSS on the scroll
+           timeline (story.css .chapter.v9-fade, compositor-run); the trigger
+           only measures the range, as the tween did. */
+        if (SDA) {
+          chapters[k].classList.add("v9-fade");
+          var m = ST.create({ trigger: c, start: from, end: to, invalidateOnRefresh: true,
+                              onRefresh: function (self) { setRange(chapters[k], self); } });
+          setRange(chapters[k], m);
+          return m;
+        }
         var t = gsap.fromTo(chapters[k], { opacity: 1 }, {
           opacity: 0, ease: "none", immediateRender: false,
           scrollTrigger: {
             trigger: c, scrub: 0.2, invalidateOnRefresh: true,
-            start: function () { return "top " + Math.round(figFoot() + 28) + "px"; },
-            end: function () { return "top " + Math.round(figFoot() - 36) + "px"; }
+            start: from, end: to
           }
         });
         return t.scrollTrigger;
@@ -588,6 +658,13 @@
     gsap.set(hero.querySelectorAll(".plane, .title, .unlock-zone"), { clearProps: "transform,opacity" });
     gsap.set(copyIns.concat(chapters).filter(Boolean), { clearProps: "transform,opacity" });
     hero.style.removeProperty("--rl-k");
+    /* v9: the CSS scroll-driven parallax / fades come off with their ranges */
+    hero.classList.remove("v9-par");
+    [hero].concat(chapters).forEach(function (el) {
+      if (!el) return;
+      el.classList.remove("v9-fade");
+      ["--v9-r0", "--v9-r1", "--v9-py", "--v9-ps", "--v9-pr", "--v9-zy"].forEach(function (p) { el.style.removeProperty(p); });
+    });
     if (morphCv) morphCv.style.display = "none";
     cvShown = false; hSmooth = 0;
     layers.forEach(function (l, k) { if (l) { l.style.opacity = ""; lastOp[k] = -1; } });
@@ -683,6 +760,7 @@
                where: where(hSmooth) };
     },
     figFoot: figFoot,
+    sda: SDA, par: PAR,   /* v9: the parallax path ('css' scroll timeline or GSAP) and its numbers */
     videos: videos, layers: layers,
     get morph() { return morphMode; },
     gl: function () { return !!glInit(); },

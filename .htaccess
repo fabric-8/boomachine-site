@@ -1,0 +1,21 @@
+# boomachine.app (ALL-INKL, Apache). Deployed from git by .github/workflows/deploy-allinkl.yml.
+
+# Analytics (a.php, stats.php): the event data lives in _data/, which has its
+# own "Require all denied". Belt and braces: data, lock and config files are
+# never served from anywhere, even if PHP or that file were missing.
+<FilesMatch "(\.(jsonl|lock)|^salt\.json.*|^analytics-config\.php)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>
+RedirectMatch 403 ^/_data(/|$)
+
+# stats.php reads "Authorization: Bearer ..."; PHP under FastCGI does not
+# see that header unless it is copied into the environment.
+<IfModule mod_setenvif.c>
+  SetEnvIf Authorization "(.+)" HTTP_AUTHORIZATION=$1
+</IfModule>

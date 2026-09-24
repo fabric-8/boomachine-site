@@ -115,6 +115,41 @@
   pointer-events:none; z-index:2; mix-blend-mode:screen; opacity:var(--mote-op, .9);
 }
 .hero:not([data-fx~="motes"]) ~ .below .story-motes{display:none}
+/* v9: the light the copy passes through (dust.js makes the box, before the
+   canvas, and writes its geometry: --hz-*). Sticky and viewport-tall like
+   the canvas, taking no room; BEHIND the copy — it is positioned with
+   z-index auto and comes first, the chapters (position:relative below)
+   paint after it. Two static gradients, no blend mode, nothing animated:
+   painted once, moved by the compositor. ::before is the shaft, a cone of
+   red light falling from above the phone's side, its angular profile the
+   gaussian dust.js lights the beam motes with (stops at -2/-1/-.5/0/.5/1/2
+   half-widths: 0 .33 .76 1 .76 .33 0) and faded in / out vertically;
+   ::after the low pool where the copy is read. Peak ~#2A0704 behind the
+   text: the paper tone keeps > 13 : 1. */
+.story-haze{
+  position:sticky; top:0; display:block; width:100%; height:100svh; margin-bottom:-100svh;
+  pointer-events:none; overflow:visible;
+  --hz-h:9deg; --hz-c:196,44,24; --hz-a:.19; --hz-pa:.17;
+}
+.story-haze::before,.story-haze::after{content:""; position:absolute; top:0; bottom:0; left:var(--hz-l,-45%); right:var(--hz-r,-25%); pointer-events:none}
+.story-haze::before{
+  background:conic-gradient(from var(--hz-from,190deg) at var(--hz-ax,86%) var(--hz-ay,-12%),
+    rgba(var(--hz-c),0) 0deg,
+    rgba(var(--hz-c),calc(var(--hz-a) * .33)) var(--hz-h),
+    rgba(var(--hz-c),calc(var(--hz-a) * .76)) calc(var(--hz-h) * 1.5),
+    rgba(var(--hz-c),var(--hz-a)) calc(var(--hz-h) * 2),
+    rgba(var(--hz-c),calc(var(--hz-a) * .76)) calc(var(--hz-h) * 2.5),
+    rgba(var(--hz-c),calc(var(--hz-a) * .33)) calc(var(--hz-h) * 3),
+    rgba(var(--hz-c),0) calc(var(--hz-h) * 4));
+  -webkit-mask-image:linear-gradient(to bottom, transparent var(--hz-fy0,6%), #000 calc(var(--hz-fy0,6%) + 18%), #000 calc(var(--hz-fy1,98%) - 30%), transparent var(--hz-fy1,98%));
+  mask-image:linear-gradient(to bottom, transparent var(--hz-fy0,6%), #000 calc(var(--hz-fy0,6%) + 18%), #000 calc(var(--hz-fy1,98%) - 30%), transparent var(--hz-fy1,98%));
+}
+.story-haze::after{
+  background:radial-gradient(var(--hz-rx,62%) var(--hz-ry,36%) at var(--hz-px,40%) var(--hz-py,54%),
+    rgba(128,20,10,var(--hz-pa)), rgba(128,20,10,calc(var(--hz-pa) * .36)) 50%, rgba(128,20,10,0) 100%);
+}
+.hero:not([data-fx~="motes"]) ~ .below .story-haze{display:none}
+.chapter{position:relative}   /* v9: paints after (over) the haze */
 .chapter{
   min-height:100svh; display:flex; flex-direction:column; justify-content:center;
   padding:6svh 0;
@@ -252,6 +287,39 @@
   .copy p.body{font-size:17px; max-width:none}
   .phos{font-size:clamp(34px,9.4vw,44px)}
 }
+
+/* ---------- v9: scroll-driven, compositor-run ----------------------------
+   story.js adds .v9-par to the hero / .v9-fade to a phone's chapters only
+   where `animation-timeline` exists, and writes the scroll range in px
+   (--v9-r0 / --v9-r1, ScrollTrigger's own start / end) and the parallax
+   (--v9-py/ps/pr/zy, story.js PAR). The animations run on the scroll
+   timeline, i.e. with the scroll itself on the compositor: a layer that
+   moves at 1.3x the page cannot land a frame late (the iOS "shake").
+   Not during the entrance (html.intro): intro.css animates the planes'
+   opacity then, and one `animation` list would replace the other; the
+   entrance ends at the top of the page, where both paths are at rest.
+   The three planes share one animation, so they cannot come apart. */
+@media (prefers-reduced-motion:no-preference){
+  html:not(.intro) .hero.v9-par .plane.p-unit,
+  html:not(.intro) .hero.v9-par .plane.p-spill,
+  html:not(.intro) .hero.v9-par .plane.p-light{
+    transform-origin:50% 40%;
+    animation-name:v9ParPlane; animation-duration:1ms; animation-timing-function:linear; animation-fill-mode:both;
+    animation-timeline:scroll(root block); animation-range:var(--v9-r0,0px) var(--v9-r1,120svh);
+  }
+  html:not(.intro) .hero.v9-par .unlock-zone{
+    animation-name:v9ParZone; animation-duration:1ms; animation-timing-function:linear; animation-fill-mode:both;
+    animation-timeline:scroll(root block); animation-range:var(--v9-r0,0px) var(--v9-r1,120svh);
+  }
+  .chapter.v9-fade{
+    animation-name:v9Fade; animation-duration:1ms; animation-timing-function:linear; animation-fill-mode:both;
+    animation-timeline:scroll(root block); animation-range:var(--v9-r0) var(--v9-r1);
+  }
+}
+/* the same order GSAP writes (translate, rotate, scale) */
+@keyframes v9ParPlane{to{transform:translate(0, var(--v9-py,-36svh)) rotate(var(--v9-pr,2deg)) scale(var(--v9-ps,1.1))}}
+@keyframes v9ParZone{to{transform:translate(0, var(--v9-zy,-42svh))}}
+@keyframes v9Fade{from{opacity:1}to{opacity:0}}
 
 /* ---------- reduced motion ---------------------------------------------- */
 /* no scrub, no morph, no reveal: the chapters are plain sections beside

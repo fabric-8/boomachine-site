@@ -58,10 +58,25 @@ jobs:
           rsync -a \
             --exclude '.git*' --exclude '.github/' --exclude '_deploy/' \
             --exclude 'drafts/' --exclude 'README.md' --exclude '.nojekyll' --exclude '.lfs-ids' \
+            --exclude 'scripts/' --exclude 'analytics-config.php' \
             ./ _deploy/
           pointers=$(find _deploy -type f -size -1k -exec grep -l 'git-lfs.github.com/spec' {} + || true)
           if [ -n "$pointers" ]; then echo "::error::LFS pointer instead of file: $pointers"; exit 1; fi
           echo "Files to publish:"; (cd _deploy && find . -type f -exec ls -l {} + | awk '{print $5, $9}' | sort -k2)
+
+      # stats.php reads its bearer token from analytics-config.php, which is never
+      # in git. No ANALYTICS_TOKEN secret: no file, and stats.php refuses every
+      # request (the mirror then also removes an older config from the server).
+      - name: Write the analytics config
+        env:
+          ANALYTICS_TOKEN: ${{ secrets.ANALYTICS_TOKEN }}
+        run: |
+          if [ -z "$ANALYTICS_TOKEN" ]; then
+            echo "::warning::ANALYTICS_TOKEN secret missing: stats.php will refuse all requests"; exit 0
+          fi
+          case "$ANALYTICS_TOKEN" in *[!A-Za-z0-9]*) echo "::error::ANALYTICS_TOKEN must be letters and digits only"; exit 1 ;; esac
+          if [ ${#ANALYTICS_TOKEN} -lt 32 ]; then echo "::error::ANALYTICS_TOKEN is shorter than 32 characters"; exit 1; fi
+          printf "<?php return ['token' => '%s'];\n" "$ANALYTICS_TOKEN" > _deploy/analytics-config.php
 
       - name: Install lftp
         run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
@@ -75,7 +90,12 @@ jobs:
           if [ "${{ inputs.check_only }}" = "true" ]; then
             ACTION="echo Login OK. Server folder above, nothing uploaded."
           else
-            ACTION="mirror --reverse --delete --verbose --parallel=4 _deploy/ ./"
+            # _data/ on the server is a.php's event store: never deleted or
+            # overwritten; only its .htaccess and index.html come from git.
+            # (lftp: the last matching --include/--exclude wins; a directory
+            # excluded by '^_data/.' is not entered, so nothing in it is removed.)
+            ACTION="mirror --reverse --delete --verbose --parallel=4 \
+              --exclude '^_data/.' --include '^_data/\\.htaccess\$' --include '^_data/index\\.html\$' _deploy/ ./"
           fi
           DEBUG=""
           if [ "${{ inputs.debug }}" = "true" ]; then DEBUG="debug 5;"; fi
@@ -85,9 +105,24 @@ jobs:
 
       - name: Check the live site
         if: ${{ !inputs.check_only }}
+        env:
+          ANALYTICS_TOKEN: ${{ secrets.ANALYTICS_TOKEN }}
         run: |
           for url in https://boomachine.app/ https://boomachine.app/legal.html https://boomachine.app/support.html https://boomachine.app/privacy.html https://boomachine.app/press/boo-machine-press-kit.zip; do
             code=$(curl -s -o /dev/null -r 0-0 -w '%{http_code}' "$url")
             echo "$code $url"
             case "$code" in 200|206) ;; *) exit 1 ;; esac
           done
+          # analytics: the collector runs PHP, the data and the config are never served
+          expect() { code=$(curl -s -o /dev/null -w '%{http_code}' "${@:2}"); echo "$code ${@: -1}"; [ "$code" = "$1" ] || exit 1; }
+          expect 405 https://boomachine.app/a.php
+          expect 400 -X POST --data '{}' -A 'Mozilla/5.0 (deploy check)' https://boomachine.app/a.php
+          for p in _data/ _data/.htaccess _data/salt.json analytics-config.php; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "https://boomachine.app/$p"); echo "$code /$p"
+            case "$code" in 403|404) ;; *) exit 1 ;; esac
+          done
+          if [ -z "$ANALYTICS_TOKEN" ]; then expect 503 https://boomachine.app/stats.php; else
+            expect 401 https://boomachine.app/stats.php
+            printf 'Authorization: Bearer %s\n' "$ANALYTICS_TOKEN" \
+              | curl -sf -H @- 'https://boomachine.app/stats.php?days=1' | jq -e '{totals, health}' || exit 1
+          fi

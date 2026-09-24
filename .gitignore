@@ -1,0 +1,6 @@
+# written by the deploy workflow from the ANALYTICS_TOKEN secret, never committed
+analytics-config.php
+# a.php runtime data (only .htaccess and index.html are tracked)
+_data/*
+!_data/.htaccess
+!_data/index.html
