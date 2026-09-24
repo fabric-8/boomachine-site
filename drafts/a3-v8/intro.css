@@ -1,0 +1,118 @@
+/* ==========================================================================
+   Boo Machine — the entrance   (a3-v8; the choreography is in intro.js)
+
+   Four states on <html>, all set by the gate in <head> and by intro.js:
+     .intro        the gate said yes: everything below is held back
+     .intro-run    intro.js started the clock: the animations below run, each
+                   from its delay (--i-*, set by intro.js, x --ik)
+     .intro-lit    every letter window is lit: the base image goes back to its
+                   normal state in the frame the windows are removed
+     .intro-done   stays for the life of the page, only so the one-shot
+                   `power` (title.css) and `fadein` (the note) the intro
+                   replaced do not replay once .intro is gone
+   With none of them (?intro=0, reduced motion, back/forward, a failed
+   script after the 2.6 s safety) the page is exactly what it was before.
+
+   Only opacity and the individual translate/scale properties move here. The rig's `transform` is the pointer tilt and the planes',
+   title's and zone's transforms belong to story.js: none of them is touched.
+   ========================================================================== */
+
+@property --rl-i{syntax:"<number>";inherits:true;initial-value:1}
+
+/* ---- the room: the bulb is (nearly) off until the sign strikes ---------- */
+html.intro:not(.intro-run) .hero{--rl-i:.08}
+html.intro-run .hero{animation:introRoom calc(1.25s * var(--ik,1)) linear var(--i-room,0ms) both}
+@keyframes introRoom{
+  0%{--rl-i:.08} 18%{--rl-i:.26} 21%{--rl-i:.12} 40%{--rl-i:.46} 43%{--rl-i:.32}
+  66%{--rl-i:.74} 100%{--rl-i:1}
+}
+
+/* ---- the sign ----------------------------------------------------------
+   The base photograph is the sign switched OFF: dim, dark-cherry glass
+   (the strong flicker's own recipe, title.css). The per-letter windows
+   (intro.js) are lit copies over it. */
+html.intro .title .signimg{animation:none}
+html.intro:not(.intro-run) .title .signimg{opacity:0;filter:brightness(.3) saturate(2.4)}
+/* the tubes come into view as the room does; the switch to lit (.intro-lit)
+   is a CUT, made in the frame the windows go, so there is no transition on it */
+html.intro-run:not(.intro-lit) .title .signimg{
+  opacity:.18;filter:brightness(.3) saturate(2.4);
+  transition:opacity calc(.3s * var(--ik,1)) ease;
+}
+html.intro-done .title .signimg{animation:none}
+
+/* the housing's glow and the air's bloom come up with the bulb */
+html.intro:not(.intro-run) .title .plate,
+html.intro:not(.intro-run) .title::before{opacity:0}
+html.intro-run .title .plate,
+html.intro-run .title::before{animation:introFade calc(1.2s * var(--ik,1)) ease-in var(--i-room,0ms) both}
+
+/* the windows: placed exactly like .signimg, with its ambient wobble, so a
+   lit window is pixel-for-pixel the sign in its normal state */
+.title .ig{
+  position:absolute; z-index:3; pointer-events:none;
+  left:var(--sign-l); top:var(--sign-t); width:var(--sign-w); height:var(--sign-h);
+  opacity:calc(.72 + .28 * var(--lit));
+  filter:brightness(calc(.70 + .30 * var(--lit)));
+}
+.title .ig-l{position:absolute; top:0; height:100%; overflow:hidden; opacity:0; will-change:opacity}
+.title .ig-l img{position:absolute; top:0; height:100%; max-width:none; display:block}
+/* each tube's stutter: hard steps (a tube is on or off), overlapping into one
+   sweep; the delay per letter is inline (intro.js) */
+html.intro-run .title .ig-a{animation:igA calc(.36s * var(--ik,1)) steps(1,end) both}
+html.intro-run .title .ig-b{animation:igB calc(.40s * var(--ik,1)) steps(1,end) both}
+html.intro-run .title .ig-c{animation:igC calc(.60s * var(--ik,1)) steps(1,end) both}
+@keyframes igA{
+  0%{opacity:0} 10%{opacity:.75} 18%{opacity:.04} 30%{opacity:.9} 38%{opacity:.3}
+  52%{opacity:1} 60%{opacity:.62} 72%{opacity:1} 100%{opacity:1}
+}
+@keyframes igB{
+  0%{opacity:0} 8%{opacity:.5} 14%{opacity:0} 24%{opacity:.95} 30%{opacity:.08}
+  40%{opacity:.8} 47%{opacity:.35} 60%{opacity:1} 100%{opacity:1}
+}
+/* the bad tube: strikes, dies, catches, sags, holds */
+@keyframes igC{
+  0%{opacity:0} 6%{opacity:.55} 10%{opacity:0} 20%{opacity:.3} 24%{opacity:0}
+  36%{opacity:.9} 41%{opacity:.12} 54%{opacity:1} 60%{opacity:.45} 70%{opacity:.95}
+  76%{opacity:.7} 84%{opacity:1} 100%{opacity:1}
+}
+
+/* ---- the hand: rises out of the dark below into the sign's light --------
+   opacity on the three planes (each is already its own layer: will-change),
+   the rise on each .rig with `translate` + `scale`, which compose with the
+   rig's tilt `transform` instead of replacing it. The scale is about the rig
+   origin = the disc centre. The veil mask on the planes stays put, so the
+   arm comes up through the dissolve at the bottom. */
+/* NOT opacity 0 while it waits: at exactly 0 Chromium skips painting the
+   planes, and their first paint (three big photographs under masks and blend
+   modes) then lands as ONE long frame at the moment the hand should start to
+   move — measured 360-430 ms at 375x812, freezing the last letters and
+   popping the hand in. At .002 (invisible on black) they are painted with the
+   rest of the first frame, before intro.js starts the clock. */
+html.intro:not(.intro-run) .hero .plane{opacity:.002}
+html.intro:not(.intro-run) .hero .fx-motes{opacity:0}
+html.intro-run .hero .plane{animation:introFadeP calc(.62s * var(--ik,1)) cubic-bezier(.33,0,.4,1) var(--i-stage,0ms) both}
+html.intro-run .hero .plane > .rig{animation:introRise calc(.9s * var(--ik,1)) cubic-bezier(.16,.84,.3,1) var(--i-stage,0ms) both}
+html.intro-run .hero .fx-motes{animation:introFade calc(1.2s * var(--ik,1)) ease var(--i-stage,0ms) both}
+@keyframes introRise{from{translate:0 11svh;scale:.9}}
+html.intro .stage{pointer-events:none}
+
+/* ---- the slider: comes in completed, then plays the gesture backwards ----
+   The wrap fades and rises; the knob's glide home is slide.js
+   (booSlide.rewind, started by intro.js). Nothing on it is clickable until
+   the intro has handed back. */
+html.intro:not(.intro-run) .unlock-wrap,
+html.intro:not(.intro-run) .note{opacity:0}
+html.intro:not(.intro-run) .note{animation:none}
+html.intro .unlock-wrap{pointer-events:none}
+html.intro-run .unlock-wrap{animation:introTrack calc(.52s * var(--ik,1)) cubic-bezier(.2,.7,.2,1) var(--i-track,0ms) both}
+@keyframes introTrack{from{opacity:0;translate:0 16px}}
+
+/* ---- the note, last ---- */
+html.intro-run .note{animation:introNote calc(.6s * var(--ik,1)) ease var(--i-note,0ms) both}
+@keyframes introNote{from{opacity:0;translate:0 6px}to{opacity:1;translate:none}}
+html.intro-done .note{animation:none;opacity:1}
+
+/* a keyframe with no `to`: runs to whatever the element's own rule says */
+@keyframes introFade{from{opacity:0}}
+@keyframes introFadeP{from{opacity:.002}}
