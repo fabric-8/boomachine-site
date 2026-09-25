@@ -1,5 +1,12 @@
 # boomachine.app (ALL-INKL, Apache). Deployed from git by .github/workflows/deploy-allinkl.yml.
 
+# PHP version. The account's top-level .htaccess (above /boomachine.app/, not
+# ours) carries a legacy "AddHandler php53-cgi .php" that every domain folder
+# inherits; PHP 5.3 no longer exists on the server, so .php answered "PHP
+# version not supported" (ALL-INKL support, 2026-09-25). This pins the version
+# chosen in KAS for this folder. Keep it in step with KAS.
+AddHandler php85-cgi .php
+
 # Analytics (a.php, stats.php): the event data lives in _data/, which has its
 # own "Require all denied". Belt and braces: data, lock and config files are
 # never served from anywhere, even if PHP or that file were missing.
