@@ -303,6 +303,8 @@ html.lenis, html.lenis body{height:auto}
     linear-gradient(to bottom, rgba(0,0,0,0), #000 40%);
 }
 .support .phos{margin:0 auto 18px; display:inline-block; font-size:clamp(46px,6vw,84px); letter-spacing:.01em}
+/* v10b: the rendered sign (heading-4.webp): its own size, not the story's cqw cap, and the render's 0 tracking */
+.support .phos.is-img{font-size:clamp(46px,6vw,84px); letter-spacing:0; max-width:none}
 .support-lede{margin:0 auto; max-width:40ch; font-size:18px; line-height:1.6; color:var(--paper); text-wrap:pretty}
 /* v10b: CURSED (Fab: "make the buttons look much more cursed and messed
    up"). The well is the app's CasePatina, the caps are three of its PadSkin
@@ -385,7 +387,7 @@ html.lenis, html.lenis body{height:auto}
 }
 @keyframes skBreathe{from{transform:rotate(6deg) scale(1)}to{transform:rotate(5deg) scale(1.035)}}
 @media (max-width:640px){
-  .support .phos{font-size:clamp(44px,13vw,60px)}
+  .support .phos,.support .phos.is-img{font-size:clamp(44px,13vw,60px)}
   .support-lede{font-size:17px}
   .skeys{grid-template-columns:1fr; gap:14px; padding:14px; border-radius:22px}
   .skey{min-height:0; display:grid; grid-template-columns:auto 1fr; grid-template-rows:auto auto; column-gap:16px; row-gap:4px; padding:4px 40px 6px 6px; border-width:22px; border-image-width:22px}
