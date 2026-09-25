@@ -59,6 +59,7 @@ jobs:
             --exclude '.git*' --exclude '.github/' --exclude '_deploy/' \
             --exclude 'drafts/' --exclude 'README.md' --exclude '.nojekyll' --exclude '.lfs-ids' \
             --exclude 'scripts/' --exclude 'analytics-config.php' \
+            --exclude 'notify-config.php' --exclude 'README-NOTIFY.md' \
             ./ _deploy/
           pointers=$(find _deploy -type f -size -1k -exec grep -l 'git-lfs.github.com/spec' {} + || true)
           if [ -n "$pointers" ]; then echo "::error::LFS pointer instead of file: $pointers"; exit 1; fi
@@ -78,6 +79,51 @@ jobs:
           if [ ${#ANALYTICS_TOKEN} -lt 32 ]; then echo "::error::ANALYTICS_TOKEN is shorter than 32 characters"; exit 1; fi
           printf "<?php return ['token' => '%s'];\n" "$ANALYTICS_TOKEN" > _deploy/analytics-config.php
 
+      # The launch list (README-NOTIFY.md). notify-config.php, never in git, holds
+      #   admin_token  from NOTIFY_ADMIN_TOKEN: notify-admin.php (counts, CSV export,
+      #                sending); without it notify-admin.php refuses every request
+      #   smtp_*       from NOTIFY_SMTP_HOST / _PORT / _USER / _PASS (optional
+      #                NOTIFY_SMTP_SECURE ssl|tls): mails go out over authenticated
+      #                SMTP; without them PHP mail() sends them (-f noreply@...)
+      # Nothing set: no file (and the mirror removes an older one from the server).
+      - name: Write the notify config
+        env:
+          NOTIFY_ADMIN_TOKEN: ${{ secrets.NOTIFY_ADMIN_TOKEN }}
+          NOTIFY_SMTP_HOST: ${{ secrets.NOTIFY_SMTP_HOST }}
+          NOTIFY_SMTP_PORT: ${{ secrets.NOTIFY_SMTP_PORT }}
+          NOTIFY_SMTP_USER: ${{ secrets.NOTIFY_SMTP_USER }}
+          NOTIFY_SMTP_PASS: ${{ secrets.NOTIFY_SMTP_PASS }}
+          NOTIFY_SMTP_SECURE: ${{ secrets.NOTIFY_SMTP_SECURE }}
+        run: |
+          # a PHP single-quoted string: backslash and quote escaped (no line breaks, checked first)
+          q() { v=${1//\\/\\\\}; v=${v//\'/\\\'}; printf "'%s'" "$v"; }
+          for n in NOTIFY_SMTP_HOST NOTIFY_SMTP_USER NOTIFY_SMTP_PASS; do
+            case "${!n}" in *$'\n'*|*$'\r'*) echo "::error::$n contains a line break"; exit 1 ;; esac
+          done
+          body=""
+          if [ -n "$NOTIFY_ADMIN_TOKEN" ]; then
+            case "$NOTIFY_ADMIN_TOKEN" in *[!A-Za-z0-9]*) echo "::error::NOTIFY_ADMIN_TOKEN must be letters and digits only"; exit 1 ;; esac
+            if [ ${#NOTIFY_ADMIN_TOKEN} -lt 32 ]; then echo "::error::NOTIFY_ADMIN_TOKEN is shorter than 32 characters"; exit 1; fi
+            body+="  'admin_token' => $(q "$NOTIFY_ADMIN_TOKEN"),"$'\n'
+          else
+            echo "::warning::NOTIFY_ADMIN_TOKEN secret missing: notify-admin.php refuses all requests (no counts, export or sending)"
+          fi
+          if [ -n "$NOTIFY_SMTP_HOST" ]; then
+            if [ -z "$NOTIFY_SMTP_USER" ] || [ -z "$NOTIFY_SMTP_PASS" ]; then echo "::error::NOTIFY_SMTP_HOST is set, NOTIFY_SMTP_USER or NOTIFY_SMTP_PASS missing"; exit 1; fi
+            case "$NOTIFY_SMTP_HOST" in *[!A-Za-z0-9.-]*) echo "::error::NOTIFY_SMTP_HOST must be a host name"; exit 1 ;; esac
+            port="${NOTIFY_SMTP_PORT:-465}"
+            case "$port" in ''|*[!0-9]*) echo "::error::NOTIFY_SMTP_PORT must be a number"; exit 1 ;; esac
+            case "${NOTIFY_SMTP_SECURE:-}" in ''|ssl|tls) ;; *) echo "::error::NOTIFY_SMTP_SECURE must be ssl or tls"; exit 1 ;; esac
+            body+="  'smtp_host' => $(q "$NOTIFY_SMTP_HOST"),"$'\n'
+            body+="  'smtp_port' => '$port',"$'\n'
+            body+="  'smtp_user' => $(q "$NOTIFY_SMTP_USER"),"$'\n'
+            body+="  'smtp_pass' => $(q "$NOTIFY_SMTP_PASS"),"$'\n'
+            if [ -n "${NOTIFY_SMTP_SECURE:-}" ]; then body+="  'smtp_secure' => '$NOTIFY_SMTP_SECURE',"$'\n'; fi
+          else
+            echo "::warning::NOTIFY_SMTP_* secrets missing: confirmation mails go out with PHP mail()"
+          fi
+          if [ -n "$body" ]; then printf '<?php return [\n%s];\n' "$body" > _deploy/notify-config.php; fi
+
       - name: Install lftp
         run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
 
@@ -90,7 +136,8 @@ jobs:
           if [ "${{ inputs.check_only }}" = "true" ]; then
             ACTION="echo Login OK. Server folder above, nothing uploaded."
           else
-            # _data/ on the server is a.php's event store: never deleted or
+            # _data/ on the server is a.php's event store and the launch list
+            # (_data/notify/, subscribe.php): never deleted or
             # overwritten; only its .htaccess and index.html come from git.
             # (lftp: the last matching --include/--exclude wins; a directory
             # excluded by '^_data/.' is not entered, so nothing in it is removed.)
@@ -107,6 +154,7 @@ jobs:
         if: ${{ !inputs.check_only }}
         env:
           ANALYTICS_TOKEN: ${{ secrets.ANALYTICS_TOKEN }}
+          NOTIFY_ADMIN_TOKEN: ${{ secrets.NOTIFY_ADMIN_TOKEN }}
         run: |
           for url in https://boomachine.app/ https://boomachine.app/legal.html https://boomachine.app/support.html https://boomachine.app/privacy.html https://boomachine.app/press/boo-machine-press-kit.zip; do
             code=$(curl -s -o /dev/null -r 0-0 -w '%{http_code}' "$url")
@@ -125,4 +173,19 @@ jobs:
             expect 401 https://boomachine.app/stats.php
             printf 'Authorization: Bearer %s\n' "$ANALYTICS_TOKEN" \
               | curl -sf -H @- 'https://boomachine.app/stats.php?days=1' | jq -e '{totals, health}' || exit 1
+          fi
+          # launch list: the endpoints run PHP; the list, its code library and the
+          # config are never served (no test sign-up here: that would send a mail)
+          expect 405 https://boomachine.app/subscribe.php
+          expect 400 -X POST --data '{}' -A 'Mozilla/5.0 (deploy check)' https://boomachine.app/subscribe.php
+          expect 410 'https://boomachine.app/confirm.php?t=00000000000000000000000000000000'
+          expect 410 'https://boomachine.app/unsubscribe.php?t=00000000000000000000000000000000'
+          for p in _data/notify/ _data/notify/list.json _data/notify/secret.json notify-config.php notify-lib.php README-NOTIFY.md; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "https://boomachine.app/$p"); echo "$code /$p"
+            case "$code" in 403|404) ;; *) exit 1 ;; esac
+          done
+          if [ -z "$NOTIFY_ADMIN_TOKEN" ]; then expect 503 https://boomachine.app/notify-admin.php; else
+            expect 401 https://boomachine.app/notify-admin.php
+            printf 'Authorization: Bearer %s\n' "$NOTIFY_ADMIN_TOKEN" \
+              | curl -sf -H @- 'https://boomachine.app/notify-admin.php?action=counts' | jq -e '{confirmed, pending, mailer}' || exit 1
           fi

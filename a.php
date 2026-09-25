@@ -26,9 +26,13 @@ const EVENTS = [
   'pageview', 'engaged', 'scroll_25', 'scroll_50', 'scroll_75', 'scroll_100',
   'story_chapter_1', 'story_chapter_2', 'story_chapter_3', 'disc_change',
   'intro_complete', 'beta_click', 'press_kit_download', 'mailto_click',
+  'notify_submit', 'notify_confirmed', 'store_click',   /* launch list (README-NOTIFY.md);
+     confirm.php also writes notify_confirmed itself, with a random page id and hash */
 ];
 const DEVICES = ['phone', 'tablet', 'desktop'];
-const SOURCES = ['slide', 'bar', 'link'];
+const SOURCES = ['slide', 'bar', 'link'];                 /* beta_click (old data) */
+const NOTIFY_SOURCES = ['hero', 'bar', 'support'];       /* notify_submit */
+const STORE_SOURCES = ['hero', 'bar', 'support', 'slide', 'link'];   /* store_click */
 const DENY = "# Written by a.php if missing; the same file is in git.\n<IfModule mod_authz_core.c>\n  Require all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\n  Order allow,deny\n  Deny from all\n</IfModule>\n";
 const BOTS = '/bot|crawl|spider|slurp|scrap|headless|phantom|selenium|puppeteer|playwright|lighthouse|pagespeed|gtmetrix|pingdom|uptime|monitor|preview|facebookexternalhit|embedly|curl|wget|python|java\/|go-http|okhttp|axios|node-fetch|undici|libwww|httpclient|http_request|guzzle|postman|insomnia/i';
 
@@ -82,7 +86,8 @@ foreach (['us', 'um', 'uc'] as $k) {
   if ($v !== '') $rec[$k] = strtolower($v);
 }
 $src = $in['s'] ?? '';
-if ($ev === 'beta_click' && is_string($src) && in_array($src, SOURCES, true)) $rec['s'] = $src;
+$srcs = match ($ev) { 'beta_click' => SOURCES, 'notify_submit' => NOTIFY_SOURCES, 'store_click' => STORE_SOURCES, default => [] };
+if (is_string($src) && in_array($src, $srcs, true)) $rec['s'] = $src;
 $rec['d'] = $dev;
 $rec['b'] = match (true) {
   str_contains($ua, 'Edg/') || str_contains($ua, 'EdgiOS') || str_contains($ua, 'EdgA/') => 'edge',

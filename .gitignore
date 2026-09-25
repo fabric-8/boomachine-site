@@ -1,5 +1,9 @@
 # written by the deploy workflow from the ANALYTICS_TOKEN secret, never committed
 analytics-config.php
+# written by the deploy workflow from the NOTIFY_* secrets, never committed
+notify-config.php
+# scripts/notify-send.php's local run log
+notify-send-*.log
 # a.php runtime data (only .htaccess and index.html are tracked)
 _data/*
 !_data/.htaccess

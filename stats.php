@@ -53,13 +53,16 @@ $daily = [];
 $ev = [];                                   /* event => count */
 $pages = [];                                /* path => pageviews */
 $refs = []; $utm = []; $dev = []; $brow = []; $lang = []; $betaSrc = [];
+$notifySrc = []; $storeSrc = [];
 $pvIds = [];                                /* pageview ids on "/" */
 $reach = [];                                /* event => [id => 1] (home page only) */
 $visPv = []; $visBeta = []; $visEngaged = []; $visDisc = [];   /* "day|vh" => 1 */
+$visNotify = []; $visStore = [];
 
 for ($i = $days - 1; $i >= 0; $i--) {
   $day = date('Y-m-d', strtotime("-$i days"));
-  $d = ['date' => $day, 'pageviews' => 0, 'visitors' => 0, 'beta_clicks' => 0, 'events' => 0];
+  $d = ['date' => $day, 'pageviews' => 0, 'visitors' => 0, 'beta_clicks' => 0,
+        'notify_submits' => 0, 'notify_confirmed' => 0, 'store_clicks' => 0, 'events' => 0];
   $uniq = [];
   $f = "$dir/events-$day.jsonl";
   $fh = is_file($f) ? @fopen($f, 'rb') : false;
@@ -93,6 +96,15 @@ for ($i = $days - 1; $i >= 0; $i--) {
           $d['beta_clicks']++; $visBeta[$vk] = 1;
           $x = (string)($r['s'] ?? '?'); $betaSrc[$x] = ($betaSrc[$x] ?? 0) + 1;
         }
+        if ($e === 'notify_submit') {
+          $d['notify_submits']++; $visNotify[$vk] = 1;
+          $x = (string)($r['s'] ?? '?'); $notifySrc[$x] = ($notifySrc[$x] ?? 0) + 1;
+        }
+        if ($e === 'notify_confirmed') $d['notify_confirmed']++;   /* written by confirm.php, random vh */
+        if ($e === 'store_click') {
+          $d['store_clicks']++; $visStore[$vk] = 1;
+          $x = (string)($r['s'] ?? '?'); $storeSrc[$x] = ($storeSrc[$x] ?? 0) + 1;
+        }
         if ($e === 'engaged') $visEngaged[$vk] = 1;
         if ($e === 'disc_change') $visDisc[$vk] = 1;
       }
@@ -117,6 +129,21 @@ $funnel = function (array $names) use ($reach, $pvIds, $homePv): array {
 };
 $visitors = count($visPv);
 $withBeta = count(array_intersect_key($visBeta, $visPv));
+$withNotify = count(array_intersect_key($visNotify, $visPv));
+$withStore = count(array_intersect_key($visStore, $visPv));
+
+/* the launch list right now: numbers only (notify-lib.php's store) */
+$list = null;
+$nd = "$dir/notify";
+if (is_file("$nd/list.json") && ($lk = @fopen("$nd/list.lock", 'c'))) {
+  flock($lk, LOCK_SH);
+  $l = json_decode((string)@file_get_contents("$nd/list.json"), true);
+  flock($lk, LOCK_UN); fclose($lk);
+  if (is_array($l['subs'] ?? null)) {
+    $list = ['pending' => 0, 'confirmed' => 0, 'unsubscribed' => 0];
+    foreach ($l['subs'] as $e) { $x = (string)($e['status'] ?? ''); if (isset($list[$x])) $list[$x]++; }
+  }
+}
 
 $totalPv = array_sum(array_column($daily, 'pageviews'));
 echo json_encode([
@@ -134,6 +161,20 @@ echo json_encode([
     'visitors_with_click' => $withBeta,
     'conversion' => share($withBeta, $visitors),
     'by_source' => top($betaSrc),
+  ],
+  'notify' => [
+    'submits' => $ev['notify_submit'] ?? 0,
+    'visitors_with_submit' => $withNotify,
+    'conversion' => share($withNotify, $visitors),
+    'by_source' => top($notifySrc),
+    'confirmed' => $ev['notify_confirmed'] ?? 0,
+    'list' => $list,
+  ],
+  'store' => [
+    'clicks' => $ev['store_click'] ?? 0,
+    'visitors_with_click' => $withStore,
+    'conversion' => share($withStore, $visitors),
+    'by_source' => top($storeSrc),
   ],
   'engagement' => [
     'engaged_visitors' => count($visEngaged), 'engaged_rate' => share(count($visEngaged), $visitors),
