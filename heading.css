@@ -144,3 +144,7 @@ html.rl-flare .phos.is-img .headimg{opacity:1}
 
 /* v8 perf: paused while the story is off screen (heading.js) */
 .phos.is-offstage{animation-play-state:paused}
+/* v10: ...and while a finger scrolls (dust.js): a main-thread animation
+   commits every frame, and each commit re-places the sticky phone with a
+   stale scroll offset in iOS WebKit (the phone jitters) */
+html.is-scrolling .phos{animation-play-state:paused}

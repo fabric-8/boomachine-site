@@ -280,6 +280,7 @@
     if (dt < STEP - 2) return;
     last = ts;
     if (!has()) return;
+    if (quiet) return;                    /* v10: no commit mid-scroll on a touch screen */
     if (dirty) measure();
     step(Math.min(dt, 80) / 1000, ts);
     paint(ts);
@@ -294,7 +295,25 @@
   function stop() { if (raf) { global.cancelAnimationFrame(raf); raf = 0; } }
 
   /* ---------- wiring ------------------------------------------------------- */
-  global.addEventListener("scroll", function () { dirty = true; }, { passive: true });
+  /* v10: QUIET WHILE A FINGER SCROLLS (Fab: "micro vertical jitters on the
+     hands with the phone" on an iPhone). In iOS WebKit the sticky phone is
+     placed by the scrolling thread, but every main-thread layer commit places
+     it again with the main thread's (older) scroll offset. This canvas
+     repainting at 30 fps committed every other frame during a scroll, so the
+     phone swung ~2 pt back and forth frame by frame (measured off Fab's
+     recording: -3 / -9 device px, alternating). On a touch screen, while the
+     page is scrolling and for 250 ms after, the canvas holds its pixels and
+     html.is-scrolling pauses the headings' main-thread flicker
+     (heading.css); nothing else in the story commits per frame. */
+  var coarse = global.matchMedia("(hover: none) and (pointer: coarse)");
+  var root = doc.documentElement, quietT = 0, quiet = false;
+  function scrollQuiet() {
+    if (!coarse.matches) return;
+    if (!quiet) { quiet = true; root.classList.add("is-scrolling"); }
+    clearTimeout(quietT);
+    quietT = setTimeout(function () { quiet = false; root.classList.remove("is-scrolling"); }, 250);
+  }
+  global.addEventListener("scroll", function () { dirty = true; scrollQuiet(); }, { passive: true });
   var rz = 0;
   global.addEventListener("resize", function () { clearTimeout(rz); rz = setTimeout(function () { size(); fill(); start(); }, 90); }, { passive: true });
   doc.addEventListener("visibilitychange", function () { if (doc.hidden) stop(); else start(); });
