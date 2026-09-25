@@ -15,6 +15,7 @@ Preview either mode without a deploy: `?mode=live` or `?mode=prelaunch`.
 2. Same file, the two static descriptions (crawlers and link previews read these without JS):
    - `<meta name="description" content="Boo Machine is a Halloween soundboard for iPhone, built as a cursed disc player. Tap a creepy sound, loop the room, change the disc. Free on the App Store.">`
    - `<meta property="og:description" content="A cursed disc player for your iPhone. Free on the App Store.">`
+   - `<meta name="twitter:description" content="A cursed disc player for your iPhone. Free on the App Store.">`
 3. Open the page without `?mode`, slide the knob and tap the bar's button: both must land on the Boo Machine App Store page (desktop and phone).
 4. Commit and push `site/` (pushing publishes).
 
