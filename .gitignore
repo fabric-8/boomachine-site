@@ -4,3 +4,6 @@ analytics-config.php
 _data/*
 !_data/.htaccess
 !_data/index.html
+
+# agent worktrees (Claude Code)
+.claude/worktrees/
