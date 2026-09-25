@@ -373,6 +373,7 @@ a{color:inherit}
 <link rel="stylesheet" href="story.css">
 <link rel="stylesheet" href="heading.css">
 <link rel="stylesheet" href="intro.css"><!-- a3-v8: the entrance -->
+<link rel="stylesheet" href="growth.css"><!-- v11: the corruption at the foot -->
 <style>
 /* ============ z-order, in one place ============
    Nothing between .hero and these elements creates a stacking context, so all
@@ -680,6 +681,8 @@ a{color:inherit}
       <span class="k-s">Screenshots, key art and clips. ZIP, 94&nbsp;MB.</span>
     </a>
   </div>
+  <!-- v11: the corruption that grows in from both sides at the page's foot (growth.css / growth.js) -->
+  <div class="corruption" id="corruption" aria-hidden="true"></div>
 </section>
 
 <footer class="foot">
@@ -936,5 +939,6 @@ var STORE_LABEL = "Join the beta";
 <script src="dust.js"></script>
 <script src="vendor/lenis.min.js"></script><!-- v10: smooth wheel scrolling -->
 <script src="smooth.js"></script>
+<script src="growth.js"></script>
 </body>
 </html>
