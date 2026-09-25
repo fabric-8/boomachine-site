@@ -7,6 +7,12 @@
 # chosen in KAS for this folder. Keep it in step with KAS.
 AddHandler php85-cgi .php
 
+# The same top-level .htaccess routes every missing path to its own index.php
+# (a front controller for an app in the account root). Having any rewrite
+# directive here stops that rule set from applying to this folder, so a
+# missing page on boomachine.app is a plain 404 instead of a 500.
+RewriteEngine On
+
 # Analytics (a.php, stats.php): the event data lives in _data/, which has its
 # own "Require all denied". Belt and braces: data, lock and config files are
 # never served from anywhere, even if PHP or that file were missing.
