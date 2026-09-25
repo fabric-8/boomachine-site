@@ -13,10 +13,12 @@ AddHandler php85-cgi .php
 # missing page on boomachine.app is a plain 404 instead of a 500.
 RewriteEngine On
 
-# Analytics (a.php, stats.php): the event data lives in _data/, which has its
-# own "Require all denied". Belt and braces: data, lock and config files are
-# never served from anywhere, even if PHP or that file were missing.
-<FilesMatch "(\.(jsonl|lock)|^salt\.json.*|^analytics-config\.php)$">
+# Analytics (a.php, stats.php) and the launch list (subscribe.php, notify-lib.php;
+# README-NOTIFY.md): their data lives in _data/ and _data/notify/, which have
+# their own "Require all denied". Belt and braces: data, lock, mail and config
+# files and the list's code library are never served from anywhere, even if
+# PHP or that file were missing.
+<FilesMatch "(\.(jsonl|lock|eml)|^salt\.json.*|^analytics-config\.php|^notify-(config|lib)\.php)$">
   <IfModule mod_authz_core.c>
     Require all denied
   </IfModule>

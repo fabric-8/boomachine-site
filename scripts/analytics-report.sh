@@ -36,10 +36,17 @@ print(f"\n  pageviews {t['pageviews']:>7}    visitors {t['visitors']:>6}   (dail
 print(f"  beta clicks {b['clicks']:>5}    visitors who clicked {b['visitors_with_click']} = {pct(b['conversion']).strip()} conversion")
 print(f"  engaged 10 s+ {pct(e['engaged_rate']).strip():>4} of visitors    changed a disc {pct(e['disc_rate']).strip()}")
 if b["by_source"]: print("  clicks by control: " + ", ".join(f"{k} {v}" for k, v in b["by_source"].items()))
-print("\nDay           views  visitors  beta")
+n, st = s.get("notify"), s.get("store")
+if n:
+    print(f"  launch list: {n['submits']} sign-ups from {n['visitors_with_submit']} visitors = {pct(n['conversion']).strip()}, {n['confirmed']} confirmed"
+          + (", by form: " + ", ".join(f"{k} {v}" for k, v in n["by_source"].items()) if n["by_source"] else ""))
+    if n.get("list"): print(f"  on the list now: {n['list']['confirmed']} confirmed, {n['list']['pending']} waiting, {n['list']['unsubscribed']} left")
+if st: print(f"  App Store clicks {st['clicks']} from {st['visitors_with_click']} visitors = {pct(st['conversion']).strip()}"
+          + (", by control: " + ", ".join(f"{k} {v}" for k, v in st["by_source"].items()) if st["by_source"] else ""))
+print("\nDay           views  visitors  beta  list  store")
 for d in s["daily"][-14:]:
     bar = "#" * min(40, d["visitors"])
-    print(f"  {d['date']}  {d['pageviews']:>5}  {d['visitors']:>8}  {d['beta_clicks']:>4}  {bar}")
+    print(f"  {d['date']}  {d['pageviews']:>5}  {d['visitors']:>8}  {d['beta_clicks']:>4}  {d.get('notify_submits', 0):>4}  {d.get('store_clicks', 0):>5}  {bar}")
 if len(s["daily"]) > 14: print(f"  (last 14 of {len(s['daily'])} days)")
 for name, key in (("Home page scroll depth (share of home pageviews)", "scroll_funnel"),
                   ("Story (share of home pageviews)", "story_funnel")):
