@@ -176,7 +176,10 @@
    each on its own layer: the compositor runs all three, nothing repaints. */
 .story-haze .hz-rays{position:absolute; top:0; bottom:0; left:var(--hz-l,-45%); right:var(--hz-r,-25%); pointer-events:none}
 .story-haze::before,.story-haze .hz-rays{transform-origin:var(--hz-ax,86%) var(--hz-ay,-12%)}
-@media (prefers-reduced-motion:no-preference){
+/* v10: desktop only. On a phone the sticky, viewport-tall gradient layers
+   under the scrolling copy stay still (Fab's recording: uneven frames while
+   scrolling on an iPhone). */
+@media (prefers-reduced-motion:no-preference) and (hover:hover) and (pointer:fine){
   .story-haze::before{animation:hzSway 17s ease-in-out infinite alternate; will-change:transform}
   .story-haze .hz-rays{animation:hzRays 11s ease-in-out -4s infinite alternate, hzBreath 7.3s ease-in-out -2s infinite alternate; will-change:transform,opacity}
   .story-haze::after{animation:hzBreath 9.1s ease-in-out infinite alternate; will-change:opacity}

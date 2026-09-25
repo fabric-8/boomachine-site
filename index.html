@@ -277,18 +277,13 @@ a{color:inherit}
      visible, and paints above the story) and fades out over that reach, so
      at rest it covers the pool at the seam and, rising with the zone, it
      slides off it without an edge. */
-  /* v10: NO MORE FLAT BLACK (Fab: "the flat black area between the hero and
-     the phone, and a piece of the vampire hand shows below it with the
-     parallax"). The full-width black band rose with the zone (1.42x the
-     page) faster than the hand (1.36x), so its lower edge uncovered a strip
-     of the arm, and it read as a slab over the room's pool. It is now a soft
-     elliptical shade just behind the control — enough for the label on the
-     arm and the pool — with no edge anywhere; the arm dissolves by its own
-     veil and the pool runs on into the story. */
-  content:""; position:absolute; z-index:-1; left:50%; width:min(820px, 100vw + 120px); translate:-50% 0;
-  top:clamp(-110px,-12svh,-60px); bottom:clamp(-110px,-12svh,-60px);
-  background:radial-gradient(closest-side, rgba(0,0,0,.80), rgba(0,0,0,.66) 38%, rgba(0,0,0,.34) 66%, rgba(0,0,0,.10) 86%, rgba(0,0,0,0));
-  pointer-events:none;
+  /* v10: NO SHADE AT ALL (Fab, twice). v9's full-width black band rose with
+     the zone (1.42x the page) faster than the hand (1.36x) and uncovered a
+     strip of the arm; v10's soft ellipse that replaced it still slid over the
+     red pool as a dark blob on a phone ("a black artefact between the hero
+     and the features"). The control is an opaque pill and the note has its
+     own text-shadow, so nothing needs darkening behind them. */
+  content:none;
 }
 
 /* ============ footer ============ */

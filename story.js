@@ -82,8 +82,10 @@
      as the text comes in"). v9 waited for the copy to reach 60 % (78 % on a
      phone), i.e. until it was half-way up the screen and already read. Now
      the morph fires as the copy enters, together with its reveal (88 %):
-     84 % on a desktop, 90 % on a phone (just above the island). */
-  var THR_D = 84, THR_M = 90, HYS = 8;
+     84 % on a desktop, 80 % on a phone: at 90 % the next copy was still
+     behind the island, so the hand changed while the reader was on the
+     previous chapter (seen in iOS Safari). */
+  var THR_D = 84, THR_M = 80, HYS = 8;
   var DUR = 0.9, EASE = "power2.inOut";
   var chapters = [].slice.call(doc.querySelectorAll("#chapters .chapter"));
   /* .copy is what the triggers MEASURE (never transformed); .copy-in inside
