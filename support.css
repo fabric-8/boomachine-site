@@ -1,0 +1,123 @@
+/* ==========================================================================
+   Boo Machine — the support section   (v11; was in story.css through v10)
+
+   v11 (Fab: "a bit more subtle buttons, not as heavy, a bit more messed up;
+   smaller, without numbers, more like one panel at the bottom"): ONE slim
+   plate of the app's CasePatina, screwed on (one screw lost), a hairline
+   crack across it, and three flat worn keys (the app's PadSkin keycaps as
+   thin border-images) knocked a little out of true. A lamp on each: one
+   faintly lit, one dying, one dead behind cracked glass; every lamp strikes
+   when its key is touched. The body copy is the typewriter face (index.html
+   --mono). The growth that crawls in at the foot is growth.css / .js.
+   ========================================================================== */
+.support{
+  position:relative; z-index:1;
+  padding:clamp(72px,14svh,160px) var(--gut) clamp(120px,22svh,220px);
+  text-align:center; color:#B9B2AB;
+  background:
+    radial-gradient(60% 46% at 50% 62%, rgba(110,12,8,.22), rgba(96,10,8,.07) 55%, rgba(0,0,0,0) 100%),
+    linear-gradient(to bottom, rgba(0,0,0,0), #000 40%);
+}
+.support .phos{margin:0 auto 18px; display:inline-block; font-size:clamp(46px,6vw,84px); letter-spacing:.01em}
+.support .phos.is-img{font-size:clamp(46px,6vw,84px); letter-spacing:0; max-width:none}
+.support-lede{margin:0 auto; max-width:44ch; font-family:var(--mono); font-size:16px; line-height:1.65; color:var(--paper); text-wrap:pretty}
+
+/* the plate */
+.skeys{
+  position:relative; isolation:isolate;
+  display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px;
+  width:min(600px,100%); margin:clamp(36px,6svh,52px) auto 0; padding:14px 16px;
+  border-radius:12px;
+  background:
+    linear-gradient(to bottom, rgba(255,230,205,.05), rgba(0,0,0,0) 30%, rgba(0,0,0,.35)),
+    url("assets/case-patina.webp") 30% 40% / 180% auto;
+  box-shadow:
+    inset 0 1px 0 rgba(255,232,210,.10), inset 0 -1px 0 rgba(0,0,0,.7), inset 0 0 0 1px rgba(0,0,0,.55),
+    0 1px 0 rgba(0,0,0,.9), 0 14px 32px rgba(0,0,0,.55);
+  transform:rotate(-.35deg);
+}
+/* screws: three in, one lost (its empty hole at the bottom right) */
+.skeys::before,.skeys::after{
+  content:""; position:absolute; width:7px; height:7px; border-radius:50%; pointer-events:none;
+  background:radial-gradient(circle at 40% 35%, #8C8278, #3C3630 55%, #14110F 100%);
+  box-shadow:0 0 0 1px rgba(0,0,0,.7), 0 1px 0 rgba(255,230,205,.08);
+}
+.skeys::before{left:5px; top:5px}
+.skeys::after{right:5px; top:5px; transform:rotate(40deg)}
+.skeys .sk-crack{position:absolute; inset:0; pointer-events:none; border-radius:inherit; overflow:hidden}
+.skeys .sk-crack::before{
+  /* a hairline crack running in from the left edge */
+  content:""; position:absolute; left:-2%; top:62%; width:34%; height:1px;
+  background:linear-gradient(90deg, rgba(0,0,0,.9), rgba(0,0,0,.6) 70%, transparent);
+  box-shadow:0 1px 0 rgba(255,230,205,.07);
+  transform:rotate(-7deg); transform-origin:0 50%;
+}
+.skeys .sk-crack::after{
+  /* the lost screw's hole, and a rust bloom round it */
+  content:""; position:absolute; right:5px; bottom:5px; width:7px; height:7px; border-radius:50%;
+  background:#050404; box-shadow:inset 0 1px 2px #000, 0 0 0 1px rgba(90,40,20,.5), 0 0 10px 4px rgba(90,30,10,.35);
+}
+
+/* the keys */
+.skey{
+  position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+  min-height:58px; padding:4px 6px; text-align:center; text-decoration:none; color:var(--paper);
+  border:12px solid transparent; border-radius:8px;
+  border-image:url("assets/key-skin-a.webp") 70 fill / 12px / 0 stretch;
+  filter:drop-shadow(0 3px 4px rgba(0,0,0,.6)) brightness(.92);
+  transform:rotate(var(--kr,0deg)) translateY(var(--ky,0px));
+  transition:transform .12s ease, filter .2s ease;
+}
+.skey.sk-1{--kr:-1.4deg; --ky:-1px}
+.skey.sk-2{--kr:.9deg; --ky:3px; border-image-source:url("assets/key-skin-c.webp"); filter:drop-shadow(0 1px 2px rgba(0,0,0,.7)) brightness(.8)}   /* stuck half down */
+.skey.sk-3{--kr:-.3deg; --ky:0px; border-image-source:url("assets/key-skin-f.webp")}
+.skey .k-t{font-size:11px; letter-spacing:1.9px; text-transform:uppercase; color:#E2D8CD; line-height:1.2; text-shadow:0 1px 0 rgba(0,0,0,.95)}
+.skey .k-s{font-family:var(--mono); font-size:11px; line-height:1.3; color:#948A81; text-shadow:0 1px 0 rgba(0,0,0,.9); overflow-wrap:anywhere}
+/* worn engraving: letters rubbed off in places */
+.skey.sk-1 .k-t{-webkit-mask-image:linear-gradient(97deg,#000 30%,rgba(0,0,0,.35) 44%,#000 58%); mask-image:linear-gradient(97deg,#000 30%,rgba(0,0,0,.35) 44%,#000 58%)}
+.skey.sk-3 .k-t{-webkit-mask-image:linear-gradient(80deg,#000 60%,rgba(0,0,0,.4) 78%,#000 92%); mask-image:linear-gradient(80deg,#000 60%,rgba(0,0,0,.4) 78%,#000 92%)}
+.skey .num{display:none}
+/* the lamp: a small lens at the cap's top right */
+.skey .lamp{
+  position:absolute; top:-5px; right:-4px; width:12px; height:5px; border-radius:3px;
+  background:linear-gradient(#3A0806,#1B0201);
+  box-shadow:inset 0 1px 1px rgba(0,0,0,.85), 0 0 0 1px rgba(0,0,0,.7);
+  transition:background .12s linear, box-shadow .2s ease;
+}
+.skey.sk-1 .lamp{background:radial-gradient(60% 80% at 50% 45%, #8A2016, #3A0806 70%); box-shadow:0 0 0 1px rgba(0,0,0,.7), 0 0 5px rgba(200,20,8,.35)}
+.skey.sk-2 .lamp{animation:skDying 5.3s steps(1,end) infinite}
+@keyframes skDying{
+  0%,100%{background:linear-gradient(#3A0806,#1B0201); box-shadow:0 0 0 1px rgba(0,0,0,.7)}
+  61%{background:radial-gradient(60% 80% at 50% 45%, #FFD0C0, #FF4A2E 45%, #C80A04); box-shadow:0 0 6px rgba(255,40,10,.8), 0 0 16px rgba(230,0,4,.4)}
+  63%{background:linear-gradient(#3A0806,#1B0201); box-shadow:0 0 0 1px rgba(0,0,0,.7)}
+  66%{background:radial-gradient(60% 80% at 50% 45%, #FF9A80, #E0200C 55%, #8A0804); box-shadow:0 0 5px rgba(255,40,10,.6)}
+  71%{background:linear-gradient(#3A0806,#1B0201); box-shadow:0 0 0 1px rgba(0,0,0,.7)}
+}
+.skey.sk-3 .lamp::after{
+  content:""; position:absolute; inset:0; border-radius:inherit;
+  background:linear-gradient(118deg, transparent 40%, rgba(255,230,210,.35) 46%, transparent 52%);
+}
+.skey:hover .lamp,.skey:focus-visible .lamp{
+  animation:none;
+  background:radial-gradient(60% 80% at 50% 45%, #FFE3DC, #FF5A40 45%, #E00A04 100%);
+  box-shadow:0 0 0 1px rgba(40,0,0,.6), 0 0 6px rgba(255,40,10,.85), 0 0 16px rgba(230,0,4,.5), 0 0 34px rgba(230,0,4,.25);
+}
+.skey:hover,.skey:focus-visible{filter:drop-shadow(0 2px 3px rgba(0,0,0,.6)) drop-shadow(0 0 12px rgba(200,20,8,.2)) brightness(1)}
+.skey:hover .k-s,.skey:focus-visible .k-s{color:#C9C0B6}
+.skey:active{transform:rotate(var(--kr,0deg)) translateY(calc(var(--ky,0px) + 2px))}
+.skey:focus-visible{outline:2px solid #C4643C; outline-offset:3px}
+.sk-growth{display:none}   /* v11: the growth moved to the page foot (growth.css) */
+
+@media (max-width:640px){
+  .support .phos,.support .phos.is-img{font-size:clamp(44px,13vw,60px)}
+  .support-lede{font-size:15px}
+  .skeys{gap:7px; padding:10px 11px}
+  .skey{min-height:50px; border-width:10px; border-image-width:10px; padding:2px 2px}
+  .skey .k-t{font-size:10px; letter-spacing:1.3px}
+  .skey .k-s{display:none}
+}
+@media (prefers-reduced-motion:reduce){ .skey,.skey .lamp{transition:none} .skey.sk-2 .lamp{animation:none} }
+/* the address, spelled out under the plate on a phone (the keys carry only their labels there) */
+.support-mail{display:none; margin:14px 0 0; font-family:var(--mono); font-size:13px; color:#8E857C}
+.support-mail a{color:inherit; text-decoration:underline; text-decoration-color:rgba(255,38,0,.4); text-underline-offset:3px}
+@media (max-width:640px){ .support-mail{display:block} }

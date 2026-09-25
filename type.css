@@ -1,0 +1,14 @@
+/* ==========================================================================
+   Boo Machine — the type pairing   (v11)
+   Fab: "a sort of monospace font for body text, so we have this combination
+   of the blackletter stuff plus monospace stuff that looks a bit more
+   typewriterish". The signs stay Jacquard 12 (rendered), labels and UI stay
+   Barlow; running text is Courier Prime (index.html --mono, fonts/). A
+   typewriter face sets wider than Barlow, so the size drops a step and the
+   leading opens up; verse lines that still run long wrap with story.css's
+   hanging indent.
+   ========================================================================== */
+.copy p.body{font-family:var(--mono); font-size:16px; line-height:1.72; letter-spacing:0; color:#E9E2D8}
+@media (max-width:860px){
+  .copy p.body{font-size:14.5px; line-height:1.7}
+}

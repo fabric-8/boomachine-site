@@ -42,12 +42,16 @@
 <style>
 @font-face{font-family:"Jacquard12";src:url("fonts/Jacquard12-Regular.woff2") format("woff2");font-weight:400;font-display:swap}
 @font-face{font-family:"Barlow";src:url("fonts/Barlow-Medium.woff2") format("woff2");font-weight:500;font-display:swap}
+/* v11: the typewriter for body text (Fab: blackletter + monospace) */
+@font-face{font-family:"Courier Prime";src:url("fonts/CourierPrime-Regular.woff2") format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Courier Prime";src:url("fonts/CourierPrime-Bold.woff2") format("woff2");font-weight:700;font-display:swap}
 
 :root{
   --ink:#000; --case:#292724; --well:#1E1E1E; --key:#282828; --key-down:#1C1C1C;
   --paper:#EEE8DF; --row:#C4BFBA; --muted:#A19A94; --bronze:#B39A78;
   --amber:#FFB347; --amber-dim:#C87F1E; --red:#F90000;
   --gut:clamp(16px,4vw,48px);
+  --mono:"Courier Prime","Courier New",ui-monospace,monospace;
 
   /* disc radius on screen — everything in the rig is derived from this */
   --Tr:min(34vw,21.5svh);
@@ -373,6 +377,8 @@ a{color:inherit}
 <link rel="stylesheet" href="story.css">
 <link rel="stylesheet" href="heading.css">
 <link rel="stylesheet" href="intro.css"><!-- a3-v8: the entrance -->
+<link rel="stylesheet" href="type.css"><!-- v11: typewriter body text -->
+<link rel="stylesheet" href="support.css"><!-- v11: the support panel -->
 <link rel="stylesheet" href="growth.css"><!-- v11: the corruption at the foot -->
 <style>
 /* ============ z-order, in one place ============
@@ -662,25 +668,24 @@ a{color:inherit}
        stuck down, one lamp dying and one dead, and the purple growth that
        lives on the player crawling over them -->
   <div class="skeys">
-    <img class="sk-growth sk-g-colony" src="assets/growth-colony.webp" alt="" aria-hidden="true" width="360" height="540" loading="lazy" decoding="async">
-    <img class="sk-growth sk-g-crown" src="assets/growth-crown.webp" alt="" aria-hidden="true" width="420" height="280" loading="lazy" decoding="async">
-    <img class="sk-growth sk-g-roots" src="assets/growth-roots.webp" alt="" aria-hidden="true" width="640" height="213" loading="lazy" decoding="async">
+    <span class="sk-crack" aria-hidden="true"></span>
     <a class="skey sk-1" href="mailto:support@boomachine.app">
-      <span class="lamp" aria-hidden="true"></span><span class="num" aria-hidden="true">1</span>
+      <span class="lamp" aria-hidden="true"></span>
       <span class="k-t">Write to us</span>
       <span class="k-s">support@boomachine.app</span>
     </a>
-    <a class="skey sk-2" href="https://testflight.apple.com/join/jr1YqwtJ">
-      <span class="lamp" aria-hidden="true"></span><span class="num" aria-hidden="true">2</span>
+    <a class="skey sk-2" href="https://testflight.apple.com/join/jr1YqwtJ" title="Take a screenshot in the beta and send it from TestFlight">
+      <span class="lamp" aria-hidden="true"></span>
       <span class="k-t">Beta feedback</span>
-      <span class="k-s">Take a screenshot in the beta and send it from TestFlight.</span>
+      <span class="k-s">via TestFlight</span>
     </a>
     <a class="skey sk-3" href="press/boo-machine-press-kit.zip" download>
-      <span class="lamp" aria-hidden="true"></span><span class="num" aria-hidden="true">3</span>
+      <span class="lamp" aria-hidden="true"></span>
       <span class="k-t">Press kit</span>
-      <span class="k-s">Screenshots, key art and clips. ZIP, 94&nbsp;MB.</span>
+      <span class="k-s">ZIP, 94&nbsp;MB</span>
     </a>
   </div>
+  <p class="support-mail"><a href="mailto:support@boomachine.app">support@boomachine.app</a></p>
   <!-- v11: the corruption that grows in from both sides at the page's foot (growth.css / growth.js) -->
   <div class="corruption" id="corruption" aria-hidden="true"></div>
 </section>
