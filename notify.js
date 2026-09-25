@@ -313,9 +313,7 @@
     /* inside the tap: a phone raises its keyboard only for a focus taken in
        a user gesture. preventScroll, because the glide below does the moving */
     if (state === "idle") { try { input.focus({ preventScroll: true }); } catch (err) { input.focus(); } }
-    var L = global.booSmooth && global.booSmooth.lenis;
-    if (L && !reduce.matches) L.scrollTo(0, { duration: 1.1 });
-    else global.scrollTo({ top: 0, behavior: reduce.matches ? "auto" : "smooth" });
+    global.scrollTo({ top: 0, behavior: reduce.matches ? "auto" : "smooth" });   /* v12f: native (Lenis is gone) */
   });
 
   global.booNotify = {

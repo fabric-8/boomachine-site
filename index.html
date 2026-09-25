@@ -1079,8 +1079,10 @@ var STORE_LABEL = LIVE ? "Get the app" : "Get notified";
 <script src="heading.js"></script>
 <script src="story.js"></script>
 <script src="dust.js"></script>
-<script src="vendor/lenis.min.js"></script><!-- v10: smooth wheel scrolling -->
-<script src="smooth.js"></script>
+<!-- v12f: no Lenis any more (smooth.js removed): it moved the page from the main
+     thread, so while the busy hero was on screen the scroll lagged (Fab, Chrome:
+     "sluggish until the hero is out of sight"; fine with ?smooth=0). The
+     browsers' own smooth scrolling runs off the main thread. -->
 <script src="growth.js"></script>
 </body>
 </html>

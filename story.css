@@ -420,10 +420,6 @@
 /* the flares are opacity-only: composited, never repainted */
 .fig-flare,.phone .flare{will-change:opacity}
 
-/* ---------- v10: smooth wheel scrolling (smooth.js, Lenis's own rules) --- */
-html.lenis, html.lenis body{height:auto}
-.lenis.lenis-smooth{scroll-behavior:auto !important}
-.lenis.lenis-stopped{overflow:hidden}
 
 /* ---------- support + footer -------------------------------------------- */
 /* v11: the support section moved to support.css */
