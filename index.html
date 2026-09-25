@@ -688,30 +688,30 @@ a{color:inherit}
 <section class="support" id="support" aria-labelledby="support-h">
   <h2 class="phos is-img" id="support-h" data-fit="-9.213,-123.564,118.494,336.207" data-ink="1487,174" data-font="244"><span class="txt">Lost in the dark?</span><span class="bl" aria-hidden="true"></span><img class="headimg" src="assets/heading-4.webp" srcset="assets/heading-4-md.webp 1083w, assets/heading-4.webp 1762w" sizes="(max-width:338px) 318px, (max-width:461px) 94vw, (max-width:640px) 434px, (max-width:767px) 333px, (max-width:1400px) 44vw, 607px" alt="" aria-hidden="true" width="1762" height="585" loading="lazy" decoding="async"></h2>
   <p class="support-lede">Questions, bugs, a sound you wish the machine had: write to us, and a person answers.</p>
-  <!-- v10: the panel is built from the app's own hardware art (PadSkin
-       keycaps, CasePatina, the Growth colonies, all from the app's asset
-       catalogue): three worn keys knocked out of true in a rusted well, one
-       stuck down, one lamp dying and one dead, and the purple growth that
-       lives on the player crawling over them -->
+  <!-- v12: a big engraved iron plate (support.css), three worn keys in its
+       well, each hurt its own way (a gouge, a rust burn, a crack with the
+       slime creeping on), and the nest the growth builds round the plate
+       once the reader reaches the foot (#nest, growth.css / growth.js) -->
   <div class="skeys">
-    <span class="sk-crack" aria-hidden="true"></span>
-    <a class="skey sk-1" href="mailto:support@boomachine.app">
-      <span class="lamp" aria-hidden="true"></span>
-      <span class="k-t">Write to us</span>
-      <span class="k-s">support@boomachine.app</span>
-    </a>
-    <a class="skey sk-2" href="https://testflight.apple.com/join/jr1YqwtJ" title="Take a screenshot in the beta and send it from TestFlight">
-      <span class="lamp" aria-hidden="true"></span>
-      <span class="k-t">Beta feedback</span>
-      <span class="k-s">via TestFlight</span>
-    </a>
-    <a class="skey sk-3" href="press/boo-machine-press-kit.zip" download>
-      <span class="lamp" aria-hidden="true"></span>
-      <span class="k-t">Press kit</span>
-      <span class="k-s">ZIP, 94&nbsp;MB</span>
-    </a>
+    <div class="sk-nest" id="nest" aria-hidden="true"></div>
+    <div class="sk-well">
+      <a class="skey sk-1" href="mailto:support@boomachine.app">
+        <span class="k-wear" aria-hidden="true"></span>
+        <span class="k-row"><span class="lamp" aria-hidden="true"></span><span class="k-t">Write to us</span></span>
+        <span class="k-s">support@boomachine.app</span>
+      </a>
+      <a class="skey sk-2" href="https://testflight.apple.com/join/jr1YqwtJ" title="Take a screenshot in the beta and send it from TestFlight">
+        <span class="k-wear" aria-hidden="true"></span>
+        <span class="k-row"><span class="lamp" aria-hidden="true"></span><span class="k-t">Beta feedback</span></span>
+        <span class="k-s">via TestFlight</span>
+      </a>
+      <a class="skey sk-3" href="press/boo-machine-press-kit.zip" download>
+        <span class="k-wear" aria-hidden="true"></span>
+        <span class="k-row"><span class="lamp" aria-hidden="true"></span><span class="k-t">Press kit</span></span>
+        <span class="k-s">ZIP, 94&nbsp;MB</span>
+      </a>
+    </div>
   </div>
-  <p class="support-mail"><a href="mailto:support@boomachine.app">support@boomachine.app</a></p>
   <!-- v11: the corruption that grows in from both sides at the page's foot (growth.css / growth.js) -->
   <div class="corruption" id="corruption" aria-hidden="true"></div>
 </section>
