@@ -111,7 +111,14 @@
      behind the island, so the hand changed while the reader was on the
      previous chapter (seen in iOS Safari). */
   var THR_D = 84, THR_M = 80, HYS = 8;
-  var DUR = 0.9, EASE = "power2.inOut";
+  /* v12e: SNAPPIER (Fab: "the hand morphs need to react a bit more snappy
+     when the section scrolls in"): the morph fires as the copy's top comes
+     over the viewport's foot (93 %, where the edge fade starts showing it)
+     instead of 84 %, and plays in .55 s that starts fast and settles
+     (power3.out) instead of .9 s eased in AND out — the old ease spent its
+     first third barely moving, so the hand seemed to hesitate */
+  THR_D = 93;
+  var DUR = 0.55, EASE = "power3.out";
   var chapters = [].slice.call(doc.querySelectorAll("#chapters .chapter"));
   /* .copy is what the triggers MEASURE (never transformed); .copy-in inside
      it is what v6-v10's reveal moved (v11: nothing moves it; the lines fade

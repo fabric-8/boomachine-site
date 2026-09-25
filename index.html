@@ -196,7 +196,14 @@ html.mode-live [data-only="prelaunch"],html.mode-prelaunch [data-only="live"]{di
   cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent;
 }
 .plane{
-  position:absolute; left:0; right:0; top:0; bottom:-16svh;
+  /* v12e perf: only as wide as the hands need (the widest rig, the witch,
+     reaches 2.6 --Tr right of the disc centre and the vampire 1.7 left), not
+     the whole viewport: each of the three planes is its own layer, turned and
+     scaled by the scroll, and on a 2560 px window a full-width plane was
+     ~5100 x 3300 device px (WebKit, 2560x1440: slow frames 40 -> 22 over the
+     hero). The veil mask stops at the box, so the box keeps 3.4 --Tr each
+     side of the centre; never wider than the viewport. */
+  position:absolute; left:max(0px, calc(50% - var(--Tr) * 3.4)); right:max(0px, calc(50% - var(--Tr) * 3.4)); top:0; bottom:-16svh;
   perspective:1400px; perspective-origin:50% var(--disc-y);
   pointer-events:none;              /* v4: the stage's own box is the click target */
   /* v4: story.js scrubs a translate + scale onto the plane itself (the
