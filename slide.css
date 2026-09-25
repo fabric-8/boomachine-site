@@ -352,9 +352,18 @@ html.mode-prelaunch .knob-send:hover .g,html.mode-prelaunch .knob-send:focus-vis
 /* no box and no outline on the field itself: the whole track answers focus */
 .notify-input:focus,.notify-input:focus-visible{outline:none}
 .unlock:has(.notify-input:focus){outline:1px solid rgba(255,110,64,.55); outline-offset:3px}
-/* autofill must not paint its pale box into the slot */
-.notify-input:-webkit-autofill,.notify-input:-webkit-autofill:hover,.notify-input:-webkit-autofill:focus{
+/* autofill must not paint its pale box into the slot. v12g (Fab: "didn't
+   like the white input"): the delayed-transition trick alone no longer holds
+   in current Chrome (its autofill fill is an !important UA style, and the
+   suggestion PREVIEW paints before any transition). So: the field declares
+   itself dark (color-scheme: Chrome's autofill then uses its dark fill), and
+   an inset shadow in the track's own colour covers whatever fill is left. */
+.notify-input{color-scheme:dark}
+.notify-input:-webkit-autofill,.notify-input:-webkit-autofill:hover,.notify-input:-webkit-autofill:focus,.notify-input:-webkit-autofill:active,
+.notify-input:autofill{
   -webkit-text-fill-color:#F2D2BE; caret-color:#FF7A3C;
+  -webkit-box-shadow:inset 0 0 0 100px #110D0C; box-shadow:inset 0 0 0 100px #110D0C;
+  background-color:#110D0C !important; background-image:none !important;
   transition:background-color 600000s 0s, color 600000s 0s;
 }
 /* while a message is in the slot the address steps back behind it */
