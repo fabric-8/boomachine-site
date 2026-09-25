@@ -8,6 +8,10 @@
    the far end, the slot full of fire — and the gesture plays backwards: the
    knob glides home, the fire retreats with it, the label is uncovered behind
    it; the note under it comes last. About 2.9 s end to end.
+   v13: in prelaunch mode (the reversed email slider) the same call plays
+   mirrored — slide.js parks the knob at the LEFT with the slot on fire and
+   it glides home to the right cap, the fire dying back with it and the
+   field's placeholder uncovered behind it. Nothing here changed.
 
    How the parts are built (all compositor-friendly: opacity + transform):
 

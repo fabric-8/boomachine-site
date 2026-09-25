@@ -1,7 +1,12 @@
 /* Boo Machine: first-party, cookieless page statistics (a.php, stats.php, legal.html#privacy).
    No cookies, no storage, nothing sent under Do Not Track / Global Privacy Control
    or off boomachine.app. Events: pageview engaged scroll_25..100 story_chapter_1..3
-   disc_change intro_complete beta_click press_kit_download mailto_click. */
+   disc_change intro_complete press_kit_download mailto_click, and
+   v13 (beta_click is gone with TestFlight):
+     notify_submit  prelaunch: an email accepted by subscribe.php (pending or
+                    already), s = hero | bar (notify.js, through window.booTrack)
+     store_click    live: the slider completed (s = slide) or an App Store
+                    link clicked (s = bar | link) */
 (function (w, d) {
   "use strict";
   var n = navigator, L = location;
@@ -79,19 +84,23 @@
   var mo = !intro() && d.getElementById("stage") && new MutationObserver(intro);
   if (mo) mo.observe(root, { attributes: true, attributeFilter: ["class"] });
 
+  /* v13: notify.js reports an accepted email here (prelaunch) */
+  w.booTrack = function (ev, src) { if (ev === "notify_submit") send(ev, 0, src); };
+
   /* the slider completes by drag, click or key and then navigates itself:
-     slide.js puts .done on #unlock just before it sets location.href */
-  var un = d.getElementById("unlock"), slid = 0;
+     slide.js puts .done on #unlock just before it sets location.href.
+     v13: live mode only — the prelaunch control never navigates */
+  var un = w.BOO_MODE === "live" && d.getElementById("unlock"), slid = 0;
   if (un) new MutationObserver(function () {
     if (!un.classList.contains("done")) slid = 0;
-    else if (!slid) { slid = 1; send("beta_click", 0, "slide"); }
+    else if (!slid) { slid = 1; send("store_click", 0, "slide"); }
   }).observe(un, { attributes: true, attributeFilter: ["class"] });
 
   on(d, "click", function (e) {
     var t = e.target, a = t.closest && t.closest("a[href]"), h = a ? a.href : "";
     if (/^mailto:/i.test(h)) send("mailto_click");
     else if (/press-kit\.zip/.test(h)) send("press_kit_download");
-    else if (/^https:\/\/(testflight|apps)\.apple\.com\//.test(h) && a.id !== "knob") send("beta_click", 0, a.id === "barCta" ? "bar" : "link");
+    else if (/^https:\/\/apps\.apple\.com\//.test(h) && a.id !== "knob") send("store_click", 0, a.id === "barCta" ? "bar" : "link");
     if (t.closest && t.closest("#stage") && discs-- > 0) send("disc_change");
   });
   on(d, "keydown", function (e) {
