@@ -786,9 +786,16 @@ var STORE_LABEL = "Join the beta";
     hold:function(v){ held=(v!==false); restart(); return held; }
   };
 
+  /* v11 perf: the cycle only runs while the hero is on screen (heroOn, the
+     tilt loop's IntersectionObserver below). Off screen it kept swapping
+     the three planes every 7 s under the story — a 1.05 s opacity crossfade
+     on six hero layers nobody could see, plus a 1400 x 1750 decode — and in
+     iOS WebKit every such change is a layer commit mid-scroll, which
+     re-places the sticky phone with a stale offset (story.js v10). */
+  var heroOn=true;
   function restart(){
     if(timer){clearInterval(timer);timer=null;}
-    if(!reduce.matches && !held) timer=setInterval(function(){show(hand+1);},7000);
+    if(!reduce.matches && !held && heroOn) timer=setInterval(function(){show(hand+1);},7000);
   }
   function advance(){show(hand+1);restart();}
   stage.addEventListener("click",advance);
@@ -909,6 +916,8 @@ var STORE_LABEL = "Join the beta";
         var on=es[es.length-1].isIntersecting;
         if(on&&!raf) raf=requestAnimationFrame(frame);
         else if(!on&&raf){cancelAnimationFrame(raf);raf=null;}
+        /* v11 perf: and the 7 s cycle with it (restart() above) */
+        if(on!==heroOn){ heroOn=on; if(!on) clearTimeout(preT); restart(); }
       },{threshold:0}).observe(document.getElementById("hero"));
     }
   }

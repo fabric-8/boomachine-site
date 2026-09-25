@@ -44,7 +44,25 @@
    The copy keeps its contrast: the haze peaks at ~#2A0704 behind the text
    (paper #EEE8DF on it: > 13 : 1).
 
+   v11 perf — THE LIGHT AS PICTURES, THE DUST AT 1.5x ON A PHONE, NO rAF
+   UNDER A FINGER. paintHaze() paints the haze's own gradients (the stops,
+   the eased vertical fade and the geometry the CSS uses, from HAZE / RAYS)
+   once, at half the css resolution, into three <img>s — the shaft, the
+   rays, the pool; one combined picture on a touch screen, where the light
+   holds still — and story.css shows those instead of the CSS gradients
+   (.story-haze.is-img). The compositor scales them up: WebKit keeps an
+   <img> on its own layer as the image itself, so the light that was a
+   viewport-tall 3x bitmap on an iPhone (16 MB; 3 x ~31 MB of layers on a
+   desktop) is a 275 x 422 picture, and nothing rasters seven conic
+   gradients through a mask any more. Repainted only when the box changes
+   size. The mote canvas stays at DPR 2 on a desktop and goes to 1.5 on a
+   touch screen (the sprites are soft 24 px gradients drawn 2-10 px wide;
+   1.5x has 44 % fewer pixels to clear and composite per frame). While a
+   finger scrolls the loop does not even ask for frames (v10 held the
+   pixels but kept a rAF running); the quiet timer restarts it.
+
      window.booDust.running()   .count()   .redraw()   .density(x, y)   .haze(x, y)
+     .hazeImg()   the pictures' state: mode, size, painted ms
    ========================================================================= */
 (function (global) {
   "use strict";
@@ -55,7 +73,9 @@
   if (!cv || !chapters) return;
   var ctx = cv.getContext("2d");
   var reduce = global.matchMedia("(prefers-reduced-motion: reduce)");
-  var DPR = Math.min(global.devicePixelRatio || 1, 2);
+  /* v11 perf: 1.5x on a touch screen (header) */
+  var touchDev = global.matchMedia("(hover: none) and (pointer: coarse)");
+  var DPR = Math.min(global.devicePixelRatio || 1, touchDev.matches ? 1.5 : 2);
   var COUNT = 90, STEP = 1000 / 30;
   /* v9: the counts scale with the canvas area (css px^2 per mote) */
   var AREA_H = 6000, AREA_B = 4000, MIN_H = 40, MAX_H = 90, MIN_B = 30, MAX_B = 130;
@@ -113,6 +133,97 @@
     s.setProperty("--hz-rx", (HZ.rx * 100).toFixed(1) + "%"); s.setProperty("--hz-ry", (HZ.ry * 100).toFixed(1) + "%");
   }
   hazeVars();
+
+  /* ---------- v11 perf: the haze as pictures ------------------------------ */
+  /* the same gradients story.css paints, drawn with the canvas API: a CSS
+     conic gradient starts at 12 o'clock and a canvas one at 3, both run
+     clockwise; the CSS ellipse is a circle under a y-scale; the mask is a
+     destination-in fill of the same eased stops (with the CSS fix-up: a
+     stop may not sit before the one above it). All stops share one RGB,
+     so premultiplied (CSS) and straight (canvas) interpolation agree. */
+  var canConic = !!(global.CanvasRenderingContext2D && CanvasRenderingContext2D.prototype.createConicGradient);
+  var HZ_S = 0.5;                                         /* picture px per css px */
+  var hzImgs = {}, hzKey = "", hzStat = { mode: canConic ? "pending" : "css", w: 0, h: 0, ms: 0 };
+  var FADE = [[0, 0], [5, .10], [11, .50], [17, .90], [22, 1]];      /* after fy0 */
+  var FADE1 = [[-34, 1], [-26, .90], [-17, .50], [-8, .10], [0, 0]]; /* before fy1 */
+  var CONIC = [[0, 0], [.5, .012], [1, .084], [1.5, .33], [2, .76], [2.5, 1], [3, .76], [3.5, .33], [4, .084], [4.5, .012], [5, 0]];
+  function hzImg(cls) {
+    if (hzImgs[cls]) return hzImgs[cls];
+    var im = doc.createElement("img");
+    im.className = "hz-img " + cls; im.alt = ""; im.decoding = "async";
+    im.setAttribute("aria-hidden", "true");
+    hazeEl.appendChild(im);
+    return (hzImgs[cls] = im);
+  }
+  function conicFill(x, bw, bh, from, h, alpha, rgb) {
+    var g = x.createConicGradient((from - 90) * Math.PI / 180, HZ.ax * bw, HZ.ay * bh);
+    for (var i = 0; i < CONIC.length; i++) g.addColorStop(Math.min(1, CONIC[i][0] * h / 360), "rgba(" + rgb + "," + (alpha * CONIC[i][1]).toFixed(5) + ")");
+    x.fillStyle = g; x.fillRect(0, 0, bw, bh);
+  }
+  function fadeMask(x, bw, bh) {
+    var g = x.createLinearGradient(0, 0, 0, bh), at = -1e9, i, p;
+    var st = FADE.map(function (f) { return [HZ.fy0 * 100 + f[0], f[1]]; }).concat(FADE1.map(function (f) { return [HZ.fy1 * 100 + f[0], f[1]]; }));
+    for (i = 0; i < st.length; i++) {
+      p = Math.max(at, st[i][0]); at = p;                /* the CSS fix-up */
+      g.addColorStop(Math.max(0, Math.min(1, p / 100)), "rgba(0,0,0," + st[i][1] + ")");
+    }
+    x.globalCompositeOperation = "destination-in";
+    x.fillStyle = g; x.fillRect(0, 0, bw, bh);
+    x.globalCompositeOperation = "source-over";
+  }
+  function poolFill(x, bw, bh, pa) {
+    var rx = HZ.rx * bw, ry = HZ.ry * bh;
+    x.save();
+    x.translate(HZ.px * bw, HZ.py * bh); x.scale(1, ry / rx);
+    var g = x.createRadialGradient(0, 0, 0, 0, 0, rx);
+    [[0, 1], [.30, .62], [.55, .30], [.78, .09], [1, 0]].forEach(function (s) { g.addColorStop(s[0], "rgba(128,20,10," + (pa * s[1]).toFixed(5) + ")"); });
+    x.fillStyle = g; x.fillRect(-rx, -rx, 2 * rx, 2 * rx);
+    x.restore();
+  }
+  function paintHaze() {
+    if (!canConic || !(W > 0) || !(H > 0)) return;
+    var one = touchDev.matches || reduce.matches;          /* the light holds still: one picture */
+    var bw = (HZ.r - HZ.l) * W, bh = H;
+    var cw = Math.max(2, Math.round(bw * HZ_S)), ch = Math.max(2, Math.round(bh * HZ_S));
+    var key = [one, cw, ch, HZ === HAZE_M].join();
+    if (key === hzKey) return;
+    hzKey = key;
+    var t0 = global.performance ? performance.now() : 0;
+    var cs = getComputedStyle(hazeEl);
+    var rgb = (cs.getPropertyValue("--hz-c") || "196,44,24").trim(), pa = parseFloat(cs.getPropertyValue("--hz-pa")) || .17;
+    function layer(draw) {
+      var c = doc.createElement("canvas"); c.width = cw; c.height = ch;
+      var x = c.getContext("2d"); x.scale(cw / bw, ch / bh);
+      draw(x); return c;
+    }
+    function shaft(x) { conicFill(x, bw, bh, HZ.dir - HZ.half * 2.5, HZ.half, HZ.a, rgb); }
+    function rays(x) { RAYS.forEach(function (r) { conicFill(x, bw, bh, HZ.dir + r.o - 2.5 * r.h, r.h, HZ.a * r.a, rgb); }); }
+    var want = one
+      ? { "hz-all": layer(function (x) { shaft(x); rays(x); fadeMask(x, bw, bh); poolFill(x, bw, bh, pa); }) }
+      : { "hz-shaft-i": layer(function (x) { shaft(x); fadeMask(x, bw, bh); }),
+          "hz-rays-i": layer(function (x) { rays(x); fadeMask(x, bw, bh); }),
+          "hz-pool-i": layer(function (x) { poolFill(x, bw, bh, pa); }) };
+    hzStat = { mode: one ? "one" : "three", w: cw, h: ch, ms: +((global.performance ? performance.now() : 0) - t0).toFixed(1) };
+    var names = Object.keys(want), left = names.length, my = key;
+    /* the pictures swap in together, once all of them have loaded */
+    names.forEach(function (n) {
+      want[n].toBlob(function (b) {
+        if (my !== hzKey || !b) return;
+        var im = hzImg(n), url = global.URL.createObjectURL(b), old = im.getAttribute("data-url");
+        im.onload = function () {
+          if (old) global.URL.revokeObjectURL(old);
+          /* decoded before it is shown: no frame without the light */
+          var done = function () {
+            if (--left || my !== hzKey) return;
+            Object.keys(hzImgs).forEach(function (k) { hzImgs[k].classList.toggle("is-set", names.indexOf(k) >= 0); });
+            hazeEl.classList.add("is-img");
+          };
+          if (im.decode) im.decode().then(done, done); else done();
+        };
+        im.setAttribute("data-url", url); im.src = url;
+      }, "image/png");
+    });
+  }
   var PADX = 40, PADY = 70, TX = 130, TY = 110;   /* the box growth and the gaussian tails, css px */
   var heads = [].slice.call(chapters.querySelectorAll(".phos"));
   var boxes = [];          /* the headings' boxes in canvas px, this frame */
@@ -126,6 +237,7 @@
     W = r.width; H = r.height;
     hazeVars();
     /* v9: the populations scale with the area */
+    paintHaze();                                           /* v11 perf: only when the box changed */
     var area = W * H;
     nHead = Math.round(Math.max(MIN_H, Math.min(MAX_H, area / AREA_H)));
     nBeam = Math.round(Math.max(MIN_B, Math.min(MAX_B, area / AREA_B)));
@@ -274,13 +386,15 @@
     ctx.globalCompositeOperation = "source-over";
   }
   function frame(ts) {
+    /* v11 perf: under a scrolling finger the loop stops asking for frames
+       (v10 kept a rAF running and returned); scrollQuiet() restarts it */
+    if (quiet) { raf = 0; return; }
     raf = global.requestAnimationFrame(frame);
     if (!last) last = ts;
     var dt = ts - last;
     if (dt < STEP - 2) return;
     last = ts;
     if (!has()) return;
-    if (quiet) return;                    /* v10: no commit mid-scroll on a touch screen */
     if (dirty) measure();
     step(Math.min(dt, 80) / 1000, ts);
     paint(ts);
@@ -311,7 +425,7 @@
     if (!coarse.matches) return;
     if (!quiet) { quiet = true; root.classList.add("is-scrolling"); }
     clearTimeout(quietT);
-    quietT = setTimeout(function () { quiet = false; root.classList.remove("is-scrolling"); }, 250);
+    quietT = setTimeout(function () { quiet = false; root.classList.remove("is-scrolling"); if (!reduce.matches) start(); }, 250);
   }
   global.addEventListener("scroll", function () { dirty = true; scrollQuiet(); }, { passive: true });
   var rz = 0;
@@ -324,7 +438,7 @@
       if (seen) start(); else stop();
     }, { threshold: 0, rootMargin: "-2px 0px -2px 0px" }).observe(chapters);   /* the story starts AT the fold: edge contact is not "on screen" */
   } else seen = true;
-  reduce.addEventListener("change", function () { stop(); start(); });
+  reduce.addEventListener("change", function () { stop(); paintHaze(); start(); });   /* v11: one picture <-> three */
   /* the hero's switchboard (booFx.on/off('motes')) flips data-fx; follow it */
   if (hero && "MutationObserver" in global) new MutationObserver(function () { start(); }).observe(hero, { attributes: true, attributeFilter: ["data-fx"] });
 
@@ -340,6 +454,7 @@
     haze: hazeAt,
     counts: function () { return { head: nHead, beam: nBeam }; },
     boxes: function () { if (dirty) measure(); return boxes; },
+    hazeImg: function () { return { stat: hzStat, on: hazeEl.classList.contains("is-img"), imgs: Object.keys(hzImgs).map(function (k) { var i = hzImgs[k]; return k + ":" + i.naturalWidth + "x" + i.naturalHeight + (i.classList.contains("is-set") ? "" : " (off)"); }) }; },
     visible: function () { var n = 0; for (var i = 0; i < motes.length; i++) if (!motes[i].dead && lightOf(motes[i]) > 0.03) n++; return n; }
   };
 })(window);
