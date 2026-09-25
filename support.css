@@ -172,3 +172,22 @@
   .skey .k-s{font-size:11px}
 }
 @media (prefers-reduced-motion:reduce){ .skey,.skey .lamp{transition:none} .skey.sk-2 .lamp{animation:none} }
+
+/* ---- v12d: THE WHOLE FOOT EMERGES ---------------------------------------
+   Fab: "I meant the entire thing, not just the corruption: the whole bottom
+   comes out of the dark with a little scale-up, then the eyes pop and blink".
+   growth.js arms the section (.sx-armed) and sets .is-on when a third of it
+   is on screen: the sign, the lede and the plate (with its nest) rise out of
+   the black and grow from 94 % to full size, one after another, while the
+   corner growth fades up (growth.css); the eyes open after it (growth.js,
+   from ~1.4 s). Opacity and transform only. Reduced motion never arms. */
+/* the transition sits on the lit state only: arming (after load) and the
+   reset (off screen, growth.js) switch to dark at once, never a visible fade-out */
+.support.sx-armed > :not(.corruption){opacity:0; transform:scale(.94)}
+.support.sx-armed > .skeys{transform-origin:50% 60%}
+.support.sx-armed.is-on > :not(.corruption){
+  opacity:1; transform:none;
+  transition:opacity 1.3s cubic-bezier(.45,0,.35,1), transform 1.6s cubic-bezier(.2,.7,.2,1);
+}
+.support.sx-armed.is-on > .support-lede{transition-delay:.12s}
+.support.sx-armed.is-on > .skeys{transition-delay:.22s}

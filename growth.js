@@ -127,12 +127,12 @@
         "%;--ox:" + p.o[0] + "%;--oy:" + p.o[1] + "%";
       sides[s] = side;
     });
-    set.eyes.forEach(function (e) { eye(sides[e.side], e, 1.35, 0.22); });   /* v12b: eyes after the emerge (1.4 s), not the old 2 s grow */
+    set.eyes.forEach(function (e) { eye(sides[e.side], e, 1.6, 0.22); });   /* v12d: eyes once the foot has come up (~1.6 s) */
     if (nest) {
       nest.textContent = "";
       nest.classList.toggle("nx-phone", name === "phone");
       img("assets/" + set.nest.src + ".webp", "nx-body", nest);
-      set.nest.eyes.forEach(function (e) { eye(nest, e, 1.45, 0.2); });
+      set.nest.eyes.forEach(function (e) { eye(nest, e, 1.75, 0.2); });
     }
     if (grown && inView && !document.hidden) startBlinking(false);
   }
@@ -154,6 +154,8 @@
   function mark(cls, on) {
     slot.classList.toggle(cls, on);
     if (nest) nest.classList.toggle(cls, on);
+    /* v12d: the whole foot emerges with it (support.css .sx-armed / .is-on) */
+    section.classList.toggle(cls, on);
   }
 
   /* ---- measure ---------------------------------------------------------- */
@@ -213,6 +215,8 @@
     if (foot) ro.observe(foot);
   }
   if (still) { mark("is-still", true); return; }
+  /* v12d: from here on the foot waits in the dark until it is reached */
+  section.classList.add("sx-armed");
 
   /* ---- grow / reset --------------------------------------------------- */
   function grow() {
@@ -250,6 +254,14 @@
   }, { threshold: [0, 0.35, 0.6] });
   io.observe(stage);
   if (nest) io.observe(nest);
+  /* v12d: the WHOLE foot (sign, lede, plate, growth) now comes up out of the
+     dark together, so it starts as soon as a good part of the section is on
+     screen, not only when the page's last pixels are — otherwise the sign
+     would sit there dark for a whole screen of scrolling */
+  new IntersectionObserver(function (es) {
+    var e = es[es.length - 1];
+    if (e.isIntersecting && e.intersectionRatio >= 0.3 && !document.hidden) grow();
+  }, { threshold: [0.3] }).observe(section);
 
   document.addEventListener("visibilitychange", function () {
     if (document.hidden) stopBlinking();
