@@ -1,2 +1,141 @@
-/* v11: the corruption at the page foot — see growth.js */
-.corruption{position:relative}
+/* v11: the corruption at the page foot (growth.js builds the markup).
+   Fab: "Make it grow in from the left and the right at the bottom when I
+   arrive at the bottom of the page. On the outside it's thicker, then it gets
+   more veiny towards the buttons, and towards the buttons it lumps up a bit
+   more again, and those weird eyes pop in and keep on blinking."
+
+   Two painted pieces (assets/corr-l.webp, corr-r.webp; made in
+   site-work/site-drafts/corruption, see its README) sit in the page's bottom
+   corners, each pushed a little past the viewport edge and running down to
+   the page's last pixel, so nothing is ever seen to end at a side or at the
+   bottom. Each piece is a thick colony at the edge, veins reaching in, and a
+   lump cluster at the vein ends, cut out as its own layer (corr-*-lump.webp)
+   so it can swell. Eyes are small sprites laid on the lumps: a socket with
+   its ball, and a fleshy lid that slides down over the ball to blink.
+
+   Timeline once .is-on is set (growth.js, IntersectionObserver):
+     0    - 1.9 s  each body is uncovered by a soft radial front from its outer
+                   bottom corner (mask, --cx-g), while the piece eases in from
+                   beyond the edge (transform): the masses first, then the veins
+     1.0  - 2.2 s  the lump clusters swell out of the vein ends (they start
+                   as the front reaches them, so no vein is seen cut off)
+     2.0  s ...    the eyes pop open one by one, then blink on their own clocks
+                   (growth.js, Web Animations on the lids)
+   Everything is transform / opacity except the mask front, which runs only
+   during the 2 s grow. Idle, nothing animates but a lid now and then.
+
+   The stage runs from above the panel's lower edge down to the page bottom,
+   so it also lies under the footer: the footer (index.html .foot, z-index 4)
+   keeps its text above the growth, and its black fill is dropped here so the
+   growth shows under it (the section and .below behind it are #000 too, so
+   nothing else changes). pointer-events:none throughout. */
+
+@property --cx-g{syntax:"<percentage>"; inherits:false; initial-value:0%}
+@property --cx-lf{syntax:"<percentage>"; inherits:false; initial-value:130%}
+
+.corruption{
+  position:relative; z-index:-1; height:0; margin:0;
+  pointer-events:none; user-select:none; -webkit-user-select:none;
+  /* the piece width; the art is 1600 x 679 */
+  --cx-pw:clamp(420px, 54vw, 1040px);
+  --cx-ph:calc(var(--cx-pw) * 679 / 1600);
+  /* how far each piece is pushed past its viewport edge (fraction of --cx-pw) */
+  --cx-lo:-.07; --cx-ro:-.03;
+}
+/* the footer lets the growth show under its text; its hairline fades out
+   towards the sides, where the masses pass under it, instead of cutting them */
+.foot{background:transparent; border-image:linear-gradient(to right, transparent 20%, #15140F 36%, #15140F 64%, transparent 80%) 1}
+
+/* the stage: full section width (= the viewport; --cx-il / --cx-ir undo the
+   section's side padding), from --cx-ph above the page bottom down to the page
+   bottom (--cx-drop). growth.js measures all three. Clipped, so the pieces
+   pushed past the edges never make the page scroll sideways. */
+.cx-stage{
+  position:absolute; left:calc(-1 * var(--cx-il, 0px)); right:calc(-1 * var(--cx-ir, 0px));
+  bottom:calc(-1 * var(--cx-drop, 220px)); height:calc(var(--cx-ph) + 24px);
+  overflow:clip; overflow-clip-margin:0;
+}
+@supports not (overflow:clip){ .cx-stage{overflow:hidden} }
+
+.cx-side{position:absolute; bottom:0; width:var(--cx-pw); aspect-ratio:var(--cx-ar, 1600 / 679)}
+.cx-l{left:calc(var(--cx-pw) * var(--cx-lo)); bottom:calc(var(--cx-pw) * var(--cx-lb, 0)); transform-origin:0% 100%}
+.cx-r{right:calc(var(--cx-pw) * var(--cx-ro)); bottom:calc(var(--cx-pw) * var(--cx-rb, 0)); transform-origin:100% 100%}
+.cx-side img{position:absolute; display:block; max-width:none; height:auto; -webkit-user-drag:none}
+.cx-body{left:0; top:0; width:100%}
+
+/* the lump cluster: its rectangle in the piece and where the veins feed it
+   (--ox / --oy, % of the layer) are set inline by growth.js */
+.cx-lump{transform-origin:var(--ox) var(--oy)}
+
+/* an eye: the socket sprite with its ball, the lid clipped to the ball */
+.cx-eye{
+  position:absolute; left:calc(var(--x) * 1%); top:calc(var(--y) * 1%);
+  width:calc(var(--s) * 1%); aspect-ratio:1;
+  translate:-50% -50%; rotate:var(--rot, 0deg);
+}
+.cx-pop{position:absolute; inset:0; filter:drop-shadow(0 2px 3px rgba(0,0,0,.55))}
+.cx-pop img{left:0; top:0; width:100%}
+.cx-ball{
+  position:absolute; border-radius:50%; overflow:hidden;
+  left:calc(var(--bx) - var(--br)); top:calc(var(--by) - var(--br));
+  width:calc(var(--br) * 2); height:calc(var(--br) * 2);
+}
+.cx-lid{
+  position:absolute; inset:-6%; border-radius:50%;
+  background:url("assets/corr-lid.webp") center / cover;
+  box-shadow:0 1px 2px rgba(20,0,10,.9), inset 0 -2px 2px rgba(20,0,10,.55);
+}
+
+/* ---- the grow --------------------------------------------------------- */
+/* waiting: nothing shows */
+.corruption:not(.is-on):not(.is-still) .cx-stage{visibility:hidden}
+.corruption.is-on .cx-body{
+  -webkit-mask-image:radial-gradient(farthest-corner at var(--cx-corner), #000 calc(var(--cx-g) - 10%), transparent var(--cx-g));
+          mask-image:radial-gradient(farthest-corner at var(--cx-corner), #000 calc(var(--cx-g) - 10%), transparent var(--cx-g));
+  animation:cxFront 1.9s cubic-bezier(.35,.15,.3,1) both;
+}
+.cx-l{--cx-corner:0% 100%}
+.cx-r{--cx-corner:100% 100%}
+.corruption.is-on .cx-r .cx-body{animation-delay:.12s}
+@keyframes cxFront{from{--cx-g:0%} to{--cx-g:112%}}
+
+.corruption.is-on .cx-l{animation:cxInL 2s cubic-bezier(.2,.7,.2,1) both}
+.corruption.is-on .cx-r{animation:cxInR 2s .12s cubic-bezier(.2,.7,.2,1) both}
+@keyframes cxInL{from{transform:translateX(-7%) scale(.93)} to{transform:none}}
+@keyframes cxInR{from{transform:translateX(7%) scale(.93)} to{transform:none}}
+
+/* the lump layer swells from where the veins feed it, and a soft front runs
+   out from that point too, so the layer's rectangle is never seen */
+.corruption.is-on .cx-lump{
+  -webkit-mask-image:radial-gradient(farthest-corner at var(--ox) var(--oy), #000 calc(var(--cx-lf) - 30%), transparent var(--cx-lf));
+          mask-image:radial-gradient(farthest-corner at var(--ox) var(--oy), #000 calc(var(--cx-lf) - 30%), transparent var(--cx-lf));
+  animation:cxSwell 1.15s .95s cubic-bezier(.3,1.3,.45,1) both;
+}
+.corruption.is-on .cx-r .cx-lump{animation-delay:1.05s}
+@keyframes cxSwell{
+  from{transform:scale(.55); --cx-lf:0%}
+  to{transform:none; --cx-lf:130%}
+}
+
+/* eyes: --d is each eye's pop time (growth.js). Before it they are closed
+   and shrunk into the lump; they pop out, then the lid rolls up. */
+.cx-pop{transform:scale(0)}
+.cx-lid{transform:translateY(0)}
+.corruption.is-on .cx-pop{animation:cxPop .5s var(--d, 2s) cubic-bezier(.3,1.7,.5,1) both}
+.corruption.is-on .cx-lid{animation:cxOpen .34s calc(var(--d, 2s) + .38s) cubic-bezier(.5,0,.3,1) both}
+@keyframes cxPop{from{transform:scale(0)} to{transform:none}}
+@keyframes cxOpen{from{transform:translateY(0)} to{transform:translateY(-112%)}}
+
+/* reduced motion (and no-JS never gets here): the grown state, eyes open, still */
+.corruption.is-still .cx-pop{transform:none}
+.corruption.is-still .cx-lid{transform:translateY(-112%)}
+
+/* ---- sizes -------------------------------------------------------------- */
+/* phones (growth.js puts the square phone pieces in and sets .cx-phone at the
+   same 900 px): each piece is pushed out past its edge and the left one a
+   little below the page bottom, so the masses fill the corners beside the
+   footer text and the veins climb to lumps just under the panel */
+.corruption.cx-phone{--cx-pw:min(80vw, 360px); --cx-ph:var(--cx-pw); --cx-ar:1 / 1; --cx-lo:-.3; --cx-lb:-.13; --cx-ro:-.35; --cx-rb:0}
+@media (min-width:901px) and (max-width:1200px){
+  .corruption{--cx-pw:620px; --cx-lo:-.2; --cx-ro:-.2}
+}
