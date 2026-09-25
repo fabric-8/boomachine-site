@@ -568,9 +568,14 @@ a{color:inherit}
      from wherever it is: never a half-morphed hand parked on the screen,
      a reversal turns back mid-way, a jump across two chapters runs to the
      far hand. The capture on the display crossfades and the red flare
-     fires with the same clock. On a phone: one column, the phone sticky at
-     the top (~52svh), the chapters scrolling under it (each ~60svh; the
-     copy fades as it passes under the phone).
+     fires with the same clock.
+     v12, phones and tablets (<= 860 px): no sticky phone. Each chapter
+     opens with its own figure (.mfig: the press kit's phone-in-hand clip,
+     captures/<clip>-hand.*, vampire/tap, werewolf/loop, witch/disc, over
+     its poster), then its sign and verse; the sticky phone below is hidden
+     there and its photographs / posters are never fetched (the blank
+     <picture> sources; story.js deskMedia). <br class="mbr"> in a verse
+     line is its caesura, used where the column is narrow (story.css).
 
      .phone holds, in the 1856 x 2320 phones3 frame:
        .hands     three hand layers (data-hand), one .is-on; the .morph
@@ -599,26 +604,26 @@ a{color:inherit}
       <div class="fig-flare" aria-hidden="true"></div>
       <div class="phone" id="phone" data-phones="3" data-quad="547,332 1309,332 1309,1988 547,1988" data-mask="phones3/screen.png">
         <div class="hands" id="hands">
-          <img class="hand-layer is-on" data-hand="vampire" data-quad="547,332 1309,332 1309,1988 547,1988" src="phones3/hand-vampire.webp" srcset="phones3/hand-vampire-md.webp 1280w, phones3/hand-vampire.webp 1856w" sizes="(max-width:860px) 42vh, min(80vh, 56vw)" width="1856" height="2320" alt="A vampire's pale clawed hand holding an iPhone" decoding="async" fetchpriority="low">
-          <img class="hand-layer" data-hand="wolf" data-quad="547,332 1309,332 1309,1988 547,1988" src="phones3/hand-wolf.webp" srcset="phones3/hand-wolf-md.webp 1280w, phones3/hand-wolf.webp 1856w" sizes="(max-width:860px) 42vh, min(80vh, 56vw)" width="1856" height="2320" alt="A werewolf's clawed paw holding an iPhone" decoding="async" fetchpriority="low" aria-hidden="true">
-          <img class="hand-layer" data-hand="witch" data-quad="547,332 1309,332 1309,1988 547,1988" src="phones3/hand-witch.webp" srcset="phones3/hand-witch-md.webp 1280w, phones3/hand-witch.webp 1856w" sizes="(max-width:860px) 42vh, min(80vh, 56vw)" width="1856" height="2320" alt="A witch-creature's hand holding an iPhone from behind" decoding="async" fetchpriority="low" aria-hidden="true">
+          <picture><source media="(max-width:860px)" srcset="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"><img class="hand-layer is-on" data-hand="vampire" data-quad="547,332 1309,332 1309,1988 547,1988" src="phones3/hand-vampire.webp" srcset="phones3/hand-vampire-md.webp 1280w, phones3/hand-vampire.webp 1856w" sizes="(max-width:860px) 42vh, min(80vh, 56vw)" width="1856" height="2320" alt="A vampire's pale clawed hand holding an iPhone" decoding="async" fetchpriority="low"></picture>
+          <picture><source media="(max-width:860px)" srcset="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"><img class="hand-layer" data-hand="wolf" data-quad="547,332 1309,332 1309,1988 547,1988" src="phones3/hand-wolf.webp" srcset="phones3/hand-wolf-md.webp 1280w, phones3/hand-wolf.webp 1856w" sizes="(max-width:860px) 42vh, min(80vh, 56vw)" width="1856" height="2320" alt="A werewolf's clawed paw holding an iPhone" decoding="async" fetchpriority="low" aria-hidden="true"></picture>
+          <picture><source media="(max-width:860px)" srcset="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"><img class="hand-layer" data-hand="witch" data-quad="547,332 1309,332 1309,1988 547,1988" src="phones3/hand-witch.webp" srcset="phones3/hand-witch-md.webp 1280w, phones3/hand-witch.webp 1856w" sizes="(max-width:860px) 42vh, min(80vh, 56vw)" width="1856" height="2320" alt="A witch-creature's hand holding an iPhone from behind" decoding="async" fetchpriority="low" aria-hidden="true"></picture>
           <canvas class="morph" aria-hidden="true" width="2" height="2"></canvas>
         </div>
-        <img class="plate" src="phones3/phone-plate.webp" srcset="phones3/phone-plate-md.webp 1280w, phones3/phone-plate.webp 1856w" sizes="(max-width:860px) 42vh, min(80vh, 56vw)" width="1856" height="2320" alt="" aria-hidden="true" decoding="async" fetchpriority="low">
+        <picture><source media="(max-width:860px)" srcset="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"><img class="plate" src="phones3/phone-plate.webp" srcset="phones3/phone-plate-md.webp 1280w, phones3/phone-plate.webp 1856w" sizes="(max-width:860px) 42vh, min(80vh, 56vw)" width="1856" height="2320" alt="" aria-hidden="true" decoding="async" fetchpriority="low"></picture>
         <div class="display"><div class="screen">
-          <video class="clip is-on" data-clip="tap" muted loop playsinline preload="metadata" width="906" height="1970" poster="captures/tap-poster.webp" aria-label="The Boo Machine player on Haunted house: Wind is tapped, then Whisper; each key lights and the display shows the sound's name">
+          <video class="clip is-on" data-clip="tap" muted loop playsinline preload="none" data-preload="metadata" width="906" height="1970" data-poster="captures/tap-poster.webp" aria-label="The Boo Machine player on Haunted house: Wind is tapped, then Whisper; each key lights and the display shows the sound's name">
             <source src="captures/tap.webm" type="video/webm">
             <source src="captures/tap.mp4" type="video/mp4">
           </video>
-          <video class="clip" data-clip="loop" muted loop playsinline preload="none" width="906" height="1970" poster="captures/loop-poster.webp" aria-label="Repeat is switched on, then Wind, Whisper and Knock are layered and loop on their own" aria-hidden="true">
+          <video class="clip" data-clip="loop" muted loop playsinline preload="none" width="906" height="1970" data-poster="captures/loop-poster.webp" aria-label="Repeat is switched on, then Wind, Whisper and Knock are layered and loop on their own" aria-hidden="true">
             <source src="captures/loop.webm" type="video/webm">
             <source src="captures/loop.mp4" type="video/mp4">
           </video>
-          <video class="clip" data-clip="disc" muted loop playsinline preload="none" width="906" height="1970" poster="captures/disc-poster.webp" aria-label="Eject opens the tray, the collection shows three discs, Creature feature loads, Werewolf plays" aria-hidden="true">
+          <video class="clip" data-clip="disc" muted loop playsinline preload="none" width="906" height="1970" data-poster="captures/disc-poster.webp" aria-label="Eject opens the tray, the collection shows three discs, Creature feature loads, Werewolf plays" aria-hidden="true">
             <source src="captures/disc.webm" type="video/webm">
             <source src="captures/disc.mp4" type="video/mp4">
           </video>
-          <img class="glass" src="phones/glass.png" alt="" aria-hidden="true" width="604" height="1312" decoding="async">
+          <picture><source media="(max-width:860px)" srcset="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"><img class="glass" src="phones/glass.png" alt="" aria-hidden="true" width="604" height="1312" decoding="async"></picture>
         </div></div>
         <div class="flare" aria-hidden="true"></div>
       </div>
@@ -630,21 +635,42 @@ a{color:inherit}
            motes drifting in the red light around each heading sign -->
       <canvas class="story-motes" aria-hidden="true" width="2" height="2"></canvas>
       <section class="chapter" data-i="0" id="chapter-1">
+        <figure class="mfig" data-clip="tap">
+          <picture><source media="(min-width:861px)" srcset="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"><img class="mfig-poster" src="captures/tap-hand-poster.webp" width="752" height="1316" loading="lazy" decoding="async" alt="A vampire’s pale clawed hand holding an iPhone. On the Boo Machine player, Haunted house: Wind is tapped, then Whisper; each key lights and the display shows the sound’s name"></picture>
+          <video class="mfig-v" muted loop playsinline preload="none" width="752" height="1316" aria-hidden="true">
+            <source src="captures/tap-hand.mp4" type="video/mp4">
+            <source src="captures/tap-hand.webm" type="video/webm">
+          </video>
+        </figure>
         <div class="copy"><div class="copy-in">
           <h2 class="phos is-img" data-fit="-7.734,-133.908,114.969,364.943" data-ink="2405,174" data-font="244"><span class="txt">One key, one creepy sound.</span><span class="bl" aria-hidden="true"></span><img class="headimg" src="assets/heading-1.webp" srcset="assets/heading-1-md.webp 1700w, assets/heading-1.webp 2765w" sizes="(max-width:406px) 112vw, (max-width:769px) 454px, (max-width:1385px) 59vw, 816px" alt="" aria-hidden="true" width="2765" height="635" decoding="async" fetchpriority="low"></h2>
-          <p class="body verse"><span class="vl">Tap Wind, and cold creeps across the floor.</span><span class="vl">Tap Whisper. Tap Knock. Who’s at the door?</span><span class="vl">Haunted house: twelve sounds on one disc.</span><span class="vl">Six play for free. Tap one, if you’ll take the risk.</span></p>
+          <p class="body verse"><span class="vl">Tap Wind, and cold creeps<br class="mbr"> across the floor.</span><span class="vl">Tap Whisper. Tap Knock.<br class="mbr"> Who’s at the door?</span><span class="vl">Haunted house:<br class="mbr"> twelve sounds on one disc.</span><span class="vl">Six play for free. Tap one,<br class="mbr"> if you’ll take the risk.</span></p>
         </div></div>
       </section>
       <section class="chapter" data-i="1" id="chapter-2">
+        <figure class="mfig" data-clip="loop">
+          <picture><source media="(min-width:861px)" srcset="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"><img class="mfig-poster" src="captures/loop-hand-poster.webp" width="752" height="1316" loading="lazy" decoding="async" alt="A werewolf’s clawed paw holding an iPhone. On the Boo Machine player, Repeat is switched on, then Wind, Whisper and Knock are layered and loop on their own"></picture>
+          <video class="mfig-v" muted loop playsinline preload="none" width="752" height="1316" aria-hidden="true">
+            <source src="captures/loop-hand.mp4" type="video/mp4">
+            <source src="captures/loop-hand.webm" type="video/webm">
+          </video>
+        </figure>
         <div class="copy"><div class="copy-in">
           <h2 class="phos is-img" data-fit="-5.763,-74.713,110.853,246.552" data-ink="1336,174" data-font="244"><span class="txt">Loop the room.</span><span class="bl" aria-hidden="true"></span><img class="headimg" src="assets/heading-2.webp" srcset="assets/heading-2-md.webp 911w, assets/heading-2.webp 1481w" sizes="(max-width:406px) 60vw, (max-width:769px) 243px, (max-width:1385px) 32vw, 438px" alt="" aria-hidden="true" width="1481" height="429" decoding="async" fetchpriority="low"></h2>
-          <p class="body verse"><span class="vl">Hit Repeat, and the sounds won’t stop:</span><span class="vl">Wind, then Whisper, then Knock on top.</span><span class="vl">Put the phone down. The house breathes on</span><span class="vl">all party long, till the guests are gone.</span><span class="vl">Tap a key again, and that sound is done;</span><span class="vl">the rest keep haunting, one by one.</span></p>
+          <p class="body verse"><span class="vl">Hit Repeat,<br class="mbr"> and the sounds won’t stop:</span><span class="vl">Wind, then Whisper,<br class="mbr"> then Knock on top.</span><span class="vl">Put the phone down.<br class="mbr"> The house breathes on</span><span class="vl">all party long,<br class="mbr"> till the guests are gone.</span><span class="vl">Tap a key again,<br class="mbr"> and that sound is done;</span><span class="vl">the rest keep haunting,<br class="mbr"> one by one.</span></p>
         </div></div>
       </section>
       <section class="chapter" data-i="2" id="chapter-3">
+        <figure class="mfig" data-clip="disc">
+          <picture><source media="(min-width:861px)" srcset="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"><img class="mfig-poster" src="captures/disc-hand-poster.webp" width="752" height="1316" loading="lazy" decoding="async" alt="A witch-creature’s hand holding an iPhone from behind. On the Boo Machine player, Eject opens the tray, the collection shows three discs, Creature feature loads, Werewolf plays"></picture>
+          <video class="mfig-v" muted loop playsinline preload="none" width="752" height="1316" aria-hidden="true">
+            <source src="captures/disc-hand.mp4" type="video/mp4">
+            <source src="captures/disc-hand.webm" type="video/webm">
+          </video>
+        </figure>
         <div class="copy"><div class="copy-in">
           <h2 class="phos is-img" data-fit="-9.900,-129.885,119.369,343.679" data-ink="1394,174" data-font="244"><span class="txt">Change the disc.</span><span class="bl" aria-hidden="true"></span><img class="headimg" src="assets/heading-3.webp" srcset="assets/heading-3-md.webp 1023w, assets/heading-3.webp 1664w" sizes="(max-width:406px) 68vw, (max-width:769px) 273px, (max-width:1385px) 36vw, 492px" alt="" aria-hidden="true" width="1664" height="598" decoding="async" fetchpriority="low"></h2>
-          <p class="body verse"><span class="vl">Press Eject. Three discs rise into view:</span><span class="vl">Haunted house, Creature feature,</span><span class="vl">and The coven too.</span><span class="vl">Load one, and the player changes its face:</span><span class="vl">new art behind the glass, new sounds in place.</span><span class="vl">One purchase unlocks all, even discs to come.</span><span class="vl">No ads. No subscription. Pay once. Done.</span></p>
+          <p class="body verse"><span class="vl">Press Eject.<br class="mbr"> Three discs rise into view:</span><span class="vl">Haunted house, Creature feature,</span><span class="vl vc">and The coven too.</span><span class="vl">Load one, and the player<br class="mbr"> changes its face:</span><span class="vl">new art behind the glass,<br class="mbr"> new sounds in place.</span><span class="vl">One purchase unlocks all,<br class="mbr"> even discs to come.</span><span class="vl">No ads. No subscription.<br class="mbr"> Pay once. Done.</span></p>
         </div></div>
       </section>
     </div>

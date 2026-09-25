@@ -48,6 +48,13 @@
       one-time block reveal and the phone's whole-chapter fade.
    v11 perf: a morph that is playing holds while a finger scrolls (2);
       the display wrapper is a third of the video's size (3, story.css).
+   9. v12: THE PHONE LAYOUT (<= 860 px) is a plain stack — each chapter's
+      own phone-in-hand clip, then its copy (Fab: the copy under the sticky
+      phone was "really hard to read"). Everything above (1's hero scrub
+      excepted) is desktop only: no bands, no morph warm-up, no edges, and
+      the sticky phone's posters / mask / photographs are never fetched
+      there (deskMedia). buildMobile: the clips play while on screen, each
+      figure and copy block is revealed once (IO + CSS transitions).
 
    QA hooks — window.booStory:
      .set(i)            scroll so chapter i (0..2) sits at the top
@@ -60,6 +67,7 @@
      ?H=1.5             hold H at a value (no tween, no target): QA stills
      .hero  .tls (the hero timeline)  .refreshes  .quads()  .hands()
      .videos  .layers  .morph  'gl' | 'dom' | 'none'  .bar(on)  .figFoot()
+     .mfigs()           v12: the phone layout's figures (revealed, playing)
      .edges()           v11: the edge path ('io' | 'vt' | 'off') and each
                         line's level (0 lit, 1 inner band, 2 outer, 3 out)
      ?edge=io|vt|0      force the IntersectionObserver / view-timeline path,
@@ -84,6 +92,11 @@
     ST.config({ ignoreMobileResize: true, autoRefreshEvents: "visibilitychange,DOMContentLoaded,resize" });
   }
 
+  /* the phone breakpoint (story.css): up to 860 px the story is the plain
+     stack of v12 (buildMobile below) and none of the desktop machinery —
+     thresholds, pre-triggers, morph warm-up, edge fades, the sticky
+     phone's posters and mask — is built or fetched */
+  var mobile = global.matchMedia("(max-width: 860px)");
   var HANDS = ["vampire", "wolf", "witch"];
   var CLIPS = ["tap", "loop", "disc"];
   /* the thresholds: chapter k's copy block's top crossing THR of the viewport
@@ -201,16 +214,35 @@
     el.style.width = (f.w * 100).toFixed(3) + "%"; el.style.height = (f.h * 100).toFixed(3) + "%";
   });
   var display = phoneEl.querySelector(".display");
-  if (global.location.protocol !== "file:" && display && phoneEl.getAttribute("data-mask")) {
-    display.style.setProperty("--screen-mask", 'url("' + phoneEl.getAttribute("data-mask") + '")');
-    /* v8 perf: the same url as the mask itself, not only through the var():
-       a var() url is re-resolved on every style recalc of .display and the
-       layer is repainted each time (trace: once per frame whenever anything
-       on <html> changed). The inline longhands win over the .has-mask rule,
-       which keeps the size / repeat. */
-    display.style.webkitMaskImage = display.style.maskImage = 'url("' + phoneEl.getAttribute("data-mask") + '")';
-    display.classList.add("has-mask");
+  /* v12: the sticky phone's own media — the display mask, the clips'
+     posters (data-poster) and the first clip's metadata (data-preload) —
+     is attached only once the page is wider than the phone breakpoint: a
+     phone never shows that phone and does not fetch them (the photographs
+     skip themselves: a blank <picture> source, index.html) */
+  var deskDone = false;
+  function deskMedia() {
+    if (deskDone || mobile.matches) return;
+    deskDone = true;
+    clips.forEach(function (v) {
+      if (!v) return;
+      var p = v.getAttribute("data-poster"); if (p) v.setAttribute("poster", p);
+      var pl = v.getAttribute("data-preload"); if (pl && v.preload === "none") v.preload = pl;
+    });
+    deskMask();
   }
+  function deskMask() {
+    if (global.location.protocol !== "file:" && display && phoneEl.getAttribute("data-mask")) {
+      display.style.setProperty("--screen-mask", 'url("' + phoneEl.getAttribute("data-mask") + '")');
+      /* v8 perf: the same url as the mask itself, not only through the var():
+         a var() url is re-resolved on every style recalc of .display and the
+         layer is repainted each time (trace: once per frame whenever anything
+         on <html> changed). The inline longhands win over the .has-mask rule,
+         which keeps the size / repeat. */
+      display.style.webkitMaskImage = display.style.maskImage = 'url("' + phoneEl.getAttribute("data-mask") + '")';
+      display.classList.add("has-mask");
+    }
+  }
+  deskMedia();
 
   /* ---------- 4. the videos ---------------------------------------------- */
   var onScreen = false, cur = 0, morphMode = "none";
@@ -464,6 +496,7 @@
      again when the stage comes near, one per image as it lands */
   var warmQ = false;
   function warm() {
+    if (mobile.matches) return;   /* v12: no morph in the phone layout */
     /* v8 perf: one warm-up step per idle slot (see glStage) */
     if (GL === null && !glStage(false)) {
       if (!warmQ) {
@@ -497,7 +530,6 @@
 
   var hero = doc.querySelector(".hero");
   var zone = doc.querySelector(".hero .unlock-zone");
-  var mobile = global.matchMedia("(max-width: 860px)");
   var heroST = null, htl = null, thr = [null, null], pres = [], refreshes = 0;
 
   /* ---------- 2. the state machine ---------------------------------------- */
@@ -566,6 +598,8 @@
     setTarget(t);
   }
   function onRefresh() { refreshes++; evalTarget(); tick(); }
+  /* v12: the phone layout has no band triggers to count the refresh on */
+  if (ST) ST.addEventListener("refresh", function () { if (mobile.matches) refreshes++; });
 
   function vh(f) { return function () { return -(global.innerHeight * f); }; }
 
@@ -639,6 +673,14 @@
        THR + HYS to THR of the viewport (8 % tall). The trigger is the COPY
        (never transformed; centred in its chapter on desktop, at the top of
        it on a phone), not the section. */
+    /* v12: the phone layout has no sticky phone: no bands, no pre-triggers,
+       no edges (buildMobile instead); the hero's scrub above stays */
+    if (mobile.matches) {
+      killEdges();
+      if (hold !== null) { state.H = hold; target = Math.round(hold); }
+      tick();
+      return;
+    }
     var T = mobile.matches ? THR_M : THR_D;
     [0, 1].forEach(function (k) {
       thr[k] = ST.create({
@@ -731,7 +773,7 @@
     edgeMode = "off";
   }
   function buildEdges() {
-    if (!fls.length || qs.get("edge") === "0" || reduce.matches) { killEdges(); return; }
+    if (!fls.length || qs.get("edge") === "0" || reduce.matches || mobile.matches) { killEdges(); return; }
     if (edgeVT()) {
       var ins = edgeInsets(), vkey = ins.m + "/" + ins.top + "/" + ins.foot;
       if (edgeMode === "vt" && vkey === edgeKey) return;
@@ -823,8 +865,78 @@
     } else {
       buildScroll();
     }
+    killMobile(); buildMobile();
     barFromScroll();
   }
+
+  /* ---------- v12: THE PHONE LAYOUT ------------------------------------------
+     Up to 860 px (story.css "phones") each chapter carries its own figure:
+     a phone-in-hand clip (.mfig video over its poster <img>). Three
+     IntersectionObservers, nothing on the scroll:
+       near    a figure within 75 % of a viewport: its clip may load
+               (preload none -> auto; iOS loads on play() regardless)
+       play    a figure a quarter on screen plays, below that it pauses;
+               hidden tab and reduced motion: never (the poster stays)
+       reveal  each figure and each copy block (.copy-in, the heading sign +
+               verse; the sign's own flicker animates .phos's opacity, so the
+               reveal sits one level up) fades in and rises 28 px ONCE, when
+               it comes 10 % above the viewport's foot: a class, and a CSS
+               transition of opacity / transform (story.css .m-rv). Not
+               under reduced motion; without the script nothing is hidden.
+     Built only while the phone layout is on; the desktop keeps its sticky
+     phone and never plays or fetches these. */
+  var mfigs = chapters.map(function (c) { return c.querySelector(".mfig"); });
+  var mvids = mfigs.map(function (f) { return f && f.querySelector("video"); });
+  var mSeen = [false, false, false], mIOs = [];
+  function mPlay(k) {
+    var v = mvids[k];
+    if (!v || reduce.matches || doc.hidden || !mSeen[k]) return;
+    if (v.preload === "none") v.preload = "auto";
+    var p = v.play();
+    if (p && p.catch) p.catch(function () {});
+  }
+  function mPause(k) { var v = mvids[k]; if (v && !v.paused) v.pause(); }
+  function killMobile() {
+    mIOs.forEach(function (io) { io.disconnect(); }); mIOs = [];
+    mvids.forEach(function (v, k) { mPause(k); mSeen[k] = false; });
+    if (chaptersEl) chaptersEl.classList.remove("m-rv");
+    mfigs.concat(copyIns).forEach(function (el) { if (el) el.classList.remove("is-in"); });
+  }
+  function buildMobile() {
+    if (mIOs.length || !mobile.matches || !("IntersectionObserver" in global)) return;
+    var vs = mvids.filter(Boolean);
+    var near = new IntersectionObserver(function (es) {
+      es.forEach(function (e) {
+        if (!e.isIntersecting || reduce.matches) return;
+        if (e.target.preload === "none") e.target.preload = "auto";
+        near.unobserve(e.target);
+      });
+    }, { rootMargin: "75% 0px 75% 0px" });
+    var play = new IntersectionObserver(function (es) {
+      es.forEach(function (e) {
+        var k = mvids.indexOf(e.target); if (k < 0) return;
+        mSeen[k] = e.isIntersecting && e.intersectionRatio >= 0.25;
+        if (mSeen[k]) mPlay(k); else mPause(k);
+      });
+    }, { threshold: [0, 0.25] });
+    vs.forEach(function (v) { near.observe(v); play.observe(v); });
+    mIOs.push(near, play);
+    if (reduce.matches || !chaptersEl) return;
+    var els = mfigs.concat(copyIns).filter(Boolean);
+    chaptersEl.classList.add("m-rv");
+    var rv = new IntersectionObserver(function (es) {
+      es.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        e.target.classList.add("is-in");
+        rv.unobserve(e.target);
+      });
+    }, { rootMargin: "0px 0px -10% 0px" });
+    els.forEach(function (el) { rv.observe(el); });
+    mIOs.push(rv);
+  }
+  doc.addEventListener("visibilitychange", function () {
+    for (var k = 0; k < 3; k++) { if (doc.hidden) mPause(k); else mPlay(k); }
+  });
 
   /* ---------- wiring -------------------------------------------------------- */
   var rz = 0;
@@ -834,7 +946,11 @@
   applyReduce();
   reduce.addEventListener("change", applyReduce);
   /* the phone breakpoint flips the windows and the under-phone fade: rebuild */
-  mobile.addEventListener("change", function () { if (!reduce.matches) { killScroll(); buildScroll(); refreshWhenStill(); } });
+  mobile.addEventListener("change", function () {
+    deskMedia();                                   /* v12: the sticky phone's media, once it can be seen */
+    killMobile(); buildMobile();                   /* v12: the phone layout's clips and reveals */
+    if (!reduce.matches) { killScroll(); buildScroll(); refreshWhenStill(); }
+  });
 
   /* ONE refresh, when the fonts and the phone's images are in (the hero's
      photographs carry their own size; a late one cannot move anything) */
@@ -905,6 +1021,13 @@
                where: where(hSmooth) };
     },
     figFoot: figFoot,
+    /* v12: the phone layout's figures: revealed?, clip state */
+    mfigs: function () {
+      return mfigs.map(function (f, k) {
+        var v = mvids[k]; if (!f) return null;
+        return { shown: f.classList.contains("is-in"), seen: mSeen[k], playing: !!v && !v.paused, t: v ? +v.currentTime.toFixed(2) : null, preload: v ? v.preload : null, ready: v ? v.readyState : null };
+      });
+    },
     edges: function () { return { mode: edgeMode, key: edgeKey, levels: edgeMode === "io" ? flState.map(function (f) { return f[3]; }).join("") : null }; },
     sda: SDA, par: PAR,   /* v9: the parallax path ('css' scroll timeline or GSAP) and its numbers */
     videos: videos, layers: layers,
