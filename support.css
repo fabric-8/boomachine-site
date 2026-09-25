@@ -58,7 +58,7 @@
 /* the well: where the keys go, in % of the plate (the well's floor) */
 .sk-well{
   position:absolute; z-index:2; left:19%; right:18.9%; top:35.6%; bottom:36.4%;
-  display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:1.3%;
+  display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:1.3%;   /* v12c: two keys */
   align-items:stretch;
   filter:drop-shadow(0 3px 3px rgba(0,0,0,.8));   /* the keys' shadow in the well (the keys themselves are clipped) */
 }
@@ -145,11 +145,6 @@
 .skey:focus-visible{outline:none}
 .skey:focus-visible::after{content:""; position:absolute; z-index:2; inset:-7px; border:2px solid #F08A58; border-radius:7px; box-shadow:0 0 0 1px #000, inset 0 0 0 1px #000; pointer-events:none}
 
-/* v12b: the smaller desktop plate's keys are too narrow for the address:
-   "via email" there (the link is the same), the address on the stacked keys */
-.skey .k-long{display:none}
-.skey .k-short{display:inline}
-
 /* ---- phones and small tablets: the squarer plate, the keys stacked ------ */
 @media (max-width:900px){
   .skeys{
@@ -159,10 +154,8 @@
     margin-top:clamp(92px, 24vw, 128px);
     --plate:url("assets/nest-pplate.webp");
   }
-  .sk-well{left:17.2%; right:16.6%; top:17.2%; bottom:17.2%; grid-template-columns:1fr; grid-template-rows:repeat(3, minmax(0,1fr)); gap:3.2%}
+  .sk-well{left:17.2%; right:16.6%; top:17.2%; bottom:17.2%; grid-template-columns:1fr; grid-template-rows:repeat(2, minmax(0,1fr)); gap:3.2%}
   .skey{border-width:10px; border-image-width:18px; gap:3px; padding:0 4px}
-  .skey .k-long{display:inline}
-  .skey .k-short{display:none}
   .skey .k-wear,.skey::before{inset:-10px}
   .skey .k-t{font-size:12px; letter-spacing:1.8px}
   .skey .k-s{font-size:12px}
