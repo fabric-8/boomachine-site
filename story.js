@@ -493,6 +493,25 @@
      true kills the running tween, so a reversal mid-morph turns back from
      the current H (never a jump) and a jump across two thresholds goes
      straight to the far hand */
+  /* v10: ON A TOUCH SCREEN THE MORPH WAITS FOR THE FINGER. Everything the
+     morph draws (the WebGL displacement, the crossfades, the flare) is main-
+     thread work every frame for 0.9 s, and in iOS WebKit every main-thread
+     commit during a scroll re-places the sticky phone with a stale scroll
+     offset — the phone and hand jittered (Fab, iOS Safari and Chrome). So
+     while the page is moving under a finger the new target is only noted,
+     and the morph plays once the scroll has been still for 180 ms. */
+  var touchOnly = global.matchMedia("(hover: none) and (pointer: coarse)");
+  var moving = false, movingT = 0, pending = false;
+  global.addEventListener("scroll", function () {
+    if (!touchOnly.matches) return;
+    moving = true; clearTimeout(movingT);
+    movingT = setTimeout(function () { moving = false; if (pending) playTarget(); }, 180);
+  }, { passive: true });
+  function playTarget() {
+    pending = false;
+    tween = gsap.to(state, { H: target, duration: DUR, ease: EASE, overwrite: true, onUpdate: tick, onComplete: function () { tween = null; tick(); } });
+    tick();
+  }
   function setTarget(i) {
     i = Math.max(0, Math.min(2, i | 0));
     if (i === target) return;
@@ -500,8 +519,8 @@
     loadClip(i);
     if (hold !== null) return;
     if (reduce.matches) { state.H = i; tick(); return; }
-    tween = gsap.to(state, { H: i, duration: DUR, ease: EASE, overwrite: true, onUpdate: tick, onComplete: function () { tween = null; tick(); } });
-    tick();
+    if (moving && touchOnly.matches) { pending = true; return; }
+    playTarget();
   }
   /* the target from the two band triggers: past a band's end (its copy's
      top above THR) -> at least that hand; above its start (the top below
@@ -609,12 +628,16 @@
     });
 
     /* the copy: a light reveal the first time it enters (24 px up, fade) */
+    /* v10: a CSS TRANSITION started by a class (story.css .copy-in.rv), not
+       a GSAP tween: the tween wrote opacity and transform on the main thread
+       for 0.7 s, mid-scroll, which made the sticky phone jitter in iOS
+       WebKit; a transition runs on the compositor */
     reveals = copies.map(function (c, k) {
       if (!c || !copyIns[k]) return null;
-      return gsap.fromTo(copyIns[k], { opacity: 0, y: 24 }, {
-        opacity: 1, y: 0, duration: 0.7, ease: "power2.out", immediateRender: true,
-        scrollTrigger: { trigger: c, start: "top 88%", once: true }
-      }).scrollTrigger;
+      var el = copyIns[k];
+      el.classList.add("rv");
+      function show(self) { if (self.progress > 0 || self.isActive) el.classList.add("is-in"); }
+      return ST.create({ trigger: c, start: "top 88%", onToggle: show, onRefresh: show });
     });
     /* on a phone the copy passes UNDER the sticky phone: it fades out as its
        top reaches the phone's foot (scrubbed, reversible) */
@@ -623,29 +646,19 @@
          elements, so the two opacities never write over each other */
       fades = copies.map(function (c, k) {
         if (!c) return null;
-        var from = function () { return "top " + Math.round(figFoot() + 28) + "px"; };
+        var from = function () { return "top " + Math.round(figFoot() + 12) + "px"; };
         var to = function () { return "top " + Math.round(figFoot() - 36) + "px"; };
-        /* v9: on a phone the whole story is read under the sticky phone, and
-           this scrub wrote an opacity on the main thread every frame of it
-           (a style recalc + a layer commit per frame, the whole way down).
-           With scroll-driven animations the fade is CSS on the scroll
-           timeline (story.css .chapter.v9-fade, compositor-run); the trigger
-           only measures the range, as the tween did. */
-        if (SDA) {
-          chapters[k].classList.add("v9-fade");
-          var m = ST.create({ trigger: c, start: from, end: to, invalidateOnRefresh: true,
-                              onRefresh: function (self) { setRange(chapters[k], self); } });
-          setRange(chapters[k], m);
-          return m;
-        }
-        var t = gsap.fromTo(chapters[k], { opacity: 1 }, {
-          opacity: 0, ease: "none", immediateRender: false,
-          scrollTrigger: {
-            trigger: c, scrub: 0.2, invalidateOnRefresh: true,
-            start: from, end: to
-          }
-        });
-        return t.scrollTrigger;
+        /* v10: a CLASS and a CSS transition (story.css .chapter.fd), not a
+           scrub or a scroll-timeline animation: both change the chapter's
+           opacity every frame of the scroll, and WebKit runs a scroll-driven
+           animation on the main thread, so every frame was a commit that
+           re-placed the sticky phone with a stale offset (the jitter). Now
+           the copy fades once, over .35 s, as its top reaches the phone's
+           foot, and comes back the same way. */
+        chapters[k].classList.add("fd");
+        function under(self) { chapters[k].classList.toggle("is-under", self.progress > 0); }
+        return ST.create({ trigger: c, start: from, end: "bottom top", invalidateOnRefresh: true,
+                           onToggle: under, onRefresh: under, onUpdate: function (self) { if ((self.progress > 0) !== chapters[k].classList.contains("is-under")) under(self); } });
       });
     }
     if (hold !== null) { state.H = hold; target = Math.round(hold); loadClip(target); }
@@ -664,12 +677,14 @@
     state.H = 0; target = 0;
     gsap.set(hero.querySelectorAll(".plane, .title, .unlock-zone"), { clearProps: "transform,opacity" });
     gsap.set(copyIns.concat(chapters).filter(Boolean), { clearProps: "transform,opacity" });
+    copyIns.forEach(function (el) { if (el) el.classList.remove("rv", "is-in"); });
+    pending = false;
     hero.style.removeProperty("--rl-k");
     /* v9: the CSS scroll-driven parallax / fades come off with their ranges */
     hero.classList.remove("v9-par");
     [hero].concat(chapters).forEach(function (el) {
       if (!el) return;
-      el.classList.remove("v9-fade");
+      el.classList.remove("v9-fade", "fd", "is-under");
       ["--v9-r0", "--v9-r1", "--v9-py", "--v9-ps", "--v9-pr", "--v9-zy"].forEach(function (p) { el.style.removeProperty(p); });
     });
     if (morphCv) morphCv.style.display = "none";
