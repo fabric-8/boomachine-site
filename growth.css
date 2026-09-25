@@ -139,3 +139,44 @@
 @media (min-width:901px) and (max-width:1200px){
   .corruption{--cx-pw:620px; --cx-lo:-.2; --cx-ro:-.2}
 }
+
+/* ---- v12: the nest round the plate (#nest inside .skeys) ----------------
+   Fab: "the corruption should grow all around the plate, so it's embedded,
+   grown around, fused with it; not behind the panel but all the way around
+   it". One painted layer (assets/nest-w.webp, phones nest-p.webp; made in
+   site-work/site-drafts/corruption/nest): a bubbly collar hugging the plate's
+   whole rim, heaviest along the bottom, beaded veins clinging to the engraved
+   border (never into the well), and a web of veins running out from its
+   lower corners towards the corner masses. Its box is set in % of the plate
+   (nest-geometry.json there), so it sits on the plate at any width.
+
+   It joins the timeline above: once the corner veins are on their way
+   (0.75 s) two soft fronts climb from the nest's lower corners and close over
+   the top (--nx-g, 2.2 s) while the layer settles in from a little larger,
+   closing round the plate; its eyes pop from 2.4 s and blink with the
+   others. Mask and transform only during the grow, nothing after it. */
+@property --nx-g{syntax:"<percentage>"; inherits:false; initial-value:0%}
+.sk-nest{
+  position:absolute; z-index:1; pointer-events:none; user-select:none; -webkit-user-select:none;
+  left:-33.474%; top:-32.447%; width:166.737%; height:178.723%;
+  transform-origin:50% 45%;
+}
+.sk-nest.nx-phone{left:-15.497%; top:-30.612%; width:130.994%; height:174.927%}
+.sk-nest .nx-body{position:absolute; left:0; top:0; width:100%; height:100%; display:block; max-width:none; -webkit-user-drag:none}
+.sk-nest:not(.is-on):not(.is-still){visibility:hidden}
+.sk-nest.is-on{animation:nxClose 2.3s .75s cubic-bezier(.22,.8,.3,1) both}
+@keyframes nxClose{from{transform:scale(1.05)} to{transform:none}}
+.sk-nest.is-on .nx-body{
+  -webkit-mask-image:
+    radial-gradient(farthest-corner at 0% 100%, #000 calc(var(--nx-g) - 16%), transparent var(--nx-g)),
+    radial-gradient(farthest-corner at 100% 100%, #000 calc(var(--nx-g) - 16%), transparent var(--nx-g));
+          mask-image:
+    radial-gradient(farthest-corner at 0% 100%, #000 calc(var(--nx-g) - 16%), transparent var(--nx-g)),
+    radial-gradient(farthest-corner at 100% 100%, #000 calc(var(--nx-g) - 16%), transparent var(--nx-g));
+  animation:nxFront 2.2s .75s cubic-bezier(.3,.15,.45,1) both;
+}
+@keyframes nxFront{from{--nx-g:0%} to{--nx-g:122%}}
+.sk-nest.is-still .cx-pop{transform:none}
+.sk-nest.is-still .cx-lid{transform:translateY(-112%)}
+.sk-nest.is-on .cx-pop{animation:cxPop .5s var(--d, 2.4s) cubic-bezier(.3,1.7,.5,1) both}
+.sk-nest.is-on .cx-lid{animation:cxOpen .34s calc(var(--d, 2.4s) + .38s) cubic-bezier(.5,0,.3,1) both}

@@ -15,10 +15,15 @@
    - prefers-reduced-motion: the grown state, eyes open, no blinking.
    - Measures three lengths into CSS: the section's side padding (so the stage
      spans the viewport) and the distance from the slot to the page bottom
-     (so the growth runs under the footer to the last pixel). */
+     (so the growth runs under the footer to the last pixel).
+
+   v12: also builds the nest round the support plate (#nest, inside .skeys):
+   one painted layer plus its own eyes, in the same set (wide / phone), grown
+   and reset together with the corner pieces (growth.css has its timeline). */
 (function () {
   "use strict";
   var slot = document.getElementById("corruption");
+  var nest = document.getElementById("nest");
   if (!slot || !("IntersectionObserver" in window) || !window.matchMedia) return;
   var section = slot.closest("section") || slot.parentElement;
   var foot = document.querySelector(".foot");
@@ -49,7 +54,20 @@
         { side: "l", x: 11.2, y: 30.2, s: 5.6, k: 2, t: 4 },
         { side: "r", x: 90.0, y: 47.5, s: 7.0, k: 1, t: 5 },
         { side: "r", x: 79.4, y: 69.0, s: 5.4, k: 3, t: 6 }
-      ]
+      ],
+      /* v12: the nest; eyes in % of the nest layer (read off
+         nest/work/grid-check-wide.jpg), t = pop order after 2.4 s */
+      nest: {
+        src: "nest-w",
+        eyes: [
+          { x: 39.6, y: 69.0, s: 3.1, k: 1, t: 0 },
+          { x: 72.0, y: 12.2, s: 2.4, k: 3, t: 1 },
+          { x: 24.6, y: 60.4, s: 2.8, k: 2, t: 2 },
+          { x: 75.2, y: 74.4, s: 2.6, k: 1, t: 3 },
+          { x: 19.8, y: 19.6, s: 2.0, k: 3, t: 4 },
+          { x: 57.2, y: 73.4, s: 1.9, k: 2, t: 5 }
+        ]
+      }
     },
     phone: {
       l: { src: "corr-pl", lump: [58, 20, 32, 22], o: [6.25, 81.82] },
@@ -58,7 +76,18 @@
         { side: "l", x: 66.4, y: 30.2, s: 8.6, k: 1, t: 0 },
         { side: "r", x: 25.6, y: 36.0, s: 7.4, k: 3, t: 1 },
         { side: "l", x: 42.0, y: 57.5, s: 7.0, k: 2, t: 2 }
-      ]
+      ],
+      nest: {
+        src: "nest-p",
+        eyes: [
+          { x: 67.8, y: 79.3, s: 5.6, k: 1, t: 0 },
+          { x: 86.0, y: 55.0, s: 4.6, k: 3, t: 1 },
+          { x: 39.5, y: 11.6, s: 4.0, k: 2, t: 2 },
+          { x: 51.6, y: 75.2, s: 4.2, k: 3, t: 3 },
+          { x: 8.2, y: 45.0, s: 4.2, k: 2, t: 4 },
+          { x: 32.0, y: 73.4, s: 3.4, k: 1, t: 5 }
+        ]
+      }
     }
   };
 
@@ -98,20 +127,33 @@
         "%;--ox:" + p.o[0] + "%;--oy:" + p.o[1] + "%";
       sides[s] = side;
     });
-    set.eyes.forEach(function (e) {
-      var sp = SPRITES[e.k];
-      var eye = el("span", "cx-eye", sides[e.side]);
-      eye.style.cssText =
-        "--x:" + e.x + ";--y:" + e.y + ";--s:" + e.s +
-        ";--d:" + (2.05 + e.t * 0.26 + Math.random() * 0.12).toFixed(2) + "s" +
-        ";--rot:" + Math.round(rand(-25, 25)) + "deg" +
-        ";--bx:" + sp.bx + "%;--by:" + sp.by + "%;--br:" + sp.br + "%";
-      var pop = el("span", "cx-pop", eye);
-      img("assets/corr-eye-" + e.k + ".webp", "", pop);
-      var ball = el("span", "cx-ball", pop);
-      lids.push({ lid: el("span", "cx-lid", ball), eye: eye, timer: 0 });
-    });
+    set.eyes.forEach(function (e) { eye(sides[e.side], e, 2.05, 0.26); });
+    if (nest) {
+      nest.textContent = "";
+      nest.classList.toggle("nx-phone", name === "phone");
+      img("assets/" + set.nest.src + ".webp", "nx-body", nest);
+      set.nest.eyes.forEach(function (e) { eye(nest, e, 2.4, 0.22); });
+    }
     if (grown && inView && !document.hidden) startBlinking(false);
+  }
+  /* an eye: the socket sprite with its ball, and the lid that blinks over it;
+     it pops at base + t * step s (plus a little jitter) */
+  function eye(parent, e, base, step) {
+    var sp = SPRITES[e.k];
+    var node = el("span", "cx-eye", parent);
+    node.style.cssText =
+      "--x:" + e.x + ";--y:" + e.y + ";--s:" + e.s +
+      ";--d:" + (base + e.t * step + Math.random() * 0.12).toFixed(2) + "s" +
+      ";--rot:" + Math.round(rand(-25, 25)) + "deg" +
+      ";--bx:" + sp.bx + "%;--by:" + sp.by + "%;--br:" + sp.br + "%";
+    var pop = el("span", "cx-pop", node);
+    img("assets/corr-eye-" + e.k + ".webp", "", pop);
+    var ball = el("span", "cx-ball", pop);
+    lids.push({ lid: el("span", "cx-lid", ball), eye: node, timer: 0 });
+  }
+  function mark(cls, on) {
+    slot.classList.toggle(cls, on);
+    if (nest) nest.classList.toggle(cls, on);
   }
 
   /* ---- measure ---------------------------------------------------------- */
@@ -170,33 +212,44 @@
     ro.observe(section);
     if (foot) ro.observe(foot);
   }
-  if (still) { slot.classList.add("is-still"); return; }
+  if (still) { mark("is-still", true); return; }
 
   /* ---- grow / reset --------------------------------------------------- */
   function grow() {
     clearTimeout(leaveTimer);
     if (grown) { startBlinking(false); return; }
     grown = true;
-    slot.classList.add("is-on");
+    mark("is-on", true);
     startBlinking(true);
   }
   function reset() {
     grown = false;
     stopBlinking();
-    slot.classList.remove("is-on");
+    mark("is-on", false);
   }
+  /* the grow starts on the stage (the page foot) being mostly in view; "away"
+     means neither the stage nor the nest is on screen, so the reset (and the
+     blink clocks stopping) never happens while any of it can be seen */
+  var seen = { stage: false, nest: false };
   var io = new IntersectionObserver(function (entries) {
-    var e = entries[entries.length - 1];
-    inView = e.isIntersecting;
-    if (e.isIntersecting && e.intersectionRatio >= 0.35) {
-      if (!document.hidden) grow();
-    } else if (!e.isIntersecting) {
+    entries.forEach(function (e) {
+      var k = e.target === stage ? "stage" : "nest";
+      seen[k] = e.isIntersecting;
+      if (k === "stage" && e.isIntersecting && e.intersectionRatio >= 0.35 && !document.hidden) grow();
+    });
+    var was = inView;
+    inView = seen.stage || seen.nest;
+    /* the dying lamp's flicker (support.css) also rests while all this is away */
+    section.classList.toggle("fx-away", !inView);
+    if (inView && !was && grown) grow();
+    else if (!inView) {
       stopBlinking();
       clearTimeout(leaveTimer);
       if (grown) leaveTimer = setTimeout(reset, LEAVE_MS);
     }
   }, { threshold: [0, 0.35, 0.6] });
   io.observe(stage);
+  if (nest) io.observe(nest);
 
   document.addEventListener("visibilitychange", function () {
     if (document.hidden) stopBlinking();
