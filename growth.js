@@ -127,12 +127,12 @@
         "%;--ox:" + p.o[0] + "%;--oy:" + p.o[1] + "%";
       sides[s] = side;
     });
-    set.eyes.forEach(function (e) { eye(sides[e.side], e, 2.05, 0.26); });
+    set.eyes.forEach(function (e) { eye(sides[e.side], e, 1.35, 0.22); });   /* v12b: eyes after the emerge (1.4 s), not the old 2 s grow */
     if (nest) {
       nest.textContent = "";
       nest.classList.toggle("nx-phone", name === "phone");
       img("assets/" + set.nest.src + ".webp", "nx-body", nest);
-      set.nest.eyes.forEach(function (e) { eye(nest, e, 2.4, 0.22); });
+      set.nest.eyes.forEach(function (e) { eye(nest, e, 1.45, 0.2); });
     }
     if (grown && inView && !document.hidden) startBlinking(false);
   }

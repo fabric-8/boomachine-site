@@ -180,3 +180,17 @@
 .sk-nest.is-still .cx-lid{transform:translateY(-112%)}
 .sk-nest.is-on .cx-pop{animation:cxPop .5s var(--d, 2.4s) cubic-bezier(.3,1.7,.5,1) both}
 .sk-nest.is-on .cx-lid{animation:cxOpen .34s calc(var(--d, 2.4s) + .38s) cubic-bezier(.5,0,.3,1) both}
+
+/* ---- v12b: EMERGE, NOT GROW ---------------------------------------------
+   Fab: "the way it grows in those stages looks a bit weird in between; keep
+   the eyes, but make it look as if the bottom part emerges from the dark,
+   then the eyes appear and do their thing". The staged masks, the slide-ins
+   and the swelling above are switched off here (their rules stay, as the
+   record of v11/v12); every painted layer now simply comes up out of the
+   black together over 1.4 s — opacity only, one composited fade — and the
+   eyes pop open after it (growth.js, from 1.35 s) and blink as before. */
+.corruption.is-on .cx-body,.corruption.is-on .cx-lump,.sk-nest.is-on .nx-body{-webkit-mask-image:none; mask-image:none; animation:none}
+.corruption.is-on .cx-l,.corruption.is-on .cx-r,.corruption.is-on .cx-lump,.sk-nest.is-on{animation:none; transform:none}
+.corruption.is-on .cx-body,.corruption.is-on .cx-lump,.sk-nest.is-on .nx-body{animation:cxEmerge 1.4s cubic-bezier(.45,0,.35,1) both}
+@keyframes cxEmerge{from{opacity:0} 35%{opacity:.18} to{opacity:1}}
+@media (prefers-reduced-motion:reduce){ .corruption.is-on .cx-body,.corruption.is-on .cx-lump,.sk-nest.is-on .nx-body{animation:none} }

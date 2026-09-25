@@ -810,7 +810,11 @@
     edgeKey = key; edgeMode = "io";
     /* the three edges: [top, bottom] insets of the viewport */
     var edges = m ? [[top + "px", foot + "px"], [(top + (bandPx >> 1)) + "px", (foot + (bandPx >> 1)) + "px"], [(top + bandPx) + "px", (foot + bandPx) + "px"]]
-                  : [["0px", "0px"], [(band / 2) + "%", (band / 2) + "%"], [band + "%", band + "%"]];
+                  /* v12b: EARLIER (Fab: "they start and end too late"): on a
+                     desktop the fade-out ends 10 % below the top and starts 26 %
+                     down; the fade-in starts 3 % above the foot and is done
+                     16 % up — the lines are gone before they reach the edge */
+                  : [["10%", "3%"], ["18%", "9.5%"], ["26%", "16%"]];
     edges.forEach(function (e, n) {
       var io = new IntersectionObserver(function (es) {
         for (var i = 0; i < es.length; i++) {

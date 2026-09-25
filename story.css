@@ -276,9 +276,11 @@
 /* cover 0 -> 100 % is the viewport's height plus the line's own (~30 px of
    900: the 9 % edge is 8.7-9 % of the range); the step at the band's
    middle keeps the class path's two-step shape, but continuous */
+/* v12b: earlier, the same as the class path's v12b edges (story.js): in at
+   3 -> 16 % of the viewport above its foot, out at 26 -> 10 % below its top */
 @keyframes edgeVT{
-  0%{opacity:0} 4.5%{opacity:.35} 9%{opacity:1}
-  91%{opacity:1} 95.5%{opacity:.35} 100%{opacity:0}
+  0%{opacity:0} 3%{opacity:0} 9.5%{opacity:.4} 16%{opacity:1}
+  73%{opacity:1} 81%{opacity:.4} 89%{opacity:0} 100%{opacity:0}
 }
 /* the phone layout (Chromium): the timeline's viewport is the reading area
    between the phone's foot and the island (--edge-top / --edge-foot,

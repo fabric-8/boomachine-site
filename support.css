@@ -40,10 +40,20 @@
 /* ---- the plate -------------------------------------------------------- */
 .skeys{
   position:relative; isolation:isolate;
-  width:min(940px, 68vw); aspect-ratio:2998 / 1184;
+  width:min(700px, 54vw); aspect-ratio:2998 / 1184;
   /* room above for the nest's upper collar and feelers (growth.css) */
-  margin:clamp(96px, 9.5vw, 132px) auto 0;
-  background:url("assets/nest-plate.webp") center / 100% 100% no-repeat;
+  margin:clamp(76px, 7vw, 100px) auto 0;
+  /* v12b: smaller, darker, more metal (Fab: "too large, too bright, should
+     look a bit more metallic"): the painted plate is drawn by ::before so it
+     can be graded without grading the keys or the nest */
+  --plate:url("assets/nest-plate.webp");
+}
+.skeys::before{
+  content:""; position:absolute; inset:0; z-index:0; pointer-events:none;
+  background:
+    linear-gradient(112deg, rgba(210,220,230,0) 18%, rgba(210,220,230,.10) 34%, rgba(210,220,230,0) 46%, rgba(210,220,230,0) 62%, rgba(210,220,230,.07) 74%, rgba(210,220,230,0) 86%),
+    var(--plate) center / 100% 100% no-repeat;
+  filter:brightness(.66) saturate(.42) contrast(1.18);
 }
 /* the well: where the keys go, in % of the plate (the well's floor) */
 .sk-well{
@@ -85,17 +95,20 @@
 .skey.sk-3::before{--gp:10% 90%}
 /* each key's own damage (painted decals, key-wear-*.webp) */
 .skey .k-wear{position:absolute; inset:-11px; pointer-events:none; background-repeat:no-repeat}
+/* v12b: quieter (Fab: "the spots on the buttons are way too bright"; the
+   slime on "Press kit" is gone: "it has to go away") */
+.skey .k-wear{filter:brightness(.62) saturate(.55)}
 .sk-1 .k-wear{   /* a gouge torn through the face, low left to high right */
   background-image:url("assets/key-wear-gouge.webp");
-  background-size:auto 92%; background-position:-4% 118%; opacity:.9;
+  background-size:auto 92%; background-position:-4% 118%; opacity:.55;
 }
 .sk-2 .k-wear{   /* a rust burn blooming from the top right */
   background-image:url("assets/key-wear-rust.webp");
-  background-size:auto 92%; background-position:112% -46%; opacity:.8;
+  background-size:auto 92%; background-position:112% -46%; opacity:.5;
 }
-.sk-3 .k-wear{   /* a crack from the lower left, and the slime creeping in from the right */
-  background-image:url("assets/key-wear-slime.webp"), url("assets/key-wear-crack.webp");
-  background-size:auto 64%, auto 108%; background-position:112% 84%, -10% 30%; opacity:.95;
+.sk-3 .k-wear{   /* a crack from the lower left */
+  background-image:url("assets/key-wear-crack.webp");
+  background-size:auto 108%; background-position:-10% 30%; opacity:.7;
 }
 
 /* the lamp: a small round lens left of the label */
@@ -105,7 +118,7 @@
   box-shadow:inset 0 1px 1px rgba(0,0,0,.9), 0 0 0 1.5px #0B0706, 0 0 0 2.5px rgba(160,120,80,.28);
   transition:background .12s linear, box-shadow .2s ease;
 }
-.skey.sk-1 .lamp{background:radial-gradient(circle at 42% 38%, #C8401E, #7A120A 55%, #3A0806); box-shadow:inset 0 1px 1px rgba(0,0,0,.6), 0 0 0 1.5px #0B0706, 0 0 0 2.5px rgba(160,120,80,.28), 0 0 7px rgba(210,30,10,.45)}
+.skey.sk-1 .lamp{background:radial-gradient(circle at 42% 38%, #8A2A16, #5A0E08 55%, #2A0604); box-shadow:inset 0 1px 1px rgba(0,0,0,.6), 0 0 0 1.5px #0B0706, 0 0 0 2.5px rgba(160,120,80,.22), 0 0 4px rgba(180,24,8,.25)}   /* v12b: a glimmer, not a spot */
 .skey.sk-2 .lamp{animation:skDying 5.3s steps(1,end) infinite}
 @keyframes skDying{
   0%,100%{background:radial-gradient(circle at 40% 35%, #4A0E0A, #1B0201 75%); box-shadow:inset 0 1px 1px rgba(0,0,0,.9), 0 0 0 1.5px #0B0706, 0 0 0 2.5px rgba(160,120,80,.28)}
@@ -132,6 +145,11 @@
 .skey:focus-visible{outline:none}
 .skey:focus-visible::after{content:""; position:absolute; z-index:2; inset:-7px; border:2px solid #F08A58; border-radius:7px; box-shadow:0 0 0 1px #000, inset 0 0 0 1px #000; pointer-events:none}
 
+/* v12b: the smaller desktop plate's keys are too narrow for the address:
+   "via email" there (the link is the same), the address on the stacked keys */
+.skey .k-long{display:none}
+.skey .k-short{display:inline}
+
 /* ---- phones and small tablets: the squarer plate, the keys stacked ------ */
 @media (max-width:900px){
   .skeys{
@@ -139,16 +157,18 @@
        small tablets: big enough that it nearly does */
     width:min(580px, 90vw); aspect-ratio:1882 / 1880;
     margin-top:clamp(92px, 24vw, 128px);
-    background-image:url("assets/nest-pplate.webp");
+    --plate:url("assets/nest-pplate.webp");
   }
   .sk-well{left:17.2%; right:16.6%; top:17.2%; bottom:17.2%; grid-template-columns:1fr; grid-template-rows:repeat(3, minmax(0,1fr)); gap:3.2%}
   .skey{border-width:10px; border-image-width:18px; gap:3px; padding:0 4px}
+  .skey .k-long{display:inline}
+  .skey .k-short{display:none}
   .skey .k-wear,.skey::before{inset:-10px}
   .skey .k-t{font-size:12px; letter-spacing:1.8px}
   .skey .k-s{font-size:12px}
   .sk-1 .k-wear{background-size:auto 118%; background-position:2% 100%}
   .sk-2 .k-wear{background-size:auto 96%; background-position:104% -70%}
-  .sk-3 .k-wear{background-size:auto 72%, auto 130%; background-position:108% 90%, 0% 35%}
+  .sk-3 .k-wear{background-size:auto 130%; background-position:0% 35%}
 }
 @media (min-width:641px) and (max-width:900px){
   .skey .k-t{font-size:14px; letter-spacing:2.2px}
