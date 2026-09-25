@@ -61,6 +61,10 @@
    finger scrolls the loop does not even ask for frames (v10 held the
    pixels but kept a rAF running); the quiet timer restarts it.
 
+   v12 — THE PHONE LAYOUT (<= 860 px, story.css) has no haze: the phone-in-
+   hand clips' black would cut rectangles out of it. There the pictures are
+   not painted and there are no beam motes; the heading dust stays.
+
      window.booDust.running()   .count()   .redraw()   .density(x, y)   .haze(x, y)
      .hazeImg()   the pictures' state: mode, size, painted ms
    ========================================================================= */
@@ -181,7 +185,7 @@
     x.restore();
   }
   function paintHaze() {
-    if (!canConic || !(W > 0) || !(H > 0)) return;
+    if (!canConic || !(W > 0) || !(H > 0) || phoneMq.matches) return;   /* v12: no haze in the phone layout */
     var one = touchDev.matches || reduce.matches;          /* the light holds still: one picture */
     var bw = (HZ.r - HZ.l) * W, bh = H;
     var cw = Math.max(2, Math.round(bw * HZ_S)), ch = Math.max(2, Math.round(bh * HZ_S));
@@ -240,7 +244,8 @@
     paintHaze();                                           /* v11 perf: only when the box changed */
     var area = W * H;
     nHead = Math.round(Math.max(MIN_H, Math.min(MAX_H, area / AREA_H)));
-    nBeam = Math.round(Math.max(MIN_B, Math.min(MAX_B, area / AREA_B)));
+    /* v12: the phone layout has no haze (story.css), so no motes lit by it */
+    nBeam = phoneMq.matches ? 0 : Math.round(Math.max(MIN_B, Math.min(MAX_B, area / AREA_B)));
     var w = Math.round(W * DPR), h = Math.round(H * DPR);
     if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);

@@ -17,8 +17,9 @@
                  the viewport for the whole story (the app's captures
                  crossfaded on its display via matrix3d, three creature-hand
                  layers morphing on the same frame — story.js drives both
-                 from each chapter's entry). On a phone: one column, the
-                 phone sticky at the top, the chapters scrolling under it.
+                 from each chapter's entry). On a phone and a tablet
+                 (v12, <= 860 px): a plain stack, each chapter its own big
+                 phone-in-hand clip, then its sign and verse (.mfig, below).
                  The room continues from the hero: the bulb's pool on the
                  seam is one ellipse painted in two halves with the same
                  radii (index.html .hero / .story here), the film is one
@@ -298,6 +299,22 @@
    span, a hanging indent where a long line has to wrap */
 .copy p.body.verse{max-width:none; text-wrap:wrap}
 .copy p.body.verse .vl{display:block; padding-left:1.2em; text-indent:-1.2em}
+/* v12: NO ORPHANS (Fab: "weird indentations and lots of single words on a
+   line" in "Change the disc"). A verse line that has to wrap is balanced, so
+   it breaks into two halves instead of a long line and one word under it
+   (everywhere: a narrow desktop column wraps too). In a narrow column each
+   line breaks at its caesura instead (.mbr, a <br>; @container below), and
+   in the phone layout nothing is indented. The words are unchanged. */
+.copy p.body.verse .vl{text-wrap:balance}
+.copy p.body.verse .mbr{display:none}
+/* v12: the phone layout's figures (below) are not part of the desktop */
+.mfig{display:none}
+/* v12: the phone photographs sit in <picture>s whose phone-width source is
+   a 1 px blank (a phone never shows the sticky phone, so it never fetches
+   it) — and the phone figures' posters the other way round; the <picture>
+   takes no box, the <img> is placed as before */
+.phone > picture,.hands > picture,.screen > picture,.mfig > picture{display:contents}
+.phone > picture > .plate{position:absolute; left:0; top:0; width:100%; height:100%}
 
 /* the phone: sticky, vertically centred in the viewport for the whole story.
    The figure is one viewport tall (a flex box that centres the phone) so the
@@ -421,38 +438,78 @@ html.lenis, html.lenis body{height:auto}
 }
 
 /* ---------- phones ------------------------------------------------------- */
+/* v12: THE PHONE LAYOUT IS A PLAIN STACK (Fab: "the phone up top and the
+   text only in a very small window below ... really hard to read. I want
+   the hands much bigger, as full width of the screen as possible, and just
+   one section after another"). Up to 860 px there is no sticky phone, no
+   morph and no edge fades: each chapter is its own big phone-in-hand figure
+   (.mfig, the press kit's in-hand clips cropped to the hand: captures/
+   <clip>-hand.*, scripts/encode-hand-clips.sh), then its heading sign and
+   verse, then the next chapter. The figure is the viewport's width (the
+   hands bleed off both sides, .below clips them), capped by the height on a
+   tablet or a landscape phone. story.js ("the phone layout") plays a clip
+   only while its figure is on screen and reveals each figure and each copy
+   block once (.m-rv / .is-in: a fade and a 28 px rise, CSS transitions of
+   opacity and transform only — nothing is written per scroll frame). The
+   story's haze (a sticky light picture) is off here: the clips' black would
+   cut rectangles out of it; the heading dust stays (dust.js). */
 @media (max-width:860px){
   .story-in{
-    grid-template-columns:minmax(0,1fr); grid-template-areas:"phone" "chapters";
+    grid-template-columns:minmax(0,1fr); grid-template-areas:"chapters";
     padding:0 12px;
-    /* the sticky frame: ~52svh tall, at the top under the safe area */
-    --mfh:52svh; --mtop:calc(8px + env(safe-area-inset-top, 0px));
   }
-  .phone-fig{
-    top:var(--mtop); height:var(--mfh); align-items:flex-start;
-    z-index:2;
+  .phone-fig{display:none}
+  .story-haze{display:none}
+  .chapters{padding:0 max(0px, calc(var(--gut) - 12px)) calc(40px + env(safe-area-inset-bottom, 0px)); z-index:1; position:relative}
+  .chapter{
+    min-height:0; display:block; padding:0 0 13svh;
+    /* the figure's width (752 x 1316 frames): the viewport's, or what 80svh
+       of height allows (tablets, landscape), never under 320 px */
+    --mfw:min(100vw, max(calc(80svh * 752 / 1316), 320px));
   }
-  .phone{width:calc(var(--mfh) * var(--frame-k))}
-  /* v11 perf: the lit part of v10's 1.8 x 1.6 boxes (see .fig-pool) */
-  .fig-pool{left:-4%; right:-4%; top:0; bottom:9%; background:radial-gradient(63.333% 63.297% at 50% 49.67%, rgba(96,10,8,.30), rgba(96,10,8,.08) 52%, rgba(0,0,0,0) 78%)}
-  .fig-flare{left:-9%; right:-9%; top:-4%; bottom:9%; background:radial-gradient(67.119% 67.368% at 50% 50.11%, rgba(230,0,4,.30), rgba(150,10,8,.10) 48%, rgba(0,0,0,0) 74%)}
-  /* the chapters scroll UNDER the phone: each ~60svh, the copy at its top,
-     18 px in from the edge; the copy fades line by line as it reaches the
-     phone's foot (v11, .fl above; story.js EDGE) */
-  .chapters{padding:0 max(0px, calc(var(--gut) - 12px)) calc(72px + env(safe-area-inset-bottom, 0px)); z-index:1; position:relative}
-  /* v11 perf: no will-change — the chapter no longer fades as a whole (the
-     lines do, .fl), and three chapter-sized layers were 3 x ~6 MB at 3x */
-  .chapter{min-height:60svh; justify-content:flex-start; padding:4svh 0 8svh}
-  /* the first chapter's copy ENTERS from the fold once the phone has stuck
-     (the chapters follow the phone in the flow; without this offset the
-     first copy would sit at the phone's foot the moment the phone sticks
-     and fade out at once): its top starts one viewport below the phone's
-     top, i.e. at the fold when the phone sticks */
-  .chapter[data-i="0"]{padding-top:calc(100svh - var(--mfh) - var(--mtop))}   /* v7: not :first-child — the dust canvas is the column's first child now */
-  .copy{max-width:none}
-  /* v6: 17 px on a phone */
-  .copy p.body{font-size:17px; max-width:none}
+  /* the first figure clears the hero's overhang (its planes reach ~16svh
+     into the story) */
+  .chapter[data-i="0"]{padding-top:12svh}
+  .mfig{
+    display:block; position:relative; margin:0;
+    width:var(--mfw); aspect-ratio:752 / 1316;
+    margin-left:calc(50% - var(--mfw) / 2);
+    /* the clips' ground is the page's black; the edges are feathered so
+       the frame never shows where it lies on the story's red pool, and the
+       sleeves cut by the crop at the foot run out into the dark */
+    -webkit-mask-image:linear-gradient(to bottom, transparent, #000 5%, #000 80%, transparent), linear-gradient(to right, transparent, #000 7%, #000 93%, transparent);
+    -webkit-mask-composite:source-in;
+    mask-image:linear-gradient(to bottom, transparent, #000 5%, #000 80%, transparent), linear-gradient(to right, transparent, #000 7%, #000 93%, transparent);
+    mask-composite:intersect;
+  }
+  .mfig img,.mfig > video{position:absolute; left:0; top:0; width:100%; height:100%; max-width:none; object-fit:cover; background:transparent}
+  /* the copy tucks up into the figure's dark foot */
+  .copy{position:relative; z-index:1; max-width:34em; margin:calc(var(--mfw) * 1316 / 752 * -.07) auto 0}
+  .copy p.body{max-width:none}   /* the size: type.css */
+  .copy p.body.verse .vl{padding-left:0; text-indent:0}
   .phos{font-size:clamp(34px,9.4vw,44px)}
+}
+/* v12: A NARROW COLUMN SETS THE VERSE IN HALF-LINES. Where the chapters
+   column (a size container, heading.css) is under 440 px — every phone, and
+   a desktop window under ~1100 px — most lines would wrap, so each breaks at
+   its caesura instead (.mbr), unindented, with a little air between the
+   lines so the two halves still read as one line of the rhyme. Wider
+   columns keep whole lines; the rare one that still wraps is balanced and
+   hangs (above). */
+@container (max-width:440px){
+  .copy p.body.verse .mbr{display:inline}
+  .copy p.body.verse .vl{padding-left:0; text-indent:0}
+  .copy p.body.verse .vl + .vl{margin-top:.42em}
+  .copy p.body.verse .vl + .vl.vc{margin-top:0}   /* a line the verse already halves (index.html .vc) */
+}
+/* the reveal: story.js puts .m-rv on the chapters only in this layout and
+   with motion allowed, so without the script everything simply shows */
+@media (max-width:860px) and (prefers-reduced-motion:no-preference){
+  .chapters.m-rv .mfig,.chapters.m-rv .copy-in{
+    opacity:0; transform:translate3d(0, 28px, 0);
+    transition:opacity .9s cubic-bezier(.22,.8,.3,1), transform 1.1s cubic-bezier(.22,.8,.3,1);
+  }
+  .chapters.m-rv .mfig.is-in,.chapters.m-rv .copy-in.is-in{opacity:1; transform:none}
 }
 
 /* ---------- v9: scroll-driven, compositor-run ----------------------------
