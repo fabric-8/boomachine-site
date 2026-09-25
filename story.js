@@ -663,9 +663,21 @@
       htl.to(planes, { y: vh(PAR.py), scale: PAR.ps, rotation: PAR.pr, transformOrigin: "50% 40%", duration: 1 }, 0)
         .to(zone, { y: vh(PAR.zy), duration: 1 }, 0);
     }
+    /* v12 perf: --rl-k is scrubbed on .roomlight, not on .hero. It is an
+       inherited custom property, so writing it on the hero restyled the
+       WHOLE hero subtree (~148 elements) on every frame of the hero's
+       scroll, and the page reads layout several times a frame (Lenis's
+       scrollTo, ScrollTrigger, dust.js, the analytics) — each read paid for
+       that recalc again (trace, 4x CPU, Lenis wheel: 112 recalcs of 148
+       elements, ~1.2 s of the 2.2 s of style in a 3 s scroll). The only
+       readers are .rl-halo and .rl-wash, the two children of .roomlight
+       (title.css), and they inherit it from there exactly as they did from
+       .hero — slide.js moved --rl-d there in v10 for the same reason. The
+       hero keeps --rl-k:1 as the static default (index.html). */
+    var rlHost = hero.querySelector(".roomlight") || hero;
     htl.to(hero.querySelector(".title"), { y: vh(PAR.ty), duration: 1 }, 0)
-      .to(hero, { "--rl-k": 1.25, duration: 0.4 }, 0)
-      .to(hero, { "--rl-k": 0.55, duration: 0.6 }, 0.4);
+      .to(rlHost, { "--rl-k": 1.25, duration: 0.4 }, 0)
+      .to(rlHost, { "--rl-k": 0.55, duration: 0.6 }, 0.4);
     heroST = htl.scrollTrigger;
     if (SDA) setRange(hero, heroST);
 
@@ -845,6 +857,8 @@
     killEdges();                                         /* v11: every line lit */
     pending = false; held = false;
     hero.style.removeProperty("--rl-k");
+    var rlHost = hero.querySelector(".roomlight");        /* v12 perf: where the scrub writes it now */
+    if (rlHost) rlHost.style.removeProperty("--rl-k");
     /* v9: the CSS scroll-driven parallax / fades come off with their ranges */
     hero.classList.remove("v9-par");
     [hero].concat(chapters).forEach(function (el) {

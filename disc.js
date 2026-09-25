@@ -26,10 +26,33 @@
 
   function reduced() { return !!(mq && mq.matches); }
 
+  /* v12 perf: only the lights that can be SEEN are written. The page keeps
+     one .disc-light per hand, each in an .lbox that is at opacity 0 unless
+     it carries .is-on, and the host writes the pointer every frame (the
+     idle sway never stops while the hero is on screen). --px / --py are
+     registered, inherited properties, so each write restyles the light and
+     its four layers (the iris fans' atan2 and conic gradients, the
+     specular's translate): 15 elements a frame, two thirds of them
+     invisible. A light whose box is not .is-on is skipped once it has been
+     off for longer than the crossfade (1.05 s, index.html .lbox) — so the
+     hand fading out keeps following the pointer to the end of its fade —
+     and it gets the current value on the first frame it is .is-on again,
+     before its own fade-in can show anything. A light outside an .lbox
+     (Disc.mount on another element) is always written. */
+  var offSince = [], FADE_MS = 1200;
+  function visible(i, now) {
+    var box = els[i].parentNode;
+    if (!box || !box.classList || !box.classList.contains("lbox") || box.classList.contains("is-on")) { offSince[i] = 0; return true; }
+    if (!offSince[i]) offSince[i] = now;
+    return now - offSince[i] < FADE_MS;
+  }
   function write() {
+    var now = global.performance ? global.performance.now() : Date.now();
+    var px = cx.toFixed(4), py = cy.toFixed(4);
     for (var i = 0; i < els.length; i++) {
-      els[i].style.setProperty("--px", cx.toFixed(4));
-      els[i].style.setProperty("--py", cy.toFixed(4));
+      if (!visible(i, now)) continue;
+      els[i].style.setProperty("--px", px);
+      els[i].style.setProperty("--py", py);
     }
   }
 

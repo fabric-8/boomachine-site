@@ -40,19 +40,25 @@
   }
   on(d, "visibilitychange", vis); vis();
 
-  /* scroll depth: page height cached by a ResizeObserver, so the scroll
-     handler reads no layout; once per mark */
+  /* scroll depth: page height cached by a ResizeObserver; once per mark */
+  /* v12 perf: checked at most 4 times a second, from a timer, not in a rAF.
+     Reading window.scrollY is NOT free: Blink brings style and layout up
+     to date first, and inside a rAF — after the tilt, Lenis and
+     ScrollTrigger have written styles — that was a forced style recalc on
+     every frame of every scroll (trace: the second-largest source of forced
+     recalcs in the hero). A depth mark needs no frame accuracy; a timer
+     task runs between frames, where the style is usually clean. */
   var H = 0, marks = [25, 50, 75, 100], tick = 0;
   function mh() { H = root.scrollHeight; }
   if (w.ResizeObserver) new ResizeObserver(mh).observe(d.body);
   function sc() {
     if (tick) return; tick = 1;
-    requestAnimationFrame(function () {
+    setTimeout(function () {
       tick = 0; if (!H) mh();
       var pc = (w.scrollY + w.innerHeight) / H * 100;
       while (marks.length && pc >= marks[0] - (marks[0] > 99 ? 1 : 0)) send("scroll_" + marks.shift(), 1);
       if (!marks.length) w.removeEventListener("scroll", sc, true);
-    });
+    }, 250);
   }
   on(w, "scroll", sc);
 
