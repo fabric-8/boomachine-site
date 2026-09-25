@@ -51,6 +51,32 @@
    off screen, the reduced-motion frame is built once. Measurements, the
    harness and before/after screenshots: site-work/qa/slider-perf-2026-09-25.
 
+   v13 — REVERSED (prelaunch mode, html.mode-prelaunch; the form and its
+   flow are notify.js). The knob is the email form's submit button, parked
+   at the RIGHT end, and it travels right -> left. Nothing in the light
+   changed: the engine still works in its own frame, where the knob starts
+   at the left and the fire fills the slot behind it; in this mode that
+   frame is simply MIRRORED — the canvas and the idle leak are flipped with
+   scaleX(-1) (slide.css), the knob's transform is negated in place(), and
+   knobX() reads the knob's position from the right. So x, max, progress,
+   THRESH, --rev/--revp, armed and every clock mean what they always meant.
+   What this mode does NOT have: the drag, the click-to-slide, the keys and
+   the navigation — the knob is a plain submit button, notify.js drives it:
+     burn(opts)   the send: a frozen glide 0 -> max on the click's curve,
+                  arming as it crosses the threshold (the clocks at 2x, the
+                  room light to 1.9), then the fire HOLDS armed at the end
+                  (the go floor) until settle() or back()
+     settle()     the address is in: the knob stays at the far end, the fire
+                  is drawn back into it (the release's cooling) and dies;
+                  the loop stops
+     back(opts)   the machine refused it: the knob glides home, the fire
+                  retreating with it, and rests
+     wake(on)     the email field has the focus: the cap breathes as it
+                  does for the knob's own focus
+   rewind() — the intro — runs mirrored as well: the knob arrives parked at
+   the LEFT with the slot on fire and glides home to the right, uncovering
+   the placeholder behind it (the clip is taken from the right).
+
    QA hooks: ?slide=0.4|hover|armed|done, ?nonav=1 (the href becomes #gone,
    so a completed run sets location.hash instead of leaving the page),
    window.booSlide.set(p) / .done() / .arm(on) / .click() / .go() / .sweep(on,
@@ -60,13 +86,16 @@
   "use strict";
 
   var doc = document;
+  var root = doc.documentElement;
+  var REV = root.classList.contains("mode-prelaunch");   /* v13: the reversed control */
   var track = doc.getElementById("unlock");
-  var knob = doc.getElementById("knob");
+  var knob = doc.getElementById(REV ? "knobSend" : "knob");
   var wrap = track && track.closest(".unlock-wrap");
   if (!track || !knob || !wrap) return;
 
-  var root = doc.documentElement;
-  var label = track.querySelector(".unlock-label");
+  /* v13: in the reversed control the "label" is the email field (its
+     placeholder is what the intro uncovers); nothing fades it with the travel */
+  var label = track.querySelector(REV ? ".notify-field" : ".unlock-label");
   var reduce = global.matchMedia("(prefers-reduced-motion: reduce)");
   /* v10 perf: the fill's backing store is capped at 2x, not 3x. On a 3x
      phone that is 2.25x fewer pixels to clear, fill, blend and composite
@@ -152,8 +181,8 @@
   }
 
   function place(v) {
-    knob.style.transform = "translateX(" + v + "px)"; kxDirty = true;
-    if (label) label.style.opacity = String(Math.max(0, 1 - v / (max * 0.55)));
+    knob.style.transform = "translateX(" + (REV ? -v : v) + "px)"; kxDirty = true;   /* v13: REV travels leftwards */
+    if (label && !REV) label.style.opacity = String(Math.max(0, 1 - v / (max * 0.55)));
     publish(v);
   }
   function rest() {
@@ -252,7 +281,15 @@
      like any release: the knob exactly where the CSS puts it, the light
      cooling for ~600 ms. rewind({hold, dur, done}) parks at once and starts
      the glide `hold` ms later; rewind(false) aborts to rest. */
-  var rewinding = false, rewRaf = 0, rewTimer = 0, rewDone = null, rlDamp = 1;
+  var rewinding = false, rewRaf = 0, rewTimer = 0, rewDone = null, rlDamp = 1, labelOff = 0;
+  /* v13: which end is "home" for the clip: the label is uncovered from the
+     knob's trailing edge, which is on the right in the reversed control */
+  function clipLabel(v, kw) {
+    /* (the reversed field ends short of the knob's cap, not at the track's
+       edge: the clip is measured from its own right edge) */
+    var px = Math.max(0, 5 + kw + v - 8 - labelOff).toFixed(1);
+    label.style.clipPath = REV ? "inset(0 " + px + "px 0 0)" : "inset(0 0 0 " + px + "px)";
+  }
   function rewindEnd() {
     if (rewRaf) { global.cancelAnimationFrame(rewRaf); rewRaf = 0; }
     if (rewTimer) { global.clearTimeout(rewTimer); rewTimer = 0; }
@@ -273,12 +310,13 @@
     rewinding = true; frozen = true; rlDamp = 0.4; rewDone = opts.done || null;
     knob.classList.add("dragging"); wrap.classList.add("is-drag");   /* no CSS easing: this loop drives it */
     var kw = knob.offsetWidth, dur = Math.max(1, opts.dur || 860);
+    labelOff = REV && label ? track.clientWidth - label.offsetLeft - label.offsetWidth : 0;   /* read once, not per frame */
     function at(v) {
       x = v; place(v);
       /* place() fades the label with the travel; here it is uncovered instead */
       if (label) {
         label.style.opacity = "1";
-        label.style.clipPath = "inset(0 0 0 " + Math.max(0, 5 + kw + v - 8).toFixed(1) + "px)";
+        clipLabel(v, kw);
       }
     }
     at(max);
@@ -295,6 +333,63 @@
     }, Math.max(0, opts.hold || 0));
   }
 
+  /* ---------- v13: the reversed control's send (notify.js) ---------------
+     burn / settle / back / wake — see the header. All three motions are the
+     click's own curve (sine in-out) on the frozen knob, so no pointer, key or
+     hover can touch it while notify.js has it; onStep(x, max) gets every
+     frame's position (notify.js burns the letters the knob is reaching). */
+  var gliding = false, glRaf = 0, burnHold = false, parked = false;
+  function glideTo(to, dur, onStep, arm, done) {
+    if (glRaf) { global.cancelAnimationFrame(glRaf); glRaf = 0; }
+    measure();
+    gliding = true; frozen = true; parked = false;
+    knob.classList.add("dragging"); wrap.classList.add("is-drag");   /* no CSS easing: this loop drives it */
+    kxDirty = true; ignite();
+    var x0 = x, t0 = 0;
+    (function step(ts) {
+      glRaf = global.requestAnimationFrame(step);
+      if (!t0) { t0 = ts; return; }
+      var u = Math.min(1, (ts - t0) * tscale / dur);
+      x = x0 + (to - x0) * (0.5 - 0.5 * Math.cos(Math.PI * u));
+      place(x);
+      if (arm) setArmed(x > max * THRESH);
+      if (onStep) onStep(x, max);
+      if (u >= 1) { global.cancelAnimationFrame(glRaf); glRaf = 0; gliding = false; if (done) done(); }
+    })(0);
+  }
+  function burn(o) {
+    o = o || {};
+    if (rewinding) rewindEnd();
+    if (auto || going) { if (o.done) o.done(); return; }
+    measure();
+    if (reduce.matches || !(max > 0)) { if (o.done) o.done(); return; }
+    rlDamp = 1; burnHold = false;
+    glideTo(max, Math.max(1, o.dur || 900), o.onStep, true, function () {
+      burnHold = true; setArmed(true); ignite();              /* held at the end, armed, the go floor rising */
+      if (o.done) o.done();
+    });
+  }
+  function settle() {
+    if (glRaf) { global.cancelAnimationFrame(glRaf); glRaf = 0; gliding = false; }
+    burnHold = false; setArmed(false);
+    parked = true; frozen = true;                             /* the knob stays where it is; nothing moves it again */
+    knob.classList.remove("dragging"); wrap.classList.remove("is-drag");
+    if (amp > 0.05) coolUntil = simT + 0.65;                  /* the release's cooling: the fire is drawn into the knob */
+    if (reduce.matches) drawStatic(); else ignite();
+  }
+  function back(o) {
+    o = o || {};
+    burnHold = false; setArmed(false); parked = false;
+    if (reduce.matches || x < 0.5) { frozen = false; knob.classList.remove("dragging"); wrap.classList.remove("is-drag"); rest(); if (o.done) o.done(); return; }
+    glideTo(0, Math.max(1, o.dur || 620), o.onStep, false, function () {
+      frozen = false;
+      knob.classList.remove("dragging"); wrap.classList.remove("is-drag");
+      rest();
+      if (o.done) o.done();
+    });
+  }
+  function wake(on) { hasFocus = !!on; kxDirty = true; if (on) ignite(); }
+
   /* ---------- the drag ---------------------------------------------------- */
   function release() {
     knob.classList.remove("dragging");
@@ -307,8 +402,11 @@
      the gesture to HTML drag-and-drop, which fires pointercancel and kills
      the slide */
   knob.addEventListener("dragstart", function (e) { e.preventDefault(); });
+  /* v13: the reversed control has no drag, no click-to-slide and no keys of
+     its own: its knob is a submit button and notify.js runs the send. Every
+     handler of the gesture below returns at once in that mode (REV). */
   knob.addEventListener("pointerdown", function (e) {
-    if (frozen || going) return;
+    if (REV || frozen || going) return;
     if (e.button && e.button !== 0) return;
     if (auto) stopAuto();                       /* a press interrupts the auto-slide: a drag from here */
     dragging = true; moved = 0; measure();
@@ -364,19 +462,20 @@
      the pointer handlers (knob.click(), an assistive tech's activation) runs
      the auto-slide. */
   knob.addEventListener("click", function (e) {
+    if (REV) return;                            /* v13: the submit is the form's (notify.js) */
     e.preventDefault();
     if (moved > 6) { moved = 0; return; }       /* the click a drag leaves behind */
     if (frozen || going || auto) return;
     autoSlide();
   });
   track.addEventListener("click", function (e) {
-    if (knob.contains(e.target)) return;
+    if (REV || knob.contains(e.target)) return;
     e.preventDefault();
     if (frozen || going || auto || dragging) return;
     autoSlide();
   });
   knob.addEventListener("keydown", function (e) {
-    if (frozen || going) return;
+    if (REV || frozen || going) return;
     var atEnd;
     if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
       if (auto) stopAuto();
@@ -394,7 +493,7 @@
   });
   knob.addEventListener("blur", function () {
     hasFocus = false;
-    if (!frozen && !going && !auto) { setArmed(false); rest(); }
+    if (!REV && !frozen && !going && !auto) { setArmed(false); rest(); }
   });
   knob.addEventListener("focus", function () { hasFocus = true; kxDirty = true; ignite(); });
 
@@ -547,11 +646,13 @@
     return !hero || (" " + (hero.getAttribute("data-fx") || "") + " ").indexOf(" hell ") >= 0;
   }
   function awake() {
+    if (parked) return armed || armK > 0;       /* v13: settled at the far end: only the cooling runs */
     return dragging || hovering || hasFocus || qaAwake || auto || going || armed ||
       armK > 0 || progress > 0.004;
   }
   function target() {
-    if (going || armed || auto || dragging || qaDrag || (frozen && progress > 0.004)) return 1;
+    if (parked) return 0;                       /* v13: the address is in; the fire dies at the knob */
+    if (going || burnHold || armed || auto || dragging || qaDrag || (frozen && progress > 0.004)) return 1;
     if (simT < coolUntil) return 0;           /* just released: cooling      */
     if (hovering || hasFocus) return Math.min(1, 0.85 + progress * 1.2);
     return awake() ? 0.5 : 0;
@@ -560,7 +661,7 @@
   /* --- the knob's left edge, in canvas px (v2h's cache, unchanged) ------ */
   var kxCache = null, kxDirty = true, knobMoving = false;
   function knobX() {
-    if (kxCache && (dragging || qaDrag || auto || rewinding) && knob.classList.contains("dragging")) {
+    if (kxCache && (dragging || qaDrag || auto || rewinding || gliding) && knob.classList.contains("dragging")) {
       kxCache.x = kxCache.base + x; kxDirty = false;
       return kxCache;
     }
@@ -570,7 +671,11 @@
        track's padding box, the knob's offsetParent) — v2l measured it from
        the rect minus the inline transform, which was 9 px off under the
        hover creep */
-    kxCache = { x: k.left - r.left, y: k.top - r.top + k.height / 2, w: k.width, h: k.height, base: knob.offsetLeft };
+    var kl = k.left - r.left, base = knob.offsetLeft;
+    /* v13: the reversed control is drawn in the mirrored frame (the canvas is
+       flipped): the knob's "left" there is its distance from the right */
+    if (REV) { kl = r.width - kl - k.width; base = r.width - base - k.width; }
+    kxCache = { x: kl, y: k.top - r.top + k.height / 2, w: k.width, h: k.height, base: base };
     kxDirty = false;
     return kxCache;
   }
@@ -609,7 +714,7 @@
        the light's own clock runs up to 2x with the arming */
     armL = clamp01(armL + (armed ? 1 : -1) * dt / 0.3);
     armK = sstep(0, 1, armL);
-    goL = clamp01(goL + (going ? 1 : -1) * dt / 0.5);
+    goL = clamp01(goL + ((going || burnHold) ? 1 : -1) * dt / 0.5);   /* v13: the send's hold has the go floor too */
     goK = sstep(0, 1, goL);
     var fdt = dt * (1 + armK);
     fxT += fdt;
@@ -1140,6 +1245,8 @@
       if (sweepRaf) { global.cancelAnimationFrame(sweepRaf); sweepRaf = 0; }
       stopAuto();
       if (goTimer) { global.clearTimeout(goTimer); goTimer = 0; }
+      if (glRaf) { global.cancelAnimationFrame(glRaf); glRaf = 0; }   /* v13: the send's glide, hold and park */
+      gliding = false; burnHold = false; parked = false;
       going = false; setArmed(false);
       knob.classList.remove("dragging", "is-go");
       wrap.classList.remove("is-drag", "is-done");
@@ -1149,6 +1256,11 @@
     get timing() { return { upToGo: goAt && upAt ? +(goAt - upAt).toFixed(1) : null, goToNav: navAt && goAt ? +(navAt - goAt).toFixed(1) : null, upToNav: navAt && upAt ? +(navAt - upAt).toFixed(1) : null }; },
     rewind: rewind,                                       /* a3-v8: the intro (intro.js) */
     get rewinding() { return rewinding; },
+    /* v13: the reversed control's send (notify.js) */
+    reversed: REV,
+    burn: burn, settle: settle, back: back, wake: wake,
+    get gliding() { return gliding; },
+    get parked() { return parked; },
     get progress() { return progress; },
     get max() { return max; },
     get armed() { return armed; },

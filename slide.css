@@ -182,7 +182,9 @@
    the NAME is v2f's, so every QA URL and every note that says ?fx=-hell still
    works; what it switches off is now the fire. With it off the control is the
    plain scorched track: it still drags, still completes, still goes to
-   TestFlight, and slide.js runs no rAF at all. */
+   the store (v13: the App Store, live mode; in prelaunch the email form
+   still sends, the knob gliding without fire), and slide.js runs no rAF
+   at all. */
 .hero:not([data-fx~="hell"]) .hell-flame,
 .hero:not([data-fx~="hell"]) .flame-clip{display:none}
 
@@ -269,6 +271,160 @@
 .unlock.is-armed .knob .g{stroke:#FFEADB;filter:drop-shadow(0 0 7px rgba(var(--hell-hot),.85))}
 .unlock-wrap:hover .unlock-label{animation-duration:1.8s}
 .knob:focus-visible{outline:2px solid #C4643C;outline-offset:3px}
+
+/* ---------- v13: REVERSED — the prelaunch email slider ------------------
+   html.mode-prelaunch (index.html's launch switch). The same track, the same
+   light, the same knob — mirrored: the knob is the form's submit button
+   (#knobSend) parked at the RIGHT end, and the send glides it right -> left
+   (slide.js burn(), driven by notify.js). The light is drawn in its usual
+   frame and the canvas and the idle leak are FLIPPED, so the fire fills the
+   slot to the knob's right and the leak breathes in the seam at the right
+   cap; the scorch and the knob's rim light change sides with them. The slot
+   left of the knob holds the email field (.notify-field) where the label
+   was; the result is written into the slot (.notify-msg). */
+html.mode-prelaunch .hell-flame,
+html.mode-prelaunch .flame-clip{transform:scaleX(-1)}
+html.mode-prelaunch .unlock::before{
+  background:radial-gradient(64% 130% at 96% 50%,
+      rgba(var(--hell-hot),.13), rgba(120,26,10,.055) 44%, rgba(0,0,0,0) 76%);
+}
+/* the form lays nothing out itself: every part is placed in the track */
+.notify{margin:0}
+button.knob{
+  border:0; padding:0; margin:0; font:inherit; color:inherit; cursor:pointer;
+  -webkit-appearance:none; appearance:none;
+}
+.knob-send{
+  left:auto; right:5px;
+  /* the rim light of the default knob, on its RIGHT side: the fire is on
+     that side of it here (same layers, x mirrored) */
+  box-shadow:
+    inset 0 1px 0 rgba(255,168,128,.22), inset 0 -3px 0 rgba(0,0,0,.76),
+    inset 0 0 0 1px rgba(0,0,0,.62),
+    inset -2px 0 0 rgba(255,236,224,calc(.85 * var(--ka))),
+    inset -5px 0 9px -2px rgba(255,130,70,calc(.75 * var(--ka))),
+    inset -1px 0 0 rgba(255,178,150,calc(.90 * var(--kg))),
+    inset -3px 0 5px -1px rgba(255,64,20,calc(.85 * var(--kg))),
+    inset -7px 0 10px -6px rgba(var(--hell-hot),calc(.55 * var(--kg))),
+    0 0 0 1px rgba(var(--hell-hot),calc(.14 + .22 * var(--revp) + .16 * var(--kg) + .20 * var(--ka))),
+    2px 0 7px rgba(var(--hell-hot),calc(.06 + .14 * var(--revp) + .34 * var(--kg))),
+    4px 0 14px rgba(255,90,30,calc(.55 * var(--ka))),
+    0 4px 0 #090807, 0 10px 20px rgba(0,0,0,.84);
+}
+.knob-send svg{width:24px;height:24px}
+/* the hover creep: only the knob itself invites here (the pointer over the
+   field is someone about to type), and it creeps LEFT, off its cap */
+html.mode-prelaunch .unlock-wrap:hover .knob{transform:none}
+html.mode-prelaunch .unlock-wrap:not(.is-sent) .knob-send:hover{transform:translateX(-8px)}
+html.mode-prelaunch .unlock-wrap:hover .knob .g{stroke:#E8B49A}
+html.mode-prelaunch .knob-send:hover .g,html.mode-prelaunch .knob-send:focus-visible .g{stroke:#FFD2B4}
+.knob-send:disabled{cursor:default}
+/* the two glyphs: the send (the paper plane everybody reads as "send";
+   turned to fly left it read as a mouse pointer) and, once the address is
+   in, the check */
+.knob-send .g{transition:stroke .25s ease, opacity .3s ease}
+.knob-send .g-sent{opacity:0}
+.notify.is-sent .knob-send .g-send{opacity:0}
+.notify.is-sent .knob-send .g-sent{opacity:1}
+
+/* the field: the slot from the left cap to the knob, above the fire (z 2,
+   the label's place). 16 px on the input itself or iOS zooms the page on
+   focus. No box of its own: the track is the field. */
+.notify-field{
+  position:absolute; z-index:2; left:0; top:0; bottom:0; right:calc(var(--kw) + 12px);
+  border-radius:31px 0 0 31px;
+}
+.notify-input{
+  position:absolute; inset:0; width:100%; height:100%;
+  margin:0; border:0; border-radius:inherit; background:transparent; box-shadow:none;
+  -webkit-appearance:none; appearance:none;
+  padding:0 0 0 26px;
+  font-family:var(--mono); font-size:16px; letter-spacing:.3px;
+  color:#F2D2BE; caret-color:#FF7A3C;
+  text-shadow:0 0 2px rgba(0,0,0,.95), 0 0 8px rgba(0,0,0,.8);
+  transition:opacity .25s ease;
+}
+.notify-input::placeholder{
+  color:#A4502C; opacity:1;
+  font-size:14px; letter-spacing:2.2px; text-transform:uppercase;
+}
+.notify-input:focus::placeholder{color:#7A3A20}
+/* no box and no outline on the field itself: the whole track answers focus */
+.notify-input:focus,.notify-input:focus-visible{outline:none}
+.unlock:has(.notify-input:focus){outline:1px solid rgba(255,110,64,.55); outline-offset:3px}
+/* autofill must not paint its pale box into the slot */
+.notify-input:-webkit-autofill,.notify-input:-webkit-autofill:hover,.notify-input:-webkit-autofill:focus{
+  -webkit-text-fill-color:#F2D2BE; caret-color:#FF7A3C;
+  transition:background-color 600000s 0s, color 600000s 0s;
+}
+/* while a message is in the slot the address steps back behind it */
+.notify.has-msg .notify-input{opacity:0}
+.notify.has-msg .notify-input::placeholder{color:transparent}
+
+/* the address burning: at the send, the typed text is copied into the ghost
+   (one span per letter, in the input's own font and place) and the input
+   goes; the letters the knob is reaching ignite (.is-lit: an ember flash,
+   then up and away) — notify.js */
+.notify-ghost{
+  position:absolute; inset:0; display:none; align-items:center; overflow:hidden;
+  padding:0 0 0 26px; pointer-events:none; white-space:pre;
+  font-family:var(--mono); font-size:16px; letter-spacing:.3px; color:#F2D2BE;
+  text-shadow:0 0 2px rgba(0,0,0,.95), 0 0 8px rgba(0,0,0,.8);
+}
+.notify-ghost.is-tail{justify-content:flex-end}
+.notify.is-burning .notify-ghost{display:flex}
+.notify.is-burning .notify-input{opacity:0; transition:none}
+.notify-ghost .gl{display:inline-block}
+/* catches (white-orange, a red halo), holds a beat, then curls up and goes */
+.notify-ghost .gl.is-lit{animation:glBurn .56s linear both}
+@keyframes glBurn{
+  0%  {color:#F2D2BE; text-shadow:0 0 2px rgba(0,0,0,.95)}
+  14% {color:#FFF1E2; text-shadow:0 0 3px rgba(255,190,120,1), 0 0 9px rgba(255,90,20,.95), 0 0 18px rgba(255,38,0,.8)}
+  38% {color:#FF9A4A; text-shadow:0 0 4px rgba(255,120,40,.95), 0 0 12px rgba(255,38,0,.85); opacity:1; transform:none; filter:none}
+  100%{color:#8A1A06; text-shadow:0 0 10px rgba(255,38,0,0); opacity:0; transform:translateY(-6px) scale(.84); filter:blur(1.6px)}
+}
+/* spat back out (a refusal): the letter re-forms out of the smoke */
+.notify-ghost .gl.is-back{animation:glBack .34s ease-out both}
+@keyframes glBack{from{opacity:0; filter:blur(2px); transform:translateY(-4px)}}
+
+/* the message, in the free part of the slot: left of the knob at home,
+   right of it once the address is in and the knob stays at the far end */
+.notify-msg{
+  position:absolute; z-index:2; top:0; bottom:0; left:0; right:calc(var(--kw) + 12px);
+  display:flex; align-items:center; padding:0 6px 0 26px;
+  font-family:var(--mono); font-size:13px; line-height:1.25; letter-spacing:.2px;
+  color:#E09A74;
+  text-shadow:0 0 2px rgba(0,0,0,.95), 0 0 5px rgba(0,0,0,.9), 0 0 14px rgba(0,0,0,.85);
+  opacity:0; transition:opacity .35s ease; pointer-events:none;
+}
+.notify.has-msg .notify-msg{opacity:1}
+.notify.is-err .notify-msg{color:#EE7A4E}
+.notify.is-sent .notify-msg{color:#F2C4A6}
+.notify.is-far .notify-msg{left:calc(var(--kw) + 12px); right:0; padding:0 22px 0 8px; justify-content:center}
+
+/* the honeypot: out of sight and out of reach */
+.notify .hp{position:absolute; left:-9999px; top:auto; width:1px; height:1px; overflow:hidden}
+.vh{position:absolute!important; width:1px; height:1px; margin:-1px; padding:0; border:0;
+  overflow:hidden; clip:rect(0 0 0 0); clip-path:inset(50%); white-space:nowrap}
+
+/* the machine refuses an address: the track shudders once */
+.unlock.is-reject{animation:rejectShake .36s cubic-bezier(.36,.07,.19,.97)}
+@keyframes rejectShake{
+  0%,100%{translate:0} 20%{translate:-5px} 40%{translate:4px} 60%{translate:-3px} 80%{translate:2px}
+}
+
+@media (max-width:520px){
+  .notify-field{right:calc(var(--kw) + 10px)}
+  .notify-input,.notify-ghost{padding-left:20px}
+  .notify-input::placeholder{font-size:13px; letter-spacing:1.8px}
+  .notify-msg{font-size:12px; padding-left:20px; right:calc(var(--kw) + 10px)}
+  .notify.is-far .notify-msg{left:calc(var(--kw) + 10px); padding:0 16px 0 6px}
+}
+@media (prefers-reduced-motion:reduce){
+  .unlock.is-reject{animation:none}
+  .notify-input,.notify-msg,.knob-send .g{transition:none}
+  html.mode-prelaunch .unlock-wrap:not(.is-sent) .knob-send:hover{transform:none}
+}
 
 /* ---------- small screens ---------------------------------------------- */
 @media (max-width:520px){
