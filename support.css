@@ -12,7 +12,7 @@
    ========================================================================== */
 .support{
   position:relative; z-index:1;
-  padding:clamp(72px,14svh,160px) var(--gut) clamp(120px,22svh,220px);
+  padding:clamp(72px,14svh,160px) var(--gut) clamp(40px,7svh,80px);   /* v11: the panel sits down in the growth (growth.css) */
   text-align:center; color:#B9B2AB;
   background:
     radial-gradient(60% 46% at 50% 62%, rgba(110,12,8,.22), rgba(96,10,8,.07) 55%, rgba(0,0,0,0) 100%),
@@ -118,6 +118,6 @@
 }
 @media (prefers-reduced-motion:reduce){ .skey,.skey .lamp{transition:none} .skey.sk-2 .lamp{animation:none} }
 /* the address, spelled out under the plate on a phone (the keys carry only their labels there) */
-.support-mail{display:none; margin:14px 0 0; font-family:var(--mono); font-size:13px; color:#8E857C}
+.support-mail{display:none; position:relative; z-index:3; margin:14px 0 0; font-family:var(--mono); font-size:13px; color:#A39A90; text-shadow:0 0 6px #000, 0 0 12px #000}
 .support-mail a{color:inherit; text-decoration:underline; text-decoration-color:rgba(255,38,0,.4); text-underline-offset:3px}
 @media (max-width:640px){ .support-mail{display:block} }
