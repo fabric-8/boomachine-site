@@ -88,22 +88,41 @@ html.t-flick .d-refl{opacity:calc(var(--refl-op) * .22)}
   background-image:url("assets/grain.png"); background-size:256px 256px; background-repeat:repeat;
   opacity:var(--grain-op);
   will-change:transform;
-  animation:grainShift .75s steps(1,end) infinite;
+  /* v11 perf: linear, not steps(1,end) — the keyframes below hold each
+     offset themselves (two stops per offset, 0.001 % apart), so it is the
+     same 12 jumps a second. WebKit hands Core Animation only interpolated
+     timing: an animation with a steps() timing function falls back to a
+     software animation there, i.e. a main-thread style change and a layer
+     commit 12 times a second, forever — and in iOS WebKit each commit
+     during a scroll re-places the sticky phone with a stale offset (the
+     v10 jitter). As plain keyframes it is an ordinary accelerated one. */
+  animation:grainShift .75s linear infinite;
 }
+/* v11 perf: and while a finger scrolls (dust.js html.is-scrolling, touch
+   screens only) the tile holds, like the dust and the heading signs: at
+   3.5 % the grain moving with the page for a moment cannot be seen, and it
+   is one animation fewer for WebKit to service mid-scroll, whichever way it
+   runs it */
+html.is-scrolling .film::before{animation-play-state:paused}
 .hero:not([data-fx~="grain"]) .fx-grain,.hero:not([data-fx~="grain"]) ~ .film{display:none}
 /* nine layer offsets (all within the 256 px overscan, so the box stays
    covered), 12 per second, none of them a neighbour of the last */
 @keyframes grainShift{
-  0%      {transform:translate(   0px,    0px)}
-  11.111% {transform:translate( -37px,  -64px)}
-  22.222% {transform:translate( -91px,  -22px)}
-  33.333% {transform:translate(-113px,  -71px)}
-  44.444% {transform:translate( -53px, -118px)}
-  55.556% {transform:translate( -68px,  -29px)}
-  66.667% {transform:translate(-124px,  -87px)}
-  77.778% {transform:translate( -22px, -137px)}
-  88.889% {transform:translate( -77px,  -96px)}
+  0%,      11.110% {transform:translate(   0px,    0px)}
+  11.111%, 22.221% {transform:translate( -37px,  -64px)}
+  22.222%, 33.332% {transform:translate( -91px,  -22px)}
+  33.333%, 44.443% {transform:translate(-113px,  -71px)}
+  44.444%, 55.555% {transform:translate( -53px, -118px)}
+  55.556%, 66.666% {transform:translate( -68px,  -29px)}
+  66.667%, 77.777% {transform:translate(-124px,  -87px)}
+  77.778%, 88.888% {transform:translate( -22px, -137px)}
+  88.889%, 100%    {transform:translate( -77px,  -96px)}
 }
+/* v11 perf: the slider's idle glow (slide.css .flame-glow, an endless
+   opacity breath) holds while the hero is off screen, like the title's and
+   the bulb's tracks (title.css): Chromium restyled it every frame of the
+   story (trace: 1 of the ~6 elements restyled per frame). Resumes in place. */
+.hero.is-offstage .flame-glow{animation-play-state:paused}
 
 /* =========================================================================
    3. dust motes — fx.js owns the canvas; only the box is here.

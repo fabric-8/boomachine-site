@@ -40,6 +40,14 @@
       listener, in every motion mode).
    7. REDUCED MOTION: no ScrollTrigger at all — no scrub, no morph, no
       reveal; the first hand and the posters.
+   8. v11: THE EDGES. Every heading sign and verse line fades in a narrow
+      band at the reading area's two edges (the viewport's foot; its top,
+      or on a phone the sticky phone's foot) and is fully lit between them:
+      IntersectionObserver edges + CSS transitions (WebKit), or a view
+      timeline in Chromium (EDGES below, story.css .fl). It replaces v6-v10's
+      one-time block reveal and the phone's whole-chapter fade.
+   v11 perf: a morph that is playing holds while a finger scrolls (2);
+      the display wrapper is a third of the video's size (3, story.css).
 
    QA hooks — window.booStory:
      .set(i)            scroll so chapter i (0..2) sits at the top
@@ -52,6 +60,10 @@
      ?H=1.5             hold H at a value (no tween, no target): QA stills
      .hero  .tls (the hero timeline)  .refreshes  .quads()  .hands()
      .videos  .layers  .morph  'gl' | 'dom' | 'none'  .bar(on)  .figFoot()
+     .edges()           v11: the edge path ('io' | 'vt' | 'off') and each
+                        line's level (0 lit, 1 inner band, 2 outer, 3 out)
+     ?edge=io|vt|0      force the IntersectionObserver / view-timeline path,
+                        or no edge fades
    ========================================================================== */
 (function (global) {
   "use strict";
@@ -89,8 +101,8 @@
   var DUR = 0.9, EASE = "power2.inOut";
   var chapters = [].slice.call(doc.querySelectorAll("#chapters .chapter"));
   /* .copy is what the triggers MEASURE (never transformed); .copy-in inside
-     it is what the reveal moves — a translated trigger would shift every
-     start by its offset (seen: 24 px) */
+     it is what v6-v10's reveal moved (v11: nothing moves it; the lines fade
+     on their own, EDGES below) */
   var copies = chapters.map(function (c) { return c.querySelector(".copy"); });
   var copyIns = chapters.map(function (c) { return c.querySelector(".copy-in"); });
   var layers = HANDS.map(function (h) { return phoneEl.querySelector('.hand-layer[data-hand="' + h + '"]'); });
@@ -158,7 +170,10 @@
     var w = phoneEl.clientWidth;
     if (!(w > 0) || w === mapped.w) return;
     var k = w / frameW;
-    var W = screen.offsetWidth || 906, H = screen.offsetHeight || 1970;
+    /* v11 perf: the wrapper is a third of the video's size now (story.css
+       .screen): the computed size, not offsetHeight (656.667 would round) */
+    var cs = getComputedStyle(screen);
+    var W = parseFloat(cs.width) || screen.offsetWidth || 906, H = parseFloat(cs.height) || screen.offsetHeight || 1970;
     var to = quad.map(function (q) { return [q[0] * k, q[1] * k]; });
     var h = homography([[0, 0], [W, 0], [W, H], [0, H]], to);
     if (!h) return;
@@ -483,7 +498,7 @@
   var hero = doc.querySelector(".hero");
   var zone = doc.querySelector(".hero .unlock-zone");
   var mobile = global.matchMedia("(max-width: 860px)");
-  var heroST = null, htl = null, thr = [null, null], pres = [], reveals = [], fades = [], refreshes = 0;
+  var heroST = null, htl = null, thr = [null, null], pres = [], refreshes = 0;
 
   /* ---------- 2. the state machine ---------------------------------------- */
   var state = { H: 0 }, target = 0, tween = null, lock = false;
@@ -500,12 +515,25 @@
      offset — the phone and hand jittered (Fab, iOS Safari and Chrome). So
      while the page is moving under a finger the new target is only noted,
      and the morph plays once the scroll has been still for 180 ms. */
+  /* v11 perf: ...AND A MORPH ALREADY PLAYING HOLDS FOR IT. v10 only kept a
+     new morph from starting mid-scroll; one that had started when the
+     scroll settled kept drawing if the reader scrolled on within its 0.9 s
+     — a WebGL frame, two crossfades and the flare, i.e. a commit, every
+     frame under the finger. Now the tween pauses as the page starts to
+     move (the canvas holds its last frame) and resumes where it was once
+     the scroll has been still for 180 ms; a target that changed meanwhile
+     plays from there instead (overwrite: from the current H, as always). */
   var touchOnly = global.matchMedia("(hover: none) and (pointer: coarse)");
-  var moving = false, movingT = 0, pending = false;
+  var moving = false, movingT = 0, pending = false, held = false;
   global.addEventListener("scroll", function () {
     if (!touchOnly.matches) return;
+    if (!moving && tween && tween.isActive()) { tween.pause(); held = true; }
     moving = true; clearTimeout(movingT);
-    movingT = setTimeout(function () { moving = false; if (pending) playTarget(); }, 180);
+    movingT = setTimeout(function () {
+      moving = false;
+      if (pending) { held = false; playTarget(); }
+      else if (held) { held = false; if (tween) tween.resume(); }
+    }, 180);
   }, { passive: true });
   function playTarget() {
     pending = false;
@@ -627,43 +655,138 @@
       });
     });
 
-    /* the copy: a light reveal the first time it enters (24 px up, fade) */
-    /* v10: a CSS TRANSITION started by a class (story.css .copy-in.rv), not
-       a GSAP tween: the tween wrote opacity and transform on the main thread
-       for 0.7 s, mid-scroll, which made the sticky phone jitter in iOS
-       WebKit; a transition runs on the compositor */
-    reveals = copies.map(function (c, k) {
-      if (!c || !copyIns[k]) return null;
-      var el = copyIns[k];
-      el.classList.add("rv");
-      function show(self) { if (self.progress > 0 || self.isActive) el.classList.add("is-in"); }
-      return ST.create({ trigger: c, start: "top 88%", onToggle: show, onRefresh: show });
-    });
-    /* on a phone the copy passes UNDER the sticky phone: it fades out as its
-       top reaches the phone's foot (scrubbed, reversible) */
-    if (mobile.matches) {
-      /* the fade is on the CHAPTER, the reveal on the copy inside it: two
-         elements, so the two opacities never write over each other */
-      fades = copies.map(function (c, k) {
-        if (!c) return null;
-        var from = function () { return "top " + Math.round(figFoot() + 12) + "px"; };
-        var to = function () { return "top " + Math.round(figFoot() - 36) + "px"; };
-        /* v10: a CLASS and a CSS transition (story.css .chapter.fd), not a
-           scrub or a scroll-timeline animation: both change the chapter's
-           opacity every frame of the scroll, and WebKit runs a scroll-driven
-           animation on the main thread, so every frame was a commit that
-           re-placed the sticky phone with a stale offset (the jitter). Now
-           the copy fades once, over .35 s, as its top reaches the phone's
-           foot, and comes back the same way. */
-        chapters[k].classList.add("fd");
-        function under(self) { chapters[k].classList.toggle("is-under", self.progress > 0); }
-        return ST.create({ trigger: c, start: from, end: "bottom top", invalidateOnRefresh: true,
-                           onToggle: under, onRefresh: under, onUpdate: function (self) { if ((self.progress > 0) !== chapters[k].classList.contains("is-under")) under(self); } });
-      });
-    }
+    /* v11: the copy's reveal (v10: the whole block once, 24 px up) and, on a
+       phone, the chapter's fade under the phone (v10: the whole chapter at
+       its top's crossing) are one thing now — every line fades at the
+       reading area's two edges (buildEdges below, story.css .fl). No
+       ScrollTrigger: six fewer triggers updated on every scroll event. */
+    buildEdges();
     if (hold !== null) { state.H = hold; target = Math.round(hold); loadClip(target); }
     tick();
   }
+
+  /* ---------- v11: THE EDGES ------------------------------------------------
+     Every heading sign and verse line of the chapters (.fl) is fully lit in
+     the reading area and dims in a band at its two edges: the viewport's
+     foot, where lines come in, and its top — on a phone the sticky phone's
+     foot (figFoot()), since the copy passes under the phone. EDGE is the
+     band's depth in % of the viewport's height; each band is two steps
+     (story.css): the inner half .55, the outer half .2, beyond the edge 0.
+     THE CLASS PATH (touch, WebKit, Firefox): three IntersectionObservers
+     whose rootMargins ARE the edges (the reading area, the area a half-band
+     in, the area a band in), so the browser does the geometry off the
+     scroll and a line's class changes only when it crosses one of them;
+     the fade is a CSS transition. Nothing is written per scroll frame — in
+     iOS WebKit a main-thread commit during a scroll re-places the sticky
+     phone with a stale offset (v10). Desktop margins are in %, so they
+     follow the viewport by themselves; a phone's top edge is the phone's
+     foot in px (52svh: steady while the toolbar comes and goes), and the
+     observers are rebuilt only when that moves.
+     THE VIEW-TIMELINE PATH (Chromium, .chapters.edge-vt): the same bands
+     as a scroll-driven opacity on each line (story.css @keyframes edgeVT /
+     edgeVTm), continuous and run by the compositor; on a phone the
+     timeline's viewport is inset to the reading area. Not in WebKit, which
+     runs those on the main thread. Measured in Chromium (390 x 844 @3, 4x
+     CPU, touch scroll through the story): the class path's transitions
+     cost a restyle per running line per frame there (23 dropped frames vs
+     7 on this path), so Chromium on a touch screen takes this path too.
+     WebKit keeps the class path: there an opacity transition is a Core
+     Animation animation, and the only main-thread work is the class
+     change itself. (Chromium, 1400 px/s: a class changes in 48 % of the
+     frames, 16 % at 300 px/s; the iOS 26.4 Simulator showed no movement
+     of the stuck phone from it — measured frame by frame off a recording,
+     same as the v10 build — but a device is the real test.)
+     ?edge=io | vt forces a path, ?edge=0 turns the fades off (QA). */
+  var EDGE_D = 9, EDGE_M = 7;
+  var chaptersEl = doc.getElementById("chapters");
+  var fls = [].slice.call(doc.querySelectorAll("#chapters .copy .phos, #chapters .copy .vl, #chapters .copy p.body:not(.verse)"));
+  var edgeIOs = [], edgeKey = "", edgeMode = "off", flState = [];
+  var fine = global.matchMedia("(hover: hover) and (pointer: fine)");
+  var chromium = !!(global.navigator.userAgentData && global.navigator.userAgentData.brands &&
+    global.navigator.userAgentData.brands.some(function (b) { return /Chromium/.test(b.brand); }));
+  function edgeVT() {
+    var q = qs.get("edge");
+    if (q === "vt" || q === "io") return q === "vt";
+    return chromium && !!(global.CSS && CSS.supports && CSS.supports("animation-timeline: view()"));
+  }
+  /* the phone layout's reading area for the view timeline: its inset from
+     the top is the phone's foot, from the bottom the island's top */
+  function edgeInsets() {
+    var m = mobile.matches;
+    return { m: m, top: m ? Math.round(figFoot()) : 0,
+             foot: m && bar ? Math.round((parseFloat(getComputedStyle(bar).bottom) || 0) + bar.offsetHeight) : 0 };
+  }
+  var FL_CLS = ["", "is-e1", "is-e2", "is-out"];
+  function flSet(i) {
+    var s = flState[i], lvl = s[2] ? 0 : s[1] ? 1 : s[0] ? 2 : 3;
+    if (lvl === s[3]) return;
+    if (s[3] > 0) fls[i].classList.remove(FL_CLS[s[3]]);
+    if (lvl > 0) fls[i].classList.add(FL_CLS[lvl]);
+    s[3] = lvl;
+  }
+  function killEdges() {
+    edgeIOs.forEach(function (io) { io.disconnect(); }); edgeIOs = []; edgeKey = "";
+    fls.forEach(function (el) { el.classList.remove("fl", "is-e1", "is-e2", "is-out"); });
+    if (chaptersEl) { chaptersEl.classList.remove("edge-vt", "edge-m"); chaptersEl.style.removeProperty("--edge-top"); chaptersEl.style.removeProperty("--edge-foot"); }
+    edgeMode = "off";
+  }
+  function buildEdges() {
+    if (!fls.length || qs.get("edge") === "0" || reduce.matches) { killEdges(); return; }
+    if (edgeVT()) {
+      var ins = edgeInsets(), vkey = ins.m + "/" + ins.top + "/" + ins.foot;
+      if (edgeMode === "vt" && vkey === edgeKey) return;
+      if (edgeMode !== "vt") {
+        killEdges();
+        fls.forEach(function (el) { el.classList.add("fl"); });
+        chaptersEl.classList.add("edge-vt");
+      }
+      /* on a phone the timeline's viewport is the reading area (view()
+         insets, story.css .edge-m): under the phone a line is past its
+         range and holds the last keyframe, 0 */
+      chaptersEl.classList.toggle("edge-m", ins.m);
+      chaptersEl.style.setProperty("--edge-top", ins.top + "px");
+      chaptersEl.style.setProperty("--edge-foot", ins.foot + "px");
+      edgeMode = "vt"; edgeKey = vkey;
+      return;
+    }
+    if (!("IntersectionObserver" in global)) { killEdges(); return; }
+    var m = mobile.matches, band = m ? EDGE_M : EDGE_D;
+    /* on a phone the island (.bar, fixed at the foot, as wide as the page)
+       covers the viewport's last ~64 px: the foot edge is its top there */
+    var top = m ? Math.round(figFoot()) : 0, bandPx = Math.round((doc.documentElement.clientHeight || global.innerHeight) * band / 100);   /* the small viewport: steady while the toolbar moves */
+    var foot = m && bar ? Math.round((parseFloat(getComputedStyle(bar).bottom) || 0) + bar.offsetHeight) : 0;
+    var key = m ? "m" + top + "/" + bandPx + "/" + foot : "d";
+    if (edgeMode === "io" && key === edgeKey) return;
+    if (edgeMode === "io") {
+      /* a new edge (rotation, a resize): new observers, the lines keep their
+         state until the first callbacks correct it (no fade out and back) */
+      edgeIOs.forEach(function (io) { io.disconnect(); }); edgeIOs = [];
+    } else {
+      killEdges();
+      flState = fls.map(function (el) { el.classList.add("fl", "is-out"); return [false, false, false, 3]; });
+    }
+    edgeKey = key; edgeMode = "io";
+    /* the three edges: [top, bottom] insets of the viewport */
+    var edges = m ? [[top + "px", foot + "px"], [(top + (bandPx >> 1)) + "px", (foot + (bandPx >> 1)) + "px"], [(top + bandPx) + "px", (foot + bandPx) + "px"]]
+                  : [["0px", "0px"], [(band / 2) + "%", (band / 2) + "%"], [band + "%", band + "%"]];
+    edges.forEach(function (e, n) {
+      var io = new IntersectionObserver(function (es) {
+        for (var i = 0; i < es.length; i++) {
+          var k = fls.indexOf(es[i].target); if (k < 0) continue;
+          /* the outer edge: any of the line past it shows it (dim); the two
+             inner ones count once HALF the line is across — a line whose
+             first pixel had crossed read as lit while it was still in the
+             band (seen on a 390 px phone) */
+          flState[k][n] = n ? es[i].intersectionRatio >= 0.5 : es[i].isIntersecting;
+          flSet(k);
+        }
+      }, { rootMargin: "-" + e[0] + " 0px -" + e[1] + " 0px", threshold: n ? [0, 0.5] : 0 });
+      fls.forEach(function (el) { io.observe(el); });
+      edgeIOs.push(io);
+    });
+  }
+  var edgeRz = 0;
+  global.addEventListener("resize", function () { clearTimeout(edgeRz); edgeRz = setTimeout(function () { if (edgeMode !== "off") buildEdges(); }, 120); }, { passive: true });
   /* the sticky phone's foot in viewport px (its top + its height) */
   function figFoot() {
     var cs = getComputedStyle(fig);
@@ -671,14 +794,14 @@
   }
   function killScroll() {
     if (tween) { tween.kill(); tween = null; }
-    [heroST].concat(thr, pres, reveals, fades).forEach(function (t) { if (t) t.kill(true); });
+    [heroST].concat(thr, pres).forEach(function (t) { if (t) t.kill(true); });
     if (htl) htl.kill();
-    heroST = null; htl = null; thr = [null, null]; pres = []; reveals = []; fades = [];
+    heroST = null; htl = null; thr = [null, null]; pres = [];
     state.H = 0; target = 0;
     gsap.set(hero.querySelectorAll(".plane, .title, .unlock-zone"), { clearProps: "transform,opacity" });
     gsap.set(copyIns.concat(chapters).filter(Boolean), { clearProps: "transform,opacity" });
-    copyIns.forEach(function (el) { if (el) el.classList.remove("rv", "is-in"); });
-    pending = false;
+    killEdges();                                         /* v11: every line lit */
+    pending = false; held = false;
     hero.style.removeProperty("--rl-k");
     /* v9: the CSS scroll-driven parallax / fades come off with their ranges */
     hero.classList.remove("v9-par");
@@ -782,6 +905,7 @@
                where: where(hSmooth) };
     },
     figFoot: figFoot,
+    edges: function () { return { mode: edgeMode, key: edgeKey, levels: edgeMode === "io" ? flState.map(function (f) { return f[3]; }).join("") : null }; },
     sda: SDA, par: PAR,   /* v9: the parallax path ('css' scroll timeline or GSAP) and its numbers */
     videos: videos, layers: layers,
     get morph() { return morphMode; },

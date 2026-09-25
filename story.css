@@ -110,9 +110,19 @@
    chapters column, taking no room in the flow (the negative margin), over
    the copy, screened like the hero's motes; it holds its pixels while the
    chapters scroll through it and dust.js follows the headings */
+/* v11 perf: NO BLEND MODE. The canvas is transparent, its sprites are drawn
+   with `lighter` (premultiplied, additive), and nearly everything under it
+   is black or the haze's dark red, where screen and plain source-over give
+   the same pixel (screen = m + b - m*b, source-over = m + b*(1 - alpha), and
+   b ~ 0). What screen cost: an isolation group, i.e. an offscreen render
+   surface the size of the chapters column (.below on a desktop) redrawn on
+   every scroll frame, then blended — measured -21 % GPU time in Chromium
+   (mobile, 4x) with the three story blends gone (this one, .fig-flare,
+   .screen .glass). Over a line of the copy a mote now tints the paper tone
+   red instead of lifting it; at 2-10 px and alpha ~.3 it cannot be seen. */
 .story-motes{
   position:sticky; top:0; display:block; width:100%; height:100svh; margin-bottom:-100svh;
-  pointer-events:none; z-index:2; mix-blend-mode:screen; opacity:var(--mote-op, .9);
+  pointer-events:none; z-index:2; opacity:var(--mote-op, .9);
 }
 .hero:not([data-fx~="motes"]) ~ .below .story-motes{display:none}
 /* v9: the light the copy passes through (dust.js makes the box, before the
@@ -185,6 +195,40 @@
   .story-haze::after{animation:hzBreath 9.1s ease-in-out infinite alternate; will-change:opacity}
   .story-haze.is-offstage::before,.story-haze.is-offstage::after,.story-haze.is-offstage .hz-rays{animation-play-state:paused}
 }
+/* v11 perf: THE LIGHT AS THREE SMALL PICTURES. The gradients above were a
+   sticky box the reader's viewport tall and 1.7x the column wide (the light
+   reaches past the column), and on a desktop three of them, each its own
+   layer: 1696 x 1156 css px each at 1440 x 900 (Chromium's layer tree),
+   ~31 MB of backing store apiece at 2x, and one 538 x 844 layer at 3x on a
+   phone (16 MB), all rastered from seven conic gradients through a mask.
+   The light has no detail finer than ~10 css px, so dust.js now paints the
+   SAME gradients (the same stops, the same fade, the same geometry — HAZE /
+   RAYS, one function with the CSS) once, at half the css resolution, into
+   <img>s the compositor scales up: WebKit shows an <img> on its own layer
+   as the image itself (no backing store), so the phone's light is a
+   ~275 x 422 picture instead of a 1100 x 2500 bitmap. On a desktop the
+   shaft, the rays and the pool stay three pictures so each keeps its own
+   sway / breath (the animations below, on the pictures); on a touch screen,
+   where the light holds still, they are ONE picture (.hz-all). dust.js adds
+   .is-img once the pictures have loaded; until then (and in a browser
+   without canvas conic gradients) the CSS above paints it as before. */
+.story-haze.is-img::before,.story-haze.is-img::after{content:none}
+.story-haze.is-img .hz-rays{display:none}
+.story-haze .hz-img{
+  position:absolute; top:0; left:var(--hz-l,-45%); display:none;
+  width:calc(100% - (var(--hz-l,-45%)) - (var(--hz-r,-25%))); height:100%;
+  max-width:none; pointer-events:none; transform-origin:var(--hz-ax,86%) var(--hz-ay,-12%);
+}
+.story-haze.is-img .hz-img.is-set{display:block}
+/* a picture on its own layer = a direct image layer in WebKit (touch: the
+   one still picture; the desktop's three get theirs from the animations) */
+@media (hover:none),(pointer:coarse){ .story-haze.is-img .hz-img.is-set{will-change:transform} }
+@media (prefers-reduced-motion:no-preference) and (hover:hover) and (pointer:fine){
+  .story-haze .hz-img.hz-shaft-i{animation:hzSway 17s ease-in-out infinite alternate; will-change:transform}
+  .story-haze .hz-img.hz-rays-i{animation:hzRays 11s ease-in-out -4s infinite alternate, hzBreath 7.3s ease-in-out -2s infinite alternate; will-change:transform,opacity}
+  .story-haze .hz-img.hz-pool-i{animation:hzBreath 9.1s ease-in-out infinite alternate; will-change:opacity}
+  .story-haze.is-offstage .hz-img{animation-play-state:paused}
+}
 @keyframes hzSway{from{transform:rotate(-1.4deg)}to{transform:rotate(1.2deg)}}
 @keyframes hzRays{from{transform:rotate(1.8deg)}to{transform:rotate(-2.2deg)}}
 @keyframes hzBreath{from{opacity:.72}to{opacity:1}}
@@ -195,13 +239,58 @@
   padding:6svh 0;
 }
 .copy{max-width:520px}
-.copy-in{will-change:transform,opacity}   /* the reveal moves this, the triggers measure .copy */
-/* v10: the reveal and the phone fade are CSS transitions started by classes
-   (story.js), so they run on the compositor mid-scroll */
-.copy-in.rv{opacity:0; transform:translate3d(0,24px,0); transition:opacity .7s cubic-bezier(.33,1,.68,1), transform .7s cubic-bezier(.33,1,.68,1)}
-.copy-in.rv.is-in{opacity:1; transform:none}
-.chapter.fd{transition:opacity .35s ease}
-.chapter.fd.is-under{opacity:0}
+/* v11: THE COPY FADES AT THE EDGES, LINE BY LINE (Fab: "fade towards the
+   bottom and the top ... only at the very bottom and the very top"). v10
+   revealed a whole chapter once (24 px up, fade) and, on a phone, faded the
+   whole chapter out as its top reached the phone's foot, so a verse vanished
+   while its last lines were still being read. Now every heading sign and
+   every verse line (.fl, story.js) is fully lit in the middle of the
+   reading area and dims only inside a narrow band at its two edges: the
+   viewport's foot (where a line comes in) and its top — on a phone the
+   sticky phone's foot, the copy passes under the phone (story.js EDGE).
+   Each band is two steps deep, so a line dims as it goes: the inner half of
+   the band .55, the outer half .2, past the edge (under the phone) 0.
+   THE WEBKIT PATH (touch screens, Safari, Firefox): the states are classes
+   set by IntersectionObservers — one per band edge, their rootMargins the
+   bands, so the browser does the geometry and story.js only flips a class
+   when a line crosses an edge — and the fade is a CSS opacity transition,
+   run by the compositor. Nothing is written per scroll frame: in iOS
+   WebKit every main-thread commit during a scroll re-places the sticky
+   phone with a stale scroll offset (v10). A line that crosses an edge costs
+   one class change, like v10's reveal did per chapter.
+   THE CHROMIUM PATH (.chapters.edge-vt, story.js): a view timeline
+   instead — the opacity is a function of the line's position (0 at the
+   edge -> 1 a band in), exact and continuous, run by the compositor with
+   the scroll. The same bands. The 24 px rise is gone: each line now comes
+   in on its own, and a block moving under lines that fade one by one read
+   as two motions at once. */
+.chapters .fl{transition:opacity .45s cubic-bezier(.33,1,.68,1)}
+.chapters .fl.is-e1{opacity:.55}
+.chapters .fl.is-e2{opacity:.2}
+.chapters .fl.is-out{opacity:0}
+.chapters.edge-vt .fl{
+  transition:none;
+  animation:edgeVT linear both; animation-timeline:view(block); animation-range:cover 0% cover 100%;
+}
+/* cover 0 -> 100 % is the viewport's height plus the line's own (~30 px of
+   900: the 9 % edge is 8.7-9 % of the range); the step at the band's
+   middle keeps the class path's two-step shape, but continuous */
+@keyframes edgeVT{
+  0%{opacity:0} 4.5%{opacity:.35} 9%{opacity:1}
+  91%{opacity:1} 95.5%{opacity:.35} 100%{opacity:0}
+}
+/* the phone layout (Chromium): the timeline's viewport is the reading area
+   between the phone's foot and the island (--edge-top / --edge-foot,
+   story.js), ~333 px of an 844 px phone, so the 7 % band (59 px) is ~16 %
+   of the range (the same share on 667-932 px tall phones) */
+.chapters.edge-vt.edge-m .fl{
+  animation-name:edgeVTm;
+  animation-timeline:view(block var(--edge-top,0px) var(--edge-foot,0px));
+}
+@keyframes edgeVTm{
+  0%{opacity:0} 8%{opacity:.35} 16%{opacity:1}
+  84%{opacity:1} 92%{opacity:.35} 100%{opacity:0}
+}
 /* v6: MORE body text, bigger: 18 px, 1.6, the paper tone, ~46ch */
 .copy p.body{margin:0; font-size:18px; line-height:1.6; color:var(--paper); text-wrap:pretty; max-width:46ch}
 .copy p.body + p.body{margin-top:1em}
@@ -225,15 +314,27 @@
 .phone > *{position:absolute; left:0; top:0; width:100%; height:100%}
 /* the bulb's pool around the phone (v5 had it on the pinned stage): it
    travels with the sticky figure, transparent at its edges */
+/* v11 perf: BOXES CUT TO THE LIGHT. v5-v10 drew both ellipses in boxes
+   2 x 1.3 the figure (1.8 x 1.6 on a phone), but each gradient is
+   transparent past 78 % / 74 % of its radii, so most of each box was
+   empty — and not free: the pool is painted into the sticky figure's layer
+   (whose bounds it set: 660 x 703 css px on a 390 px phone, 16 MB at 3x)
+   and the flare is a layer of its own (will-change, same size). The boxes
+   are now the lit part only, and the ellipses keep their exact size and
+   centre (radii and centre re-expressed in the new box: old radius / new
+   box, e.g. .38 x 2W / 1.2W = 63.33 %), so the pixels are the same; the
+   figure's layer is ~ the figure (2.6x less area), the flare's 2.6x less.
+   The flare also drops its screen blend: over the room's near-black it is
+   the same light, and a blend mode makes the whole sticky figure an
+   isolation group redrawn offscreen on every frame the video changes. */
 .fig-pool{
-  position:absolute; left:-50%; right:-50%; top:-15%; bottom:-15%; pointer-events:none; z-index:-1;
-  background:radial-gradient(38% 36% at 50% 47%, rgba(96,10,8,.30), rgba(96,10,8,.08) 52%, rgba(0,0,0,0) 78%);
+  position:absolute; left:-10%; right:-10%; top:9%; bottom:17%; pointer-events:none; z-index:-1;
+  background:radial-gradient(63.333% 63.243% at 50% 50.14%, rgba(96,10,8,.30), rgba(96,10,8,.08) 52%, rgba(0,0,0,0) 78%);
 }
 /* the morph's flare: the bulb stutters when the hand changes (story.js) */
 .fig-flare{
-  position:absolute; left:-50%; right:-50%; top:-15%; bottom:-15%; pointer-events:none; z-index:0; opacity:0;
-  background:radial-gradient(44% 40% at 50% 46%, rgba(230,0,4,.30), rgba(150,10,8,.10) 48%, rgba(0,0,0,0) 74%);
-  mix-blend-mode:screen;
+  position:absolute; left:-16%; right:-16%; top:6%; bottom:16%; pointer-events:none; z-index:0; opacity:0;
+  background:radial-gradient(66.667% 66.667% at 50% 49.74%, rgba(230,0,4,.30), rgba(150,10,8,.10) 48%, rgba(0,0,0,0) 74%);
 }
 .hands{pointer-events:none}
 /* the three photographs are separate composited layers (opacity is what the
@@ -268,18 +369,35 @@
 .display.has-mask{-webkit-mask-image:var(--screen-mask); mask-image:var(--screen-mask); -webkit-mask-size:100% 100%; mask-size:100% 100%; -webkit-mask-repeat:no-repeat; mask-repeat:no-repeat}
 /* the videos' wrapper: the video's own pixel size, mapped onto the display
    quad by story.js (matrix3d, transform-origin 0 0) */
+/* v11 perf: A THIRD OF THE VIDEO'S SIZE (302 x 656.67 css px, the same
+   aspect). The wrapper is drawn ~144 css px wide on a phone and ~270 on a
+   desktop, and matrix3d scales it down to that — but a layer with a 3D
+   transform is backed at its OWN size x the device scale: in WebKit the
+   906 x 1970 box was a 2718 x 5910 bitmap on an iPhone (64 MB) for a
+   432 px wide picture, and the reflection sheet another. A third still
+   backs it at 2x the drawn size on both (906 device px at 3x, 604 at 2x).
+   story.js maps whatever size this box has (mapScreen reads it), the
+   videos decode at their own size regardless, and the corner radius is a
+   third too — and only drawn without the display mask (file://): with the
+   mask the display's own alpha cuts the corners, and a rounded clip over
+   composited videos costs WebKit a mask layer of its own. */
 .screen{
-  position:absolute; left:0; top:0; width:906px; height:1970px;
+  position:absolute; left:0; top:0; width:302px; height:656.667px;
   transform-origin:0 0; will-change:transform;
-  overflow:hidden; border-radius:138px;
+  overflow:hidden; border-radius:46px;
   background:#07070A;
   backface-visibility:hidden;
 }
+.display.has-mask .screen{overflow:visible; border-radius:0}
 .screen video{position:absolute; inset:0; display:block; width:100%; height:100%; object-fit:cover; background:#07070A; opacity:0}
 .screen video.is-on{opacity:1}
 /* the reflection sheet (604 x 1312, alpha peak .32) over the videos in the
    same mapped wrapper */
-.screen .glass{position:absolute; inset:0; width:100%; height:100%; pointer-events:none; mix-blend-mode:screen; opacity:.45}
+/* v11 perf: no screen blend — the sheet is one colour, #FFFBF7, in its
+   alpha, and white screened over a picture is white laid over it (screen
+   (1, v) = 1): the same pixel to 1/255, without the offscreen pass per
+   video frame the blend cost */
+.screen .glass{position:absolute; inset:0; width:100%; height:100%; pointer-events:none; opacity:.45}
 /* the flares are opacity-only: composited, never repainted */
 .fig-flare,.phone .flare{will-change:opacity}
 
@@ -315,13 +433,16 @@ html.lenis, html.lenis body{height:auto}
     z-index:2;
   }
   .phone{width:calc(var(--mfh) * var(--frame-k))}
-  .fig-pool{left:-40%; right:-40%; top:-30%; bottom:-30%}
-  .fig-flare{left:-40%; right:-40%; top:-30%; bottom:-30%}
+  /* v11 perf: the lit part of v10's 1.8 x 1.6 boxes (see .fig-pool) */
+  .fig-pool{left:-4%; right:-4%; top:0; bottom:9%; background:radial-gradient(63.333% 63.297% at 50% 49.67%, rgba(96,10,8,.30), rgba(96,10,8,.08) 52%, rgba(0,0,0,0) 78%)}
+  .fig-flare{left:-9%; right:-9%; top:-4%; bottom:9%; background:radial-gradient(67.119% 67.368% at 50% 50.11%, rgba(230,0,4,.30), rgba(150,10,8,.10) 48%, rgba(0,0,0,0) 74%)}
   /* the chapters scroll UNDER the phone: each ~60svh, the copy at its top,
-     18 px in from the edge; the copy fades as it passes under the phone
-     (story.js) */
+     18 px in from the edge; the copy fades line by line as it reaches the
+     phone's foot (v11, .fl above; story.js EDGE) */
   .chapters{padding:0 max(0px, calc(var(--gut) - 12px)) calc(72px + env(safe-area-inset-bottom, 0px)); z-index:1; position:relative}
-  .chapter{min-height:60svh; justify-content:flex-start; padding:4svh 0 8svh; will-change:opacity}
+  /* v11 perf: no will-change — the chapter no longer fades as a whole (the
+     lines do, .fl), and three chapter-sized layers were 3 x ~6 MB at 3x */
+  .chapter{min-height:60svh; justify-content:flex-start; padding:4svh 0 8svh}
   /* the first chapter's copy ENTERS from the fold once the phone has stuck
      (the chapters follow the phone in the flow; without this offset the
      first copy would sit at the phone's foot the moment the phone sticks
@@ -361,6 +482,20 @@ html.lenis, html.lenis body{height:auto}
     animation-name:v9Fade; animation-duration:1ms; animation-timing-function:linear; animation-fill-mode:both;
     animation-timeline:scroll(root block); animation-range:var(--v9-r0) var(--v9-r1);
   }
+  /* v11 perf: HELD ONCE THE HERO IS GONE. The parallax runs over 120 % of
+     a viewport, so its last fifth plays over the story's first 20svh —
+     where the phone has already stuck, and where nothing of the hero is
+     left to see (measured: at the story's top every plane's foot is
+     already 50-60 px above the viewport). WebKit runs a scroll-driven
+     animation on the main thread, i.e. a commit per frame that re-places
+     the sticky phone (v10); and past its range the fill keeps it
+     attached to the scroll for the whole story. fx.js puts .is-offstage on
+     the hero as it leaves: the animations hold where they are, and resume
+     on the scroll timeline (its start time re-aligned) when it returns. */
+  html:not(.intro) .hero.v9-par.is-offstage .plane.p-unit,
+  html:not(.intro) .hero.v9-par.is-offstage .plane.p-spill,
+  html:not(.intro) .hero.v9-par.is-offstage .plane.p-light,
+  html:not(.intro) .hero.v9-par.is-offstage .unlock-zone{animation-play-state:paused}
 }
 /* the same order GSAP writes (translate, rotate, scale) */
 @keyframes v9ParPlane{to{transform:translate(0, var(--v9-py,-36svh)) rotate(var(--v9-pr,2deg)) scale(var(--v9-ps,1.1))}}
@@ -374,7 +509,9 @@ html.lenis, html.lenis body{height:auto}
 @media (prefers-reduced-motion:reduce){
   .bar{transition:none}
   .story-motes{will-change:auto}
-  .copy-in{will-change:auto; opacity:1; transform:none}
+  /* v11: no edge fades — every line fully lit, wherever it is */
+  .chapters .fl,.chapters.edge-vt .fl{opacity:1; transition:none; animation:none}
+  .story-haze .hz-img.is-set{will-change:auto}
   .hand-layer{will-change:auto}
   .screen{will-change:auto}
   .fig-flare,.phone .flare{will-change:auto}

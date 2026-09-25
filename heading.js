@@ -72,14 +72,24 @@
   function every(minMs, maxMs, fire) { (function tick() { later(rand(minMs, maxMs), function () { fire(); tick(); }); })(); }
   function pick() { return heads[Math.floor(Math.random() * heads.length)]; }
 
+  /* v11 perf: the random pulses (a class on the heading, i.e. a restyle and
+     a layer commit) skip a turn while a finger scrolls (dust.js
+     html.is-scrolling — v10 paused the tracks but not these) and on a
+     heading that is off screen; the next one comes 7-16 s later as ever */
+  var rootEl = document.documentElement;
+  function quietNow(h) { return rootEl.classList.contains("is-scrolling") || (h && h.classList.contains("is-offstage")); }
   function flick(h) {
+    var asked = !!h;
     h = h || pick();
+    if (!asked && quietNow(h)) return;
     function pulse(min, max) { h.classList.add("is-flick"); later(rand(min, max), function () { h.classList.remove("is-flick"); }); }
     pulse(80, 260);
     if (Math.random() < 0.38) later(rand(150, 420), function () { pulse(60, 170); });
   }
   function dim(h) {
+    var asked = !!h;
     h = h || pick();
+    if (!asked && quietNow(h)) return;
     var ls = h.querySelectorAll(".ch"); if (!ls.length) return;
     var el = ls[Math.floor(Math.random() * ls.length)];
     el.classList.add("is-dim"); later(rand(120, 420), function () { el.classList.remove("is-dim"); });
