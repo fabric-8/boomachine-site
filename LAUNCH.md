@@ -17,7 +17,7 @@ Preview either mode without a deploy: `?mode=live` or `?mode=prelaunch`.
    - `<meta property="og:description" content="A cursed disc player for your iPhone. Free on the App Store.">`
    - `<meta name="twitter:description" content="A cursed disc player for your iPhone. Free on the App Store.">`
 3. Open the page without `?mode`, slide the knob and tap the bar's button: both must land on the Boo Machine App Store page (desktop and phone).
-4. Commit and push `site/` (pushing publishes).
+4. Commit and push `site/`. Production deployment is manual: run `gh workflow run deploy-allinkl.yml -R fabric-8/boomachine-site`, wait for the workflow to pass, then verify boomachine.app. A push alone does not deploy to ALL-INKL.
 
 ## After the switch
 
