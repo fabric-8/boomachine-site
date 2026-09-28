@@ -11,8 +11,11 @@
    where the salt is random, lives only in _data/salt.json and is replaced
    (the old one overwritten) on the first request of each new day, so a
    visitor's hash cannot be linked across days or reversed once the day is
-   over. Bots, Do Not Track / Global Privacy Control, cross-site posts and
-   more than MAX_PER_DAY events per hash and day are dropped silently.
+   over. Bots, Do Not Track / Global Privacy Control, cross-site posts,
+   our own QA visits (utm_source claude-test or qa, or utm_medium qa: see
+   is_test()) and more than MAX_PER_DAY events per hash and day are dropped
+   silently. Fab's own browsers send nothing at all once he has opened
+   ?notrack=1 there (analytics.js).
    Event files older than KEEP_DAYS are deleted (checked on ~1 % of requests).
 
    Responses: 204 accepted or silently dropped, 400 malformed, 405 not POST,
@@ -41,6 +44,12 @@ header('Cache-Control: no-store');
 header('X-Robots-Tag: noindex');
 
 function out(int $code): never { http_response_code($code); exit; }
+
+/* the QA marker: test visits are opened with ?utm_source=claude-test&utm_medium=qa
+   (stats.php skips older lines with it, too) */
+function is_test(array $rec): bool {
+  return in_array($rec['us'] ?? '', ['claude-test', 'qa'], true) || ($rec['um'] ?? '') === 'qa';
+}
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') { header('Allow: POST'); out(405); }
 if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > MAX_BYTES) out(413);
@@ -85,6 +94,7 @@ foreach (['us', 'um', 'uc'] as $k) {
   $v = trim(substr(preg_replace('#[^A-Za-z0-9 ._+~/-]#', '', $v) ?? '', 0, 64));
   if ($v !== '') $rec[$k] = strtolower($v);
 }
+if (is_test($rec)) out(204);
 $src = $in['s'] ?? '';
 $srcs = match ($ev) { 'beta_click' => SOURCES, 'notify_submit' => NOTIFY_SOURCES, 'store_click' => STORE_SOURCES, default => [] };
 if (is_string($src) && in_array($src, $srcs, true)) $rec['s'] = $src;

@@ -1,6 +1,9 @@
 /* Boo Machine: first-party, cookieless page statistics (a.php, stats.php, legal.html#privacy).
-   No cookies, no storage, nothing sent under Do Not Track / Global Privacy Control
-   or off boomachine.app. Events: pageview engaged scroll_25..100 story_chapter_1..3
+   No cookies, nothing sent under Do Not Track / Global Privacy Control
+   or off boomachine.app. No storage either, except the owner opt-out: opening
+   any page with ?notrack=1 sets localStorage boo-notrack=1 in that browser,
+   ?notrack=0 removes it, and nothing is sent while it is set (for Fab's own
+   devices). Events: pageview engaged scroll_25..100 story_chapter_1..3
    disc_change intro_complete press_kit_download mailto_click, and
    v13 (beta_click is gone with TestFlight):
      notify_submit  prelaunch: an email accepted by subscribe.php (pending or
@@ -9,7 +12,15 @@
                     link clicked (s = bar | link) */
 (function (w, d) {
   "use strict";
-  var n = navigator, L = location;
+  var n = navigator, L = location, nt = null;
+  /* owner opt-out (legal.html#privacy): only ever written when ?notrack=1 is opened */
+  try {
+    nt = new URLSearchParams(L.search).get("notrack");
+    if (nt === "1") w.localStorage.setItem("boo-notrack", "1");
+    else if (nt === "0") w.localStorage.removeItem("boo-notrack");
+    if (w.localStorage.getItem("boo-notrack") === "1") return;
+  } catch (e) {}
+  if (nt === "1") return;
   if (n.doNotTrack === "1" || w.doNotTrack === "1" || n.globalPrivacyControl) return;
   if (!/^((www\.)?boomachine\.app|localhost|127\.0\.0\.1)$/.test(L.hostname)) return;
   var q = new URLSearchParams(L.search), once = {}, left = 80, discs = 30, ref = "";

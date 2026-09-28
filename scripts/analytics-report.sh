@@ -5,11 +5,17 @@
 # The bearer token comes from the macOS Keychain (scripts/new-analytics-token.sh)
 # and goes to curl on stdin, never on a command line or the screen.
 # STATS_URL overrides the endpoint (e.g. a local test server).
+# STATS_END=YYYY-MM-DD ends the window on that day instead of today
+# (app/scripts/weekly-metrics.py uses it for past weeks).
 set -euo pipefail
 
 days="${1:-30}"
 case "$days" in ''|*[!0-9]*) echo "usage: $0 [days] [--json]" >&2; exit 2 ;; esac
 url="${STATS_URL:-https://boomachine.app/stats.php}?days=$days"
+if [ -n "${STATS_END:-}" ]; then
+  case "$STATS_END" in [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) url="$url&end=$STATS_END" ;;
+    *) echo "STATS_END must be YYYY-MM-DD" >&2; exit 2 ;; esac
+fi
 
 token=$(security find-generic-password -s boomachine-analytics -a stats -w 2>/dev/null) \
   || { echo "No token in the Keychain: run scripts/new-analytics-token.sh first." >&2; exit 1; }

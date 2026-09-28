@@ -2,6 +2,8 @@
 /* Boo Machine: aggregates of the events a.php collected, as JSON.
 
      GET /stats.php?days=30     Authorization: Bearer <token>
+     GET /stats.php?days=7&end=2026-10-04   the 7 days up to and including
+                                            end (default today)
 
    The token is in analytics-config.php (<?php return ['token' => '...'];),
    which is NOT in git: the deploy workflow writes it from the GitHub secret
@@ -10,7 +12,9 @@
    scripts/analytics-report.sh (token from the macOS Keychain) prints a summary.
 
    Visitor hashes change every day, so "visitors" over a period is the sum of
-   the daily unique visitors (visitor-days), never people across days. */
+   the daily unique visitors (visitor-days), never people across days.
+   Our own QA visits (utm claude-test / qa, see is_test()) are skipped; a.php
+   no longer stores them, older lines still have them. */
 declare(strict_types=1);
 
 date_default_timezone_set('Europe/Berlin');
@@ -47,7 +51,16 @@ if ($given === '' || !hash_equals($token, $given)) {
 
 $days = (int)($_GET['days'] ?? 30);
 $days = max(1, min(400, $days));
+$end = (string)($_GET['end'] ?? '');
+$today = date('Y-m-d');
+if ($end === '') $end = $today;
+elseif (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $end) || !checkdate((int)substr($end, 5, 2), (int)substr($end, 8, 2), (int)substr($end, 0, 4))) fail(400, 'end must be YYYY-MM-DD');
+elseif ($end > $today) $end = $today;
 $dir = __DIR__ . '/_data';
+
+function is_test(array $r): bool {
+  return in_array($r['us'] ?? '', ['claude-test', 'qa'], true) || ($r['um'] ?? '') === 'qa';
+}
 
 $daily = [];
 $ev = [];                                   /* event => count */
@@ -60,7 +73,7 @@ $visPv = []; $visBeta = []; $visEngaged = []; $visDisc = [];   /* "day|vh" => 1 
 $visNotify = []; $visStore = [];
 
 for ($i = $days - 1; $i >= 0; $i--) {
-  $day = date('Y-m-d', strtotime("-$i days"));
+  $day = date('Y-m-d', strtotime("$end -$i days"));
   $d = ['date' => $day, 'pageviews' => 0, 'visitors' => 0, 'beta_clicks' => 0,
         'notify_submits' => 0, 'notify_confirmed' => 0, 'store_clicks' => 0, 'events' => 0];
   $uniq = [];
@@ -70,7 +83,7 @@ for ($i = $days - 1; $i >= 0; $i--) {
     flock($fh, LOCK_SH);
     while (($line = fgets($fh)) !== false) {
       $r = json_decode($line, true);
-      if (!is_array($r) || !isset($r['e'], $r['vh'])) continue;
+      if (!is_array($r) || !isset($r['e'], $r['vh']) || is_test($r)) continue;
       $e = (string)$r['e']; $vk = $day . '|' . $r['vh']; $id = (string)($r['id'] ?? '');
       $home = ($r['p'] ?? '') === '/';
       $d['events']++;
