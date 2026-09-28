@@ -4,15 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Boo Machine: Halloween Sounds — a cursed disc player for iPhone</title>
-<!-- v13: the three descriptions are STATIC prelaunch text: crawlers and link
-     previews read them without JS, so they cannot follow BOO_MODE. On launch
-     day swap them for the live wording (LAUNCH.md has the lines). -->
-<meta name="description" content="A spooky Halloween soundboard for iPhone, built as a cursed disc player. Tap creepy sounds, loop the room, change the disc. Coming soon to the App Store.">
+<!-- v13: the descriptions are STATIC text: crawlers and link previews read
+     them without JS, so they cannot follow BOO_MODE. Launch: the live
+     wording (LAUNCH.md). -->
+<meta name="description" content="A spooky Halloween soundboard for iPhone, built as a cursed disc player. Tap creepy sounds, loop the room, change the disc. Free on the App Store.">
 <link rel="canonical" href="https://boomachine.app/">
 <meta name="theme-color" content="#000000">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Boo Machine: Halloween Sounds for iPhone">
-<meta property="og:description" content="A cursed disc player for your iPhone: tap spooky sounds, loop the room, change the disc. Coming soon to the App Store.">
+<meta property="og:description" content="A cursed disc player for your iPhone: tap spooky sounds, loop the room, change the disc. Free on the App Store.">
 <meta property="og:url" content="https://boomachine.app/">
 <meta property="og:site_name" content="Boo Machine">
 <meta property="og:image" content="https://boomachine.app/assets/og-image.jpg">
@@ -21,12 +21,12 @@
 <meta property="og:image:alt" content="A werewolf's clawed hand holding a disc in front of the red neon sign Boo Machine">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Boo Machine: Halloween Sounds for iPhone">
-<meta name="twitter:description" content="A cursed disc player for your iPhone: tap spooky sounds, loop the room, change the disc. Coming soon to the App Store.">
+<meta name="twitter:description" content="A cursed disc player for your iPhone: tap spooky sounds, loop the room, change the disc. Free on the App Store.">
 <meta name="twitter:image" content="https://boomachine.app/assets/og-image.jpg">
 <meta name="twitter:image:alt" content="A werewolf's clawed hand holding a disc in front of the red neon sign Boo Machine">
-<!-- Structured data for search engines (schema.org). Prelaunch: no price,
-     offers or ratings while the app is in App Review. Launch day adds
-     "offers" (free) and "downloadUrl" (the App Store link): LAUNCH.md. -->
+<!-- Structured data for search engines (schema.org). Live: the App Store
+     link and the free offer. No aggregateRating/review until real App Store
+     ratings exist. -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -51,7 +51,9 @@
       "inLanguage": "en",
       "image": "https://boomachine.app/press/boo-machine-icon.png",
       "screenshot": "https://boomachine.app/press/boo-machine-player-web.jpg",
-      "author": { "@type": "Person", "name": "Fabricio Rosa Marques" }
+      "author": { "@type": "Person", "name": "Fabricio Rosa Marques" },
+      "downloadUrl": "__STORE_URL__",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
     }
   ]
 }
@@ -78,10 +80,8 @@
    The mode lands on <html> as .mode-prelaunch / .mode-live before the first
    paint, so neither variant flashes; the markup of the other one is taken
    out of the DOM at the end of <body>. Launch day: LAUNCH.md. */
-window.BOO_MODE = "prelaunch";
-/* TODO(launch): the real App Store link — the numeric Apple ID arrives
-   with the approval (App Store Connect > App Information > Apple ID). */
-window.APP_STORE_URL = "https://apps.apple.com/app/id000000000";
+window.BOO_MODE = "live";
+window.APP_STORE_URL = "__STORE_URL__";
 (function(d){
   var m=window.BOO_MODE;
   try{var q=new URLSearchParams(location.search).get("mode");if(q==="live"||q==="prelaunch")m=q;}catch(e){}

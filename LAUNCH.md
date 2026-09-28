@@ -9,6 +9,10 @@ The landing page runs in one of two modes, set at the top of `index.html` (first
 
 Preview either mode without a deploy: `?mode=live` or `?mode=prelaunch`.
 
+## Prepared: branch `launch-switch`
+
+Steps 1 and 2 below are already made on the local branch `launch-switch` (including the JSON-LD `offers` and `downloadUrl`; not the sitemap `<lastmod>`, which needs the launch date), with the placeholder `__STORE_URL__` where the App Store link goes (`APP_STORE_URL` and the JSON-LD `downloadUrl`). On launch day: `git switch launch-switch && git rebase origin/main`, then `scripts/apply-store-url.sh https://apps.apple.com/app/id<APPLE_ID>` (it wants HTTP 200 from Apple, which answers 404 until the version is released, and fails if a placeholder is left), then steps 3 and 4. Full checklist: `app/docs/marketing/halloween-2026/launch-switch/README.md`.
+
 ## The switch
 
 1. In `index.html`, `<head>`:
