@@ -77,12 +77,18 @@
                           access is only ever sent privately.
              "live"       the page sends people to the App Store: slide to
                           get it, the bar's "Get the app" (APP_STORE_URL).
+   APP_STORE_PT  Fab's App Store Connect provider ID. With it, each control
+                 links to its own Apple campaign link (pt + ct=site-slide |
+                 site-bar | site-link + mt=8, built below from APP_STORE_URL),
+                 so App Store Connect can count installs per control.
+                 Campaigns: app/docs/marketing/halloween-2026/CAMPAIGN_LINKS.csv.
    ?mode=live / ?mode=prelaunch previews the other one without a deploy.
    The mode lands on <html> as .mode-prelaunch / .mode-live before the first
    paint, so neither variant flashes; the markup of the other one is taken
    out of the DOM at the end of <body>. Launch day: LAUNCH.md. */
 window.BOO_MODE = "live";
 window.APP_STORE_URL = "__STORE_URL__";
+window.APP_STORE_PT = "111946749";
 (function(d){
   var m=window.BOO_MODE;
   try{var q=new URLSearchParams(location.search).get("mode");if(q==="live"||q==="prelaunch")m=q;}catch(e){}
@@ -876,13 +882,27 @@ html.mode-live [data-only="prelaunch"],html.mode-prelaunch [data-only="live"]{di
 var LIVE = window.BOO_MODE === "live";
 var STORE_URL = LIVE ? window.APP_STORE_URL : "#hero";
 var STORE_LABEL = LIVE ? "Get the app" : "Get notified";
+/* one Apple campaign link per control: STORE_URL plus pt (APP_STORE_PT),
+   ct and mt=8. Without a numeric pt, or if the URL cannot be parsed, the
+   plain STORE_URL. analytics.js still sees an apps.apple.com href. */
+function storeLink(ct){
+  var pt=window.APP_STORE_PT;
+  if(!LIVE || !/^\d+$/.test(pt||"")) return STORE_URL;
+  try{
+    var u=new URL(STORE_URL);
+    u.searchParams.set("pt",pt); u.searchParams.set("ct",ct); u.searchParams.set("mt","8");
+    return u.href;
+  }catch(e){ return STORE_URL; }
+}
 (function(){
   [].forEach.call(document.querySelectorAll("[data-only]"),function(el){
     if(el.getAttribute("data-only")!==window.BOO_MODE) el.parentNode.removeChild(el);
   });
   var cta=document.getElementById("barCta"), knob=document.getElementById("knob");
-  if(cta){ cta.href=STORE_URL; cta.textContent=STORE_LABEL; }
-  if(knob) knob.setAttribute("href",STORE_URL);   /* slide.js may override it with #gone under ?nonav=1 */
+  if(cta){ cta.href=storeLink("site-bar"); cta.textContent=STORE_LABEL; }
+  if(knob) knob.setAttribute("href",storeLink("site-slide"));   /* slide.js may override it with #gone under ?nonav=1 */
+  /* any other App Store link on the page: <a data-store-link> */
+  if(LIVE) [].forEach.call(document.querySelectorAll("a[data-store-link]"),function(a){ a.href=storeLink("site-link"); });
 })();
 </script>
 <script src="disc.js"></script>

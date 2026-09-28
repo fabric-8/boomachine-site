@@ -13,6 +13,8 @@ Preview either mode without a deploy: `?mode=live` or `?mode=prelaunch`.
 
 Steps 1 and 2 below are already made on the local branch `launch-switch` (including the JSON-LD `offers` and `downloadUrl`; not the sitemap `<lastmod>`, which needs the launch date), with the placeholder `__STORE_URL__` where the App Store link goes (`APP_STORE_URL` and the JSON-LD `downloadUrl`). On launch day: `git switch launch-switch && git rebase origin/main`, then `scripts/apply-store-url.sh https://apps.apple.com/app/id<APPLE_ID>` (it wants HTTP 200 from Apple, which answers 404 until the version is released, and fails if a placeholder is left), then steps 3 and 4. Full checklist: `app/docs/marketing/halloween-2026/launch-switch/README.md`.
 
+Campaign links: next to `APP_STORE_URL` the branch sets `window.APP_STORE_PT` (Fab's App Store Connect provider ID, 111946749). The slider, the bar and any `<a data-store-link>` then link to their own Apple campaign link (`ct=site-slide`, `site-bar`, `site-link`; `app/docs/marketing/halloween-2026/CAMPAIGN_LINKS.csv`), so App Store Connect → Analytics → Acquisition → Campaigns counts installs per control. Give the apply script the plain store URL; it refuses one that already has `pt`/`ct`. After release, compare the first link App Store Connect's campaign generator produces with ours (`pt`); if it differs, `set-campaign-pt.sh <pt>` in that folder fixes it everywhere.
+
 ## The switch
 
 1. In `index.html`, `<head>`:
