@@ -2,17 +2,17 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="robots" content="noindex,nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Boo Machine — a cursed disc player for your iPhone</title>
-<!-- v13: the two descriptions are STATIC prelaunch text: crawlers and link
+<title>Boo Machine: Halloween Sounds — a cursed disc player for iPhone</title>
+<!-- v13: the three descriptions are STATIC prelaunch text: crawlers and link
      previews read them without JS, so they cannot follow BOO_MODE. On launch
-     day swap both for the live wording (LAUNCH.md has the lines). -->
-<meta name="description" content="Boo Machine is a Halloween soundboard for iPhone, built as a cursed disc player. Tap a creepy sound, loop the room, change the disc. Coming soon to the App Store.">
+     day swap them for the live wording (LAUNCH.md has the lines). -->
+<meta name="description" content="A spooky Halloween soundboard for iPhone, built as a cursed disc player. Tap creepy sounds, loop the room, change the disc. Coming soon to the App Store.">
+<link rel="canonical" href="https://boomachine.app/">
 <meta name="theme-color" content="#000000">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Boo Machine — a cursed disc player for your iPhone">
-<meta property="og:description" content="A cursed disc player for your iPhone. Coming soon to the App Store.">
+<meta property="og:title" content="Boo Machine: Halloween Sounds for iPhone">
+<meta property="og:description" content="A cursed disc player for your iPhone: tap spooky sounds, loop the room, change the disc. Coming soon to the App Store.">
 <meta property="og:url" content="https://boomachine.app/">
 <meta property="og:site_name" content="Boo Machine">
 <meta property="og:image" content="https://boomachine.app/assets/og-image.jpg">
@@ -20,10 +20,42 @@
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="A werewolf's clawed hand holding a disc in front of the red neon sign Boo Machine">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Boo Machine — a cursed disc player for your iPhone">
-<meta name="twitter:description" content="A cursed disc player for your iPhone. Coming soon to the App Store.">
+<meta name="twitter:title" content="Boo Machine: Halloween Sounds for iPhone">
+<meta name="twitter:description" content="A cursed disc player for your iPhone: tap spooky sounds, loop the room, change the disc. Coming soon to the App Store.">
 <meta name="twitter:image" content="https://boomachine.app/assets/og-image.jpg">
 <meta name="twitter:image:alt" content="A werewolf's clawed hand holding a disc in front of the red neon sign Boo Machine">
+<!-- Structured data for search engines (schema.org). Prelaunch: no price,
+     offers or ratings while the app is in App Review. Launch day adds
+     "offers" (free) and "downloadUrl" (the App Store link): LAUNCH.md. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://boomachine.app/#website",
+      "name": "Boo Machine",
+      "url": "https://boomachine.app/",
+      "inLanguage": "en"
+    },
+    {
+      "@type": "MobileApplication",
+      "@id": "https://boomachine.app/#app",
+      "name": "Boo Machine: Halloween Sounds",
+      "alternateName": "Boo Machine",
+      "url": "https://boomachine.app/",
+      "description": "A spooky Halloween soundboard for iPhone, built as a cursed disc player. Tap creepy sounds, loop them into a scene and change the disc: 36 sounds on three discs, Haunted house, Creature feature and The coven.",
+      "operatingSystem": "iOS",
+      "availableOnDevice": "iPhone",
+      "applicationCategory": "EntertainmentApplication",
+      "inLanguage": "en",
+      "image": "https://boomachine.app/press/boo-machine-icon.png",
+      "screenshot": "https://boomachine.app/press/boo-machine-player-web.jpg",
+      "author": { "@type": "Person", "name": "Fabricio Rosa Marques" }
+    }
+  ]
+}
+</script>
 <link rel="icon" href="assets/icon.webp" type="image/webp">
 <link rel="preload" href="fonts/Jacquard12-Regular.woff2" as="font" type="font/woff2" crossorigin>
 <!-- v8 perf: the sign has a 1200 px copy for phones (-sm): at 375 px it is

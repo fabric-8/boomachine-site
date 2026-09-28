@@ -52,6 +52,8 @@ jobs:
       - name: Pull LFS files
         run: git lfs pull && git lfs ls-files
 
+      # Internal files stay out of _deploy/; the mirror below (--delete) then
+      # also removes an older copy of them from the server.
       - name: Stage public files
         run: |
           mkdir -p _deploy
@@ -59,7 +61,7 @@ jobs:
             --exclude '.git*' --exclude '.github/' --exclude '_deploy/' \
             --exclude 'drafts/' --exclude 'README.md' --exclude '.nojekyll' --exclude '.lfs-ids' \
             --exclude 'scripts/' --exclude 'analytics-config.php' \
-            --exclude 'notify-config.php' --exclude 'README-NOTIFY.md' \
+            --exclude 'notify-config.php' --exclude 'README-NOTIFY.md' --exclude 'LAUNCH.md' \
             ./ _deploy/
           pointers=$(find _deploy -type f -size -1k -exec grep -l 'git-lfs.github.com/spec' {} + || true)
           if [ -n "$pointers" ]; then echo "::error::LFS pointer instead of file: $pointers"; exit 1; fi
@@ -156,7 +158,7 @@ jobs:
           ANALYTICS_TOKEN: ${{ secrets.ANALYTICS_TOKEN }}
           NOTIFY_ADMIN_TOKEN: ${{ secrets.NOTIFY_ADMIN_TOKEN }}
         run: |
-          for url in https://boomachine.app/ https://boomachine.app/legal.html https://boomachine.app/support.html https://boomachine.app/privacy.html https://boomachine.app/press/boo-machine-press-kit.zip; do
+          for url in https://boomachine.app/ https://boomachine.app/legal.html https://boomachine.app/support.html https://boomachine.app/privacy.html https://boomachine.app/press/boo-machine-press-kit.zip https://boomachine.app/robots.txt https://boomachine.app/sitemap.xml; do
             code=$(curl -s -o /dev/null -r 0-0 -w '%{http_code}' "$url")
             echo "$code $url"
             case "$code" in 200|206) ;; *) exit 1 ;; esac
@@ -180,7 +182,7 @@ jobs:
           expect 400 -X POST --data '{}' -A 'Mozilla/5.0 (deploy check)' https://boomachine.app/subscribe.php
           expect 410 'https://boomachine.app/confirm.php?t=00000000000000000000000000000000'
           expect 410 'https://boomachine.app/unsubscribe.php?t=00000000000000000000000000000000'
-          for p in _data/notify/ _data/notify/list.json _data/notify/secret.json notify-config.php notify-lib.php README-NOTIFY.md; do
+          for p in _data/notify/ _data/notify/list.json _data/notify/secret.json notify-config.php notify-lib.php README-NOTIFY.md LAUNCH.md; do
             code=$(curl -s -o /dev/null -w '%{http_code}' "https://boomachine.app/$p"); echo "$code /$p"
             case "$code" in 403|404) ;; *) exit 1 ;; esac
           done

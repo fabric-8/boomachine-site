@@ -1,0 +1,9 @@
+# boomachine.app
+User-agent: *
+Allow: /
+Disallow: /drafts/
+Disallow: /scripts/
+Disallow: /_data/
+Disallow: /*.php
+
+Sitemap: https://boomachine.app/sitemap.xml
