@@ -16,7 +16,7 @@
      no flash    the CSS flare (.hell-flare, the full-track white sweep) and
                  the canvas white-out (`burst`) are GONE. Completion is an
                  intensification, never a flash.
-     armed       held past the threshold (72 % of the travel) or at the end:
+     armed       held past the threshold (half the travel, v14) or at the end:
                  armK eases 0 -> 1 over ~300 ms, and with it the fill's clocks
                  (haze drift, bloom envelope, core pulse and flicker) run up
                  to 2x, the core's intensity rises ~25 %, the field gains
@@ -110,7 +110,13 @@
   var progress = 0;
 
   /* v2m: the completion flow */
-  var THRESH = 0.72;                  /* the arming threshold (v2e-b's)      */
+  /* v14 (2026-10-31, Fab: "wonky and unforgiving, if I don't slide it all
+     the way it gets stuck"): the threshold drops from 72 % to half the travel, a quick
+     flick right completes from FLING_MIN on, and a cancelled gesture is
+     judged like a release instead of snapping home. */
+  var THRESH = 0.5;                   /* the arming threshold: half the travel */
+  var FLING_V = 0.45;                 /* px/ms rightwards at the release: a flick */
+  var FLING_MIN = 0.25;               /* ...counts once the knob is this far  */
   /* v3: the client on v2m — "there's a delay, it's janky; if I drag it all
      the way right the page isn't loading right away". The 650 ms go delay
      is gone. A RELEASE past the threshold navigates as soon as the knob has
@@ -391,10 +397,27 @@
   function wake(on) { hasFocus = !!on; kxDirty = true; if (on) ignite(); }
 
   /* ---------- the drag ---------------------------------------------------- */
+  /* v14: the last ~100 ms of the drag give the release velocity */
+  var samples = [];
+  function sample(t) {
+    samples.push({ t: t, x: x });
+    while (samples.length > 2 && t - samples[0].t > 100) samples.shift();
+  }
+  function flingV() {
+    if (samples.length < 2) return 0;
+    var a = samples[0], b = samples[samples.length - 1];
+    if (now() - b.t > 80) return 0;           /* held still before letting go: no flick */
+    return b.t > a.t ? (b.x - a.x) / (b.t - a.t) : 0;
+  }
+  function willGo() {
+    return x > max * THRESH || (x > max * FLING_MIN && flingV() > FLING_V);
+  }
   function release() {
     knob.classList.remove("dragging");
     wrap.classList.remove("is-drag");
-    if (armed && x > max * THRESH) { go("release"); }
+    var ok = willGo();
+    samples = [];
+    if (ok) { go("release"); }
     else { setArmed(false); rest(); }         /* below the threshold: the spring back, the light cools */
   }
 
@@ -411,6 +434,7 @@
     if (auto) stopAuto();                       /* a press interrupts the auto-slide: a drag from here */
     dragging = true; moved = 0; measure();
     downX = e.clientX; startX = e.clientX - x;  /* from wherever the knob is  */
+    samples = []; sample(now());
     knob.classList.add("dragging");
     wrap.classList.add("is-drag");
     knob.setPointerCapture(e.pointerId);
@@ -437,6 +461,7 @@
     if (!dragging) return;
     moved = Math.max(moved, Math.abs(e.clientX - downX));
     x = Math.max(0, Math.min(max, e.clientX - startX));
+    sample(now());
     movePending = true;
     if (!moveRaf) moveRaf = global.requestAnimationFrame(applyMove);
     if (moved > 4) e.preventDefault();
@@ -454,9 +479,18 @@
       e.preventDefault(); autoSlide();
     }
   });
-  knob.addEventListener("pointercancel", function () {
-    if (dragging) { movePending = false; dragging = false; setArmed(false); x = 0; release(); }
-  });
+  /* v14: the browser can take a gesture away (pointercancel, or the capture
+     lost without a pointerup). That used to snap the knob home even when it
+     was nearly at the end; now it counts as a release where the knob is. */
+  function drop() {
+    if (!dragging) return;
+    applyMove();
+    dragging = false; upAt = now();
+    if (moved > 6) release();
+    else { wrap.classList.remove("is-drag"); knob.classList.remove("dragging"); setArmed(false); rest(); }
+  }
+  knob.addEventListener("pointercancel", drop);
+  knob.addEventListener("lostpointercapture", drop);
   /* the <a> never navigates on its own click: navigation happens only at the
      end of the flow (go, after the delay). A click that did not come through
      the pointer handlers (knob.click(), an assistive tech's activation) runs
@@ -1207,6 +1241,29 @@
     if (!reduce.matches) ignite();
   }
   var sweepRaf = 0;
+  function resetAll() {
+    frozen = false; qaAwake = false; qaDrag = false;
+    if (sweepRaf) { global.cancelAnimationFrame(sweepRaf); sweepRaf = 0; }
+    stopAuto();
+    if (goTimer) { global.clearTimeout(goTimer); goTimer = 0; }
+    if (glRaf) { global.cancelAnimationFrame(glRaf); glRaf = 0; }   /* v13: the send's glide, hold and park */
+    gliding = false; burnHold = false; parked = false;
+    going = false; dragging = false; samples = []; setArmed(false);
+    knob.classList.remove("dragging", "is-go");
+    wrap.classList.remove("is-drag", "is-done");
+    track.classList.remove("done"); rest();
+  }
+  /* v14: after the slide the browser leaves for the App Store. Coming back
+     (the back button, or iOS returning from the App Store app) restores the
+     page from the back-forward cache with the knob still parked at the end
+     and `going` set, so it could not be slid again. Hand back a fresh
+     control instead. */
+  global.addEventListener("pageshow", function (e) {
+    if (e.persisted && going && !REV) resetAll();
+  });
+  doc.addEventListener("visibilitychange", function () {
+    if (!doc.hidden && going && !REV && navAt && now() - navAt > 1500) resetAll();
+  });
   function sweep(on, speed) {
     if (sweepRaf) { global.cancelAnimationFrame(sweepRaf); sweepRaf = 0; }
     if (on === false) {
@@ -1240,18 +1297,7 @@
       frozen = false; qaAwake = false; qaDrag = false;
       knob.classList.remove("dragging"); wrap.classList.remove("is-drag"); rest();
     },
-    reset: function () {
-      frozen = false; qaAwake = false; qaDrag = false;
-      if (sweepRaf) { global.cancelAnimationFrame(sweepRaf); sweepRaf = 0; }
-      stopAuto();
-      if (goTimer) { global.clearTimeout(goTimer); goTimer = 0; }
-      if (glRaf) { global.cancelAnimationFrame(glRaf); glRaf = 0; }   /* v13: the send's glide, hold and park */
-      gliding = false; burnHold = false; parked = false;
-      going = false; setArmed(false);
-      knob.classList.remove("dragging", "is-go");
-      wrap.classList.remove("is-drag", "is-done");
-      track.classList.remove("done"); rest();
-    },
+    reset: resetAll,
     /* QA: the flow's timing, ms — pointerup / Enter -> go() -> navigation */
     get timing() { return { upToGo: goAt && upAt ? +(goAt - upAt).toFixed(1) : null, goToNav: navAt && goAt ? +(navAt - goAt).toFixed(1) : null, upToNav: navAt && upAt ? +(navAt - upAt).toFixed(1) : null }; },
     rewind: rewind,                                       /* a3-v8: the intro (intro.js) */
