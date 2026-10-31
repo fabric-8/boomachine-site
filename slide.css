@@ -266,8 +266,11 @@
   filter:drop-shadow(0 0 5px rgba(var(--hell-hot),.55));
   transition:stroke .25s ease;
 }
-/* the Apple logo is drawn at 72 % (index.html), so its stroke is 1.7 / .72 */
-.knob .g-apple{stroke-width:2.36}
+/* the Apple logo is FILLED in the lamp colour (the outline read oddly):
+   same colours and glow as the key's stroke, in every state */
+.knob .g-apple{fill:#E8B49A;stroke:none;transition:fill .25s ease}
+.unlock-wrap:hover .knob .g-apple,.knob:focus-visible .g-apple{fill:#FFD2B4}
+.unlock.is-armed .knob .g-apple{fill:#FFEADB}
 .unlock-wrap:hover .knob{transform:translateX(9px)}
 .unlock-wrap:hover .knob .g,.knob:focus-visible .g{stroke:#FFD2B4}
 .unlock.is-armed .knob .g{stroke:#FFEADB;filter:drop-shadow(0 0 7px rgba(var(--hell-hot),.85))}
