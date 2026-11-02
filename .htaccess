@@ -34,3 +34,10 @@ RedirectMatch 403 ^/_data(/|$)
 <IfModule mod_setenvif.c>
   SetEnvIf Authorization "(.+)" HTTP_AUTHORIZATION=$1
 </IfModule>
+
+# Short links for posts (Fab, 2026-11-02). Each forwards to its Apple campaign
+# link, so App Store Connect still counts installs per channel (ct=...). 302,
+# not 301, so a target can change later without browsers holding on to the old
+# one. Full table: app repo, docs/marketing/halloween-2026/CAMPAIGN_LINKS.csv.
+RedirectMatch 302 ^/li/?$ https://apps.apple.com/app/apple-store/id6812423821?pt=111946749&ct=linkedin&mt=8
+RedirectMatch 302 ^/x/?$ https://apps.apple.com/app/apple-store/id6812423821?pt=111946749&ct=x&mt=8
