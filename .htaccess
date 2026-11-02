@@ -41,3 +41,5 @@ RedirectMatch 403 ^/_data(/|$)
 # one. Full table: app repo, docs/marketing/halloween-2026/CAMPAIGN_LINKS.csv.
 RedirectMatch 302 ^/li/?$ https://apps.apple.com/app/apple-store/id6812423821?pt=111946749&ct=linkedin&mt=8
 RedirectMatch 302 ^/x/?$ https://apps.apple.com/app/apple-store/id6812423821?pt=111946749&ct=x&mt=8
+# The general link for everything else (bio, slides, saying it out loud).
+RedirectMatch 302 ^/get/?$ https://apps.apple.com/app/apple-store/id6812423821?pt=111946749&ct=get&mt=8
