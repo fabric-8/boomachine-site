@@ -98,9 +98,9 @@
 /* v12b: quieter (Fab: "the spots on the buttons are way too bright"; the
    slime on "Press kit" is gone: "it has to go away") */
 .skey .k-wear{filter:brightness(.62) saturate(.55)}
-.sk-1 .k-wear{   /* a gouge torn through the face, low left to high right */
-  background-image:url("assets/key-wear-gouge.webp");
-  background-size:auto 92%; background-position:-4% 118%; opacity:.55;
+.sk-1 .k-wear{   /* a short scuff along the lower edge, near the left corner */
+  background-image:url("assets/key-wear-scuff.webp");
+  background-size:28% auto; background-position:11% 80%; opacity:.85; filter:brightness(.8) saturate(.6);
 }
 .sk-2 .k-wear{   /* a rust burn blooming from the top right */
   background-image:url("assets/key-wear-rust.webp");
@@ -159,7 +159,7 @@
   .skey .k-wear,.skey::before{inset:-10px}
   .skey .k-t{font-size:12px; letter-spacing:1.8px}
   .skey .k-s{font-size:12px}
-  .sk-1 .k-wear{background-size:auto 118%; background-position:2% 100%}
+  .sk-1 .k-wear{background-size:26% auto; background-position:9% 87%}
   .sk-2 .k-wear{background-size:auto 96%; background-position:104% -70%}
   .sk-3 .k-wear{background-size:auto 130%; background-position:0% 35%}
 }
