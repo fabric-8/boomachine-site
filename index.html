@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="mode-live">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -69,33 +69,12 @@
 <link rel="preload" href="assets/title-sign.webp" as="image" imagesrcset="assets/title-sign-sm.webp 1200w, assets/title-sign.webp 1927w" imagesizes="(max-width:470px) 336px, (max-width:1348px) 72vw, 964px">
 <link rel="preload" href="assets/unit-vampire-starter.webp" as="image">
 <script>
-/* ==== v13: THE LAUNCH SWITCH, in ONE place ==============================
-   BOO_MODE  "prelaunch"  the page collects emails: the hero control is the
-                          reversed email slider (notify.js; the knob parked
-                          at the right is the send button), the bar says
-                          "Get notified". No beta is advertised: beta
-                          access is only ever sent privately.
-             "live"       the page sends people to the App Store: slide to
-                          get it, the bar's "Get the app" (APP_STORE_URL).
-   APP_STORE_PT  Fab's App Store Connect provider ID. With it, each control
-                 links to its own Apple campaign link (pt + ct=site-slide |
-                 site-bar | site-link + mt=8, built below from APP_STORE_URL),
-                 so App Store Connect can count installs per control.
-                 Campaigns: app/docs/marketing/halloween-2026/CAMPAIGN_LINKS.csv.
-   ?mode=live / ?mode=prelaunch previews the other one without a deploy.
-   The mode lands on <html> as .mode-prelaunch / .mode-live before the first
-   paint, so neither variant flashes; the markup of the other one is taken
-   out of the DOM at the end of <body>. Launch day: LAUNCH.md. */
+/* Live production defaults are also present in HTML, so store links work
+   without JavaScript. Historical launch previews remain in drafts/; query
+   parameters cannot switch the public page back to a launch-list form. */
 window.BOO_MODE = "live";
 window.APP_STORE_URL = "https://apps.apple.com/app/id6812423821";
 window.APP_STORE_PT = "111946749";
-(function(d){
-  var m=window.BOO_MODE;
-  try{var q=new URLSearchParams(location.search).get("mode");if(q==="live"||q==="prelaunch")m=q;}catch(e){}
-  if(m!=="live")m="prelaunch";
-  window.BOO_MODE=m;
-  d.classList.add("mode-"+m);
-})(document.documentElement);
 
 /* a3-v8: the entrance gate (intro.js / intro.css). html.intro goes on before
    the first paint unless: reduced motion, ?intro=0, or — without ?intro=1 /
@@ -220,25 +199,6 @@ a{color:inherit}
   text-shadow:0 0 12px #000,0 0 24px rgba(0,0,0,.9);
   opacity:0; animation:fadein .8s ease 1.05s both;
 }
-/* v13: the variant of the hero control the mode does not use (data-only) is
-   removed from the DOM at the end of <body>; until then it is not drawn */
-html.mode-live [data-only="prelaunch"],html.mode-prelaunch [data-only="live"]{display:none!important}
-/* v13: prelaunch, the consent line in the note's place: the same small warm
-   grey, two or three lines at the control's width, the first sentence a step
-   brighter; the link is the privacy notice (legal.html#notify) */
-.note-consent{
-  max-width:392px; text-align:center; line-height:1.55; letter-spacing:.35px;
-  font-size:11.5px; text-wrap:pretty;
-}
-.note-consent .nc-lead{color:#C9C0B8}
-.note-consent a{color:#C9C0B8; text-decoration:underline; text-decoration-color:rgba(201,192,184,.45); text-underline-offset:2px; transition:color .25s}
-.note-consent a:hover{color:var(--paper)}
-@media (max-width:520px){
-  html.mode-prelaunch{--zone-h:126px}
-  /* three even lines instead of two long ones and the link alone */
-  .note-consent{text-wrap:balance}
-}
-
 /* ---- stage: the unit (hand + disc, one photograph) and its reflection ---- */
 .stage{
   position:absolute; inset:0;
@@ -521,16 +481,11 @@ html.mode-live [data-only="prelaunch"],html.mode-prelaunch [data-only="live"]{di
 </head>
 <body>
 
-<!-- v5: the floating ISLAND (story.css .bar): a centred capsule. v6: it
-     lives at the BOTTOM of the viewport (16 px + the safe area) and slides
-     UP into view as soon as the page is scrolled past 80 px (story.js), down
-     and away at the top — it is never on screen with the slider at rest.
-     Its button comes from STORE_URL / STORE_LABEL below. v13: in prelaunch
-     it is "Get notified" (#hero): notify.js glides the page back up and puts
-     the caret in the hero's email field; live, "Get the app" (App Store). -->
+<!-- The floating bar appears after the hero; its ordinary App Store link
+     is enhanced below with the same campaign attribution as the slider. -->
 <div class="bar" id="bar" aria-hidden="true">
   <a class="bar-brand" href="#hero"><img src="assets/icon.webp" alt="" width="28" height="28" decoding="async"><span>Boo Machine</span></a>
-  <a class="bar-cta" id="barCta" href="#hero">Get notified</a>
+  <a class="bar-cta" id="barCta" href="https://apps.apple.com/app/id6812423821?pt=111946749&amp;ct=site-bar&amp;mt=8">Get the app</a>
 </div>
 
 <!-- data-fx: the v2d atmosphere switches plus v2f's `hell`, all on. Drop a
@@ -637,26 +592,15 @@ html.mode-live [data-only="prelaunch"],html.mode-prelaunch [data-only="live"]{di
        navigating; `?nonav=1` makes the href #gone for tests;
        booSlide.click() / .go() / .arm() drive the flow.
 
-       v13: TWO variants of the control share the track, the canvas and the
-       idle leak; data-only marks the rest, and the script at the end of
-       <body> removes the variant the mode does not use (CSS hides it until
-       then). LIVE: the label and the key knob above, unchanged. PRELAUNCH:
-       the REVERSED email slider (Fab: "the knob is all the way on the right,
-       like a little send icon; you enter the email, click the icon, and it
-       slides from the right to the left with the burn — like the email went
-       to hell"). A real <form>: the email field sits in the slot where the
-       label was, the knob is its submit button parked at the RIGHT end, and
-       a send is the knob gliding right -> left dragging the fire across the
-       slot while the address burns away letter by letter (notify.js;
-       slide.js runs the same light mirrored: slide.css "reversed"). The
-       result is written into the slot (.notify-msg, a live region). -->
+       The live anchor below is functional before enhancement. The animated
+       click, keyboard and drag completion remain in slide.js. -->
   <div class="unlock-zone">
     <div class="unlock-wrap" id="unlockWrap">
       <div class="unlock" id="unlock">
         <canvas class="hell-flame" aria-hidden="true" width="2" height="2"></canvas>
         <span class="flame-clip" aria-hidden="true"><span class="flame-glow"></span></span><!-- the idle state, the knob's cap -->
-        <span class="unlock-label" id="unlockLabel" data-only="live">slide to get the app</span>
-        <a class="knob" id="knob" data-only="live" href="#" draggable="false"
+        <span class="unlock-label" id="unlockLabel">slide to get the app</span>
+        <a class="knob" id="knob" href="https://apps.apple.com/app/id6812423821?pt=111946749&amp;ct=site-slide&amp;mt=8" draggable="false"
            aria-label="Slide to get Boo Machine on the App Store">
           <!-- the Apple logo, filled in the lamp colour (was a key until
                2026-10-31): the knob says where the slide goes. Drawn at 72 %
@@ -668,34 +612,9 @@ html.mode-live [data-only="prelaunch"],html.mode-prelaunch [data-only="live"]{di
             </g>
           </svg>
         </a>
-        <form class="notify" id="notify" data-only="prelaunch" action="subscribe.php" method="post" novalidate>
-          <label class="vh" for="notifyEmail">Your email address, to hear when Boo Machine is on the App Store</label>
-          <span class="notify-field" id="notifyField">
-            <input class="notify-input" id="notifyEmail" name="email" type="email" inputmode="email"
-                   autocomplete="email" autocapitalize="off" autocorrect="off" spellcheck="false"
-                   enterkeyhint="send" required maxlength="254" placeholder="your@email"
-                   aria-describedby="notifyNote">
-            <span class="notify-ghost" aria-hidden="true"></span><!-- the address, letter by letter, while it burns -->
-          </span>
-          <span class="notify-msg" id="notifyMsg" role="status" aria-live="polite"></span>
-          <!-- the honeypot: people never see it or reach it; a bot that fills every field gives itself away -->
-          <span class="hp" aria-hidden="true"><label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label></span>
-          <button class="knob knob-send" id="knobSend" type="submit" aria-label="Send: tell me when Boo Machine launches">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <g class="g g-send">
-                <path d="M21 3L10.6 13.4"/>
-                <path d="M21 3L14.4 21L10.6 13.4L3 9.6Z"/>
-              </g>
-              <g class="g g-sent">
-                <path d="M4.6 12.6l4.6 4.6L19.6 6.8"/>
-              </g>
-            </svg>
-          </button>
-        </form>
       </div>
     </div>
-    <p class="note" data-only="live">Free on the App Store · iPhone</p>
-    <p class="note note-consent" id="notifyNote" data-only="prelaunch"><span class="nc-lead">Coming soon to the App Store.</span> Leave your email and we’ll tell you at launch and when new discs drop. No spam. Details in our <a href="legal.html#notify">privacy notice</a>.</p>
+    <p class="note">Free on the App Store · iPhone</p>
   </div>
 
 </main>
@@ -872,23 +791,13 @@ html.mode-live [data-only="prelaunch"],html.mode-prelaunch [data-only="live"]{di
 <div class="film" aria-hidden="true"></div>
 
 <script>
-/* ==== the store link, in ONE place ====================================
-   v13: DERIVED from the launch switch at the top of <head> (BOO_MODE,
-   APP_STORE_URL) — nothing to edit here at launch. Live: the floating bar's
-   button and the slider's href are the App Store. Prelaunch: the bar's
-   button is "Get notified" (#hero, handled by notify.js) and the slider is
-   the email form. The variant the mode does not use (data-only, in the
-   hero's markup) leaves the DOM here, before slide.js / notify.js look for
-   it, so it cannot be focused, read out or submitted. */
+/* Keep dynamic campaign hooks for the slider, bar and any future ordinary
+   store links. Static HTML already contains the same live destinations. */
 var LIVE = window.BOO_MODE === "live";
-var STORE_URL = LIVE ? window.APP_STORE_URL : "#hero";
-var STORE_LABEL = LIVE ? "Get the app" : "Get notified";
-/* one Apple campaign link per control: STORE_URL plus pt (APP_STORE_PT),
-   ct and mt=8. Without a numeric pt, or if the URL cannot be parsed, the
-   plain STORE_URL. analytics.js still sees an apps.apple.com href. */
+var STORE_URL = window.APP_STORE_URL;
 function storeLink(ct){
   var pt=window.APP_STORE_PT;
-  if(!LIVE || !/^\d+$/.test(pt||"")) return STORE_URL;
+  if(!/^\d+$/.test(pt||"")) return STORE_URL;
   try{
     var u=new URL(STORE_URL);
     u.searchParams.set("pt",pt); u.searchParams.set("ct",ct); u.searchParams.set("mt","8");
@@ -896,14 +805,10 @@ function storeLink(ct){
   }catch(e){ return STORE_URL; }
 }
 (function(){
-  [].forEach.call(document.querySelectorAll("[data-only]"),function(el){
-    if(el.getAttribute("data-only")!==window.BOO_MODE) el.parentNode.removeChild(el);
-  });
   var cta=document.getElementById("barCta"), knob=document.getElementById("knob");
-  if(cta){ cta.href=storeLink("site-bar"); cta.textContent=STORE_LABEL; }
-  if(knob) knob.setAttribute("href",storeLink("site-slide"));   /* slide.js may override it with #gone under ?nonav=1 */
-  /* any other App Store link on the page: <a data-store-link> */
-  if(LIVE) [].forEach.call(document.querySelectorAll("a[data-store-link]"),function(a){ a.href=storeLink("site-link"); });
+  if(cta) cta.href=storeLink("site-bar");
+  if(knob) knob.setAttribute("href",storeLink("site-slide"));
+  [].forEach.call(document.querySelectorAll("a[data-store-link]"),function(a){ a.href=storeLink("site-link"); });
 })();
 </script>
 <script src="disc.js"></script>
@@ -1136,7 +1041,6 @@ function storeLink(ct){
 <script src="title.js"></script>
 <script src="fx.js"></script>
 <script src="slide.js?v=14"></script>
-<script src="notify.js"></script><!-- v13: the prelaunch email form (the reversed slider) and the bar's "Get notified" -->
 <script src="intro.js"></script><!-- a3-v8: the entrance (after slide.js: it drives booSlide.rewind) -->
 <script src="vendor/gsap.min.js"></script>
 <script src="vendor/ScrollTrigger.min.js"></script>

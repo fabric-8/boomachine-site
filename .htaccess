@@ -13,6 +13,20 @@ AddHandler php85-cgi .php
 # missing page on boomachine.app is a plain 404 instead of a 500.
 RewriteEngine On
 
+# Canonical public URLs only. THE_REQUEST prevents DirectoryIndex's internal
+# / -> /index.html lookup from redirecting the homepage back to itself.
+# Keep existing query strings (campaigns) and URI escaping; localhost and
+# historical draft/subdirectory index pages are deliberately unaffected.
+RewriteCond %{HTTP_HOST} ^(?:www\.)?boomachine\.app(?::(?:80|443))?$ [NC]
+RewriteCond %{THE_REQUEST} \s/+index\.html[?\s] [NC]
+RewriteRule ^index\.html$ https://boomachine.app/ [R=301,L,NE]
+
+# Capture the original escaped path: REQUEST_URI can be decoded during
+# per-directory rewriting (a%20b must not become a literal space).
+RewriteCond %{HTTP_HOST} ^www\.boomachine\.app(?::(?:80|443))?$ [NC]
+RewriteCond %{THE_REQUEST} \s(/[^?\s]*)
+RewriteRule ^ https://boomachine.app%1 [R=301,L,NE]
+
 # Analytics (a.php, stats.php) and the launch list (subscribe.php, notify-lib.php;
 # README-NOTIFY.md): their data lives in _data/ and _data/notify/, which have
 # their own "Require all denied". Belt and braces: data, lock, mail and config
